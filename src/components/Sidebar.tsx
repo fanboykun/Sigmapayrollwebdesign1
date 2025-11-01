@@ -16,19 +16,25 @@
  * FITUR:
  * - Desktop: Collapsible sidebar dengan toggle button
  * - Mobile: Slide-in sidebar dengan overlay
- * - Sub-menu: Collapsible groups (Penggajian, Master Data, Administrasi)
+ * - Nested menu: 2 menu utama (Payroll & HR) dengan sub-groups
  * - Status indicator: Sistem status di bagian bawah
- * 
+ *
  * MENU STRUCTURE:
  * 1. Dashboard (single menu)
- * 2. Penggajian (collapsible group)
- * 3. Master Data (collapsible group)
- * 4. Administrasi (collapsible group)
- * 5. Laporan & Pengaturan (bottom menu)
+ * 2. PAYROLL (menu utama):
+ *    - Master Data (Skala Upah, Premi & Tunjangan, Pajak & BPJS)
+ *    - Penggajian (Proses Tahunan, Bulanan, Gaji Karyawan)
+ *    - Laporan (Buku Gaji, Tax Worksheet)
+ * 3. HR (menu utama):
+ *    - Master Data (Data Karyawan, Mutasi, Divisi, Jabatan)
+ *    - Presensi (Hari Kerja, Hari Libur, Data Presensi, Cuti)
+ *    - Administrasi (Manajemen User, Role & Permission)
+ * 4. Bottom Menu (Analitik, Engagement Dashboard, Pengaturan)
  * 
  * @author Sistem Payroll Team
- * @version 1.0.0
+ * @version 2.0.0
  * @since 2024-10-26
+ * @updated 2025-01-11 - Restructured menu into 2 main groups (Payroll & HR)
  * ==========================================================================
  */
 
@@ -67,10 +73,17 @@ interface SidebarProps {
 export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }: SidebarProps) {
   const { canAccessMenu } = useAuth();
   
-  // State untuk collapsible sub-menu groups
-  const [masterDataOpen, setMasterDataOpen] = useState(true);
-  const [payrollOpen, setPayrollOpen] = useState(true);
-  const [reportsOpen, setReportsOpen] = useState(true);
+  // State untuk menu utama (Payroll dan HR)
+  const [payrollMainOpen, setPayrollMainOpen] = useState(true);
+  const [hrMainOpen, setHrMainOpen] = useState(true);
+
+  // State untuk sub-menu dalam Payroll
+  const [payrollMasterDataOpen, setPayrollMasterDataOpen] = useState(true);
+  const [payrollProcessOpen, setPayrollProcessOpen] = useState(true);
+  const [payrollReportsOpen, setPayrollReportsOpen] = useState(true);
+
+  // State untuk sub-menu dalam HR
+  const [hrMasterDataOpen, setHrMasterDataOpen] = useState(true);
   const [presenceOpen, setPresenceOpen] = useState(true);
   const [administrationOpen, setAdministrationOpen] = useState(true);
 
@@ -87,13 +100,13 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     if (desktopScrollRef.current) {
       desktopScrollRef.current.scrollTop = desktopScrollPosition.current;
     }
-  }, [masterDataOpen, payrollOpen, reportsOpen, presenceOpen, administrationOpen, collapsed]);
+  }, [payrollMainOpen, hrMainOpen, payrollMasterDataOpen, payrollProcessOpen, payrollReportsOpen, hrMasterDataOpen, presenceOpen, administrationOpen, collapsed]);
 
   useEffect(() => {
     if (mobileScrollRef.current && isOpen) {
       mobileScrollRef.current.scrollTop = mobileScrollPosition.current;
     }
-  }, [masterDataOpen, payrollOpen, reportsOpen, presenceOpen, administrationOpen, isOpen]);
+  }, [payrollMainOpen, hrMainOpen, payrollMasterDataOpen, payrollProcessOpen, payrollReportsOpen, hrMasterDataOpen, presenceOpen, administrationOpen, isOpen]);
 
   // Save scroll position sebelum state berubah
   const handleDesktopScroll = () => {
@@ -117,36 +130,45 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   ];
 
   /**
-   * Menu configuration - Payroll submenu
+   * ==========================================================================
+   * PAYROLL MENU CONFIGURATION
+   * ==========================================================================
    * #MenuConfig #PayrollMenu
    */
-  const payrollMenuItems = [
+
+  // Master Data Payroll
+  const payrollMasterDataItems = [
+    { id: 'wage-master', label: 'Skala Upah', icon: TrendingUp, module: 'wage-master' },
+    { id: 'premium', label: 'Premi & Tunjangan', icon: Award, module: 'premium' },
+    { id: 'tax-master', label: 'Pajak & BPJS', icon: Receipt, module: 'tax-master' },
+  ];
+
+  // Proses Penggajian
+  const payrollProcessItems = [
     { id: 'annual-payroll', label: 'Proses Gaji Tahunan', icon: Gift, module: 'annual-payroll' },
     { id: 'processing', label: 'Proses Gaji Bulanan', icon: DollarSign, module: 'processing' },
     { id: 'employees', label: 'Gaji Karyawan', icon: Users, module: 'employees' },
   ];
 
-  /**
-   * Menu configuration - Reports submenu
-   * #MenuConfig #ReportsMenu
-   */
-  const reportsMenuItems = [
+  // Laporan Payroll
+  const payrollReportsItems = [
     { id: 'payroll-view', label: 'Buku Gaji', icon: Receipt, module: 'payroll-view' },
     { id: 'tax-worksheet', label: 'Tax Worksheet', icon: Calculator, module: 'tax-worksheet' },
   ];
 
   /**
-   * Menu configuration - Master Data submenu
-   * #MenuConfig #MasterDataMenu
+   * ==========================================================================
+   * HR MENU CONFIGURATION
+   * ==========================================================================
+   * #MenuConfig #HRMenu
    */
-  const masterDataMenuItems = [
+
+  // Master Data HR
+  const hrMasterDataItems = [
     { id: 'hrm', label: 'Data Karyawan', icon: UserCog, module: 'hrm' },
     { id: 'employee-transfer', label: 'Mutasi Karyawan', icon: ArrowRightLeft, module: 'employee-transfer' },
     { id: 'division', label: 'Divisi', icon: Layers, module: 'division' },
     { id: 'position', label: 'Jabatan', icon: Briefcase, module: 'position' },
-    { id: 'wage-master', label: 'Skala Upah', icon: TrendingUp, module: 'wage-master' },
-    { id: 'premium', label: 'Premi & Tunjangan', icon: Award, module: 'premium' },
-    { id: 'tax-master', label: 'Pajak & BPJS', icon: Receipt, module: 'tax-master' },
   ];
 
   /**
@@ -184,11 +206,18 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    * Hanya menu yang bisa diakses user yang akan ditampilkan
    * #PermissionFilter #MenuVisibility
    */
-  const filteredPayrollMenuItems = payrollMenuItems.filter(item => canAccessMenu(item.module));
-  const filteredReportsMenuItems = reportsMenuItems.filter(item => canAccessMenu(item.module));
-  const filteredMasterDataMenuItems = masterDataMenuItems.filter(item => canAccessMenu(item.module));
+
+  // Filter Payroll menu items
+  const filteredPayrollMasterDataItems = payrollMasterDataItems.filter(item => canAccessMenu(item.module));
+  const filteredPayrollProcessItems = payrollProcessItems.filter(item => canAccessMenu(item.module));
+  const filteredPayrollReportsItems = payrollReportsItems.filter(item => canAccessMenu(item.module));
+
+  // Filter HR menu items
+  const filteredHrMasterDataItems = hrMasterDataItems.filter(item => canAccessMenu(item.module));
   const filteredPresenceMenuItems = presenceMenuItems.filter(item => canAccessMenu(item.module));
   const filteredAdministrationMenuItems = administrationMenuItems.filter(item => canAccessMenu(item.module));
+
+  // Filter bottom menu items
   const filteredBottomMenuItems = bottomMenuItems.filter(item => canAccessMenu(item.module));
 
   /**
@@ -243,13 +272,107 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   };
 
   /**
+   * Render nested collapsible menu (menu utama dengan sub-group di dalamnya)
+   * #NestedMenu #MainMenuRenderer
+   *
+   * @param title - Judul menu utama
+   * @param icon - Icon component untuk menu utama
+   * @param isOpen - State apakah menu utama terbuka
+   * @param setIsOpen - Function untuk toggle menu utama
+   * @param subGroups - Array sub-groups dalam menu utama
+   * @returns JSX Element - Rendered nested menu
+   */
+  const renderNestedMenu = (
+    title: string,
+    icon: any,
+    isOpen: boolean,
+    setIsOpen: (open: boolean) => void,
+    subGroups: Array<{ title: string; icon: any; items: any[]; isOpen: boolean; setIsOpen: (open: boolean) => void }>
+  ) => {
+    const Icon = icon;
+
+    // Mode collapsed: Tampil icon dengan tooltip yang menampilkan semua sub-groups
+    if (collapsed) {
+      return (
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="px-4 py-2.5 cursor-pointer">
+                <Icon size={18} className="text-[#9fa6bc] mx-auto" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2 max-w-xs">
+              <div className="space-y-2 min-w-[180px]">
+                <p className="font-semibold text-sm px-2 py-1 border-b border-[#1c3353]">{title}</p>
+                {subGroups.map((group, idx) => (
+                  <div key={idx} className="space-y-0.5">
+                    <p className="text-xs font-medium px-2 py-1 text-[#9fa6bc]">{group.title}</p>
+                    <div className="space-y-0.5">
+                      {group.items.map(item => {
+                        const ItemIcon = item.icon;
+                        const isActive = activeView === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onViewChange(item.id as any);
+                            }}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
+                              isActive
+                                ? 'bg-[#1c3353] text-white'
+                                : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
+                            }`}
+                          >
+                            <ItemIcon size={14} className="flex-shrink-0" />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    // Mode expanded: Collapsible menu utama dengan sub-groups
+    return (
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors text-white bg-[#12263f] hover:bg-[#1c3353] font-medium">
+          <div className="flex items-center gap-3">
+            <Icon size={18} className="flex-shrink-0" />
+            <span className="text-sm">{title}</span>
+          </div>
+          {isOpen ? (
+            <ChevronDown size={16} className="flex-shrink-0" />
+          ) : (
+            <ChevronRight size={16} className="flex-shrink-0" />
+          )}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1 mt-1 ml-2">
+          {subGroups.map((group, idx) => (
+            <div key={idx}>
+              {renderCollapsibleMenu(group.title, group.icon, group.items, group.isOpen, group.setIsOpen)}
+            </div>
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
+
+  /**
    * Render collapsible menu group (parent menu dengan submenu)
    * #CollapsibleMenu #SubMenuRenderer
-   * 
+   *
    * Handling dua mode:
    * 1. Collapsed: Tampil sebagai icon dengan tooltip list submenu
    * 2. Expanded: Tampil dengan collapsible trigger dan submenu items
-   * 
+   *
    * @param title - Judul menu group
    * @param icon - Icon component untuk menu group
    * @param items - Array submenu items
@@ -404,7 +527,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       </div>
 
       {/* Navigation menu area */}
-      <nav 
+      <nav
         ref={desktopScrollRef}
         onScroll={handleDesktopScroll}
         className="flex-1 px-4 overflow-y-auto"
@@ -416,42 +539,73 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
               <li key={item.id}>{renderMenuItem(item)}</li>
             ))}
 
-            {/* Payroll Menu Group - Collapsible */}
-            {filteredPayrollMenuItems.length > 0 && (
-              <li className="pt-2">
-                {renderCollapsibleMenu('Penggajian', DollarSign, filteredPayrollMenuItems, payrollOpen, setPayrollOpen)}
-              </li>
-            )}
+            {/* PAYROLL - Menu Utama */}
+            <li className="pt-2">
+              {renderNestedMenu(
+                'Payroll',
+                DollarSign,
+                payrollMainOpen,
+                setPayrollMainOpen,
+                [
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredPayrollMasterDataItems,
+                    isOpen: payrollMasterDataOpen,
+                    setIsOpen: setPayrollMasterDataOpen
+                  },
+                  {
+                    title: 'Penggajian',
+                    icon: Calculator,
+                    items: filteredPayrollProcessItems,
+                    isOpen: payrollProcessOpen,
+                    setIsOpen: setPayrollProcessOpen
+                  },
+                  {
+                    title: 'Laporan',
+                    icon: FileText,
+                    items: filteredPayrollReportsItems,
+                    isOpen: payrollReportsOpen,
+                    setIsOpen: setPayrollReportsOpen
+                  }
+                ]
+              )}
+            </li>
 
-            {/* Reports Menu Group - Collapsible */}
-            {filteredReportsMenuItems.length > 0 && (
-              <li className="pt-2">
-                {renderCollapsibleMenu('Laporan', FileText, filteredReportsMenuItems, reportsOpen, setReportsOpen)}
-              </li>
-            )}
+            {/* HR - Menu Utama */}
+            <li className="pt-2">
+              {renderNestedMenu(
+                'HR',
+                Users,
+                hrMainOpen,
+                setHrMainOpen,
+                [
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredHrMasterDataItems,
+                    isOpen: hrMasterDataOpen,
+                    setIsOpen: setHrMasterDataOpen
+                  },
+                  {
+                    title: 'Presensi',
+                    icon: ClipboardCheck,
+                    items: filteredPresenceMenuItems,
+                    isOpen: presenceOpen,
+                    setIsOpen: setPresenceOpen
+                  },
+                  {
+                    title: 'Administrasi',
+                    icon: ShieldCheck,
+                    items: filteredAdministrationMenuItems,
+                    isOpen: administrationOpen,
+                    setIsOpen: setAdministrationOpen
+                  }
+                ]
+              )}
+            </li>
 
-            {/* Master Data Menu Group - Collapsible */}
-            {filteredMasterDataMenuItems.length > 0 && (
-              <li className="pt-2">
-                {renderCollapsibleMenu('Master Data', Database, filteredMasterDataMenuItems, masterDataOpen, setMasterDataOpen)}
-              </li>
-            )}
-
-            {/* Presensi Menu Group - Collapsible */}
-            {filteredPresenceMenuItems.length > 0 && (
-              <li className="pt-2">
-                {renderCollapsibleMenu('Presensi', ClipboardCheck, filteredPresenceMenuItems, presenceOpen, setPresenceOpen)}
-              </li>
-            )}
-
-            {/* Administration Menu Group - Collapsible */}
-            {filteredAdministrationMenuItems.length > 0 && (
-              <li className="pt-2">
-                {renderCollapsibleMenu('Administrasi', ShieldCheck, filteredAdministrationMenuItems, administrationOpen, setAdministrationOpen)}
-              </li>
-            )}
-
-            {/* Bottom Menu Items - Laporan & Pengaturan */}
+            {/* Bottom Menu Items - Analitik, Engagement & Pengaturan */}
             {filteredBottomMenuItems.length > 0 && (
               <li className="pt-4 border-t border-[#1c3353] mt-4">
                 <ul className="space-y-1">
@@ -549,53 +703,84 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         </div>
       </div>
 
-      <nav 
+      <nav
         ref={mobileScrollRef}
         onScroll={handleMobileScroll}
         className="flex-1 px-4 overflow-y-auto"
       >
         <ul className="space-y-1">
-          {/* Single Menu Items */}
+          {/* Single Menu Items - Dashboard */}
           {singleMenuItems.map(item => (
             <li key={item.id}>{renderMenuItem(item)}</li>
           ))}
 
-          {/* Payroll Menu */}
-          {filteredPayrollMenuItems.length > 0 && (
-            <li className="pt-2">
-              {renderCollapsibleMenu('Penggajian', DollarSign, filteredPayrollMenuItems, payrollOpen, setPayrollOpen)}
-            </li>
-          )}
+          {/* PAYROLL - Menu Utama */}
+          <li className="pt-2">
+            {renderNestedMenu(
+              'Payroll',
+              DollarSign,
+              payrollMainOpen,
+              setPayrollMainOpen,
+              [
+                {
+                  title: 'Master Data',
+                  icon: Database,
+                  items: filteredPayrollMasterDataItems,
+                  isOpen: payrollMasterDataOpen,
+                  setIsOpen: setPayrollMasterDataOpen
+                },
+                {
+                  title: 'Penggajian',
+                  icon: Calculator,
+                  items: filteredPayrollProcessItems,
+                  isOpen: payrollProcessOpen,
+                  setIsOpen: setPayrollProcessOpen
+                },
+                {
+                  title: 'Laporan',
+                  icon: FileText,
+                  items: filteredPayrollReportsItems,
+                  isOpen: payrollReportsOpen,
+                  setIsOpen: setPayrollReportsOpen
+                }
+              ]
+            )}
+          </li>
 
-          {/* Reports Menu */}
-          {filteredReportsMenuItems.length > 0 && (
-            <li className="pt-2">
-              {renderCollapsibleMenu('Laporan', FileText, filteredReportsMenuItems, reportsOpen, setReportsOpen)}
-            </li>
-          )}
+          {/* HR - Menu Utama */}
+          <li className="pt-2">
+            {renderNestedMenu(
+              'HR',
+              Users,
+              hrMainOpen,
+              setHrMainOpen,
+              [
+                {
+                  title: 'Master Data',
+                  icon: Database,
+                  items: filteredHrMasterDataItems,
+                  isOpen: hrMasterDataOpen,
+                  setIsOpen: setHrMasterDataOpen
+                },
+                {
+                  title: 'Presensi',
+                  icon: ClipboardCheck,
+                  items: filteredPresenceMenuItems,
+                  isOpen: presenceOpen,
+                  setIsOpen: setPresenceOpen
+                },
+                {
+                  title: 'Administrasi',
+                  icon: ShieldCheck,
+                  items: filteredAdministrationMenuItems,
+                  isOpen: administrationOpen,
+                  setIsOpen: setAdministrationOpen
+                }
+              ]
+            )}
+          </li>
 
-          {/* Master Data Menu */}
-          {filteredMasterDataMenuItems.length > 0 && (
-            <li className="pt-2">
-              {renderCollapsibleMenu('Master Data', Database, filteredMasterDataMenuItems, masterDataOpen, setMasterDataOpen)}
-            </li>
-          )}
-
-          {/* Presensi Menu */}
-          {filteredPresenceMenuItems.length > 0 && (
-            <li className="pt-2">
-              {renderCollapsibleMenu('Presensi', ClipboardCheck, filteredPresenceMenuItems, presenceOpen, setPresenceOpen)}
-            </li>
-          )}
-
-          {/* Administration Menu */}
-          {filteredAdministrationMenuItems.length > 0 && (
-            <li className="pt-2">
-              {renderCollapsibleMenu('Administrasi', ShieldCheck, filteredAdministrationMenuItems, administrationOpen, setAdministrationOpen)}
-            </li>
-          )}
-
-          {/* Bottom Menu Items */}
+          {/* Bottom Menu Items - Analitik, Engagement & Pengaturan */}
           {filteredBottomMenuItems.length > 0 && (
             <li className="pt-4 border-t border-[#1c3353] mt-4">
               <ul className="space-y-1">
