@@ -38,7 +38,7 @@
  * ==========================================================================
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign } from 'lucide-react';
 import { SigmaLogo } from './SigmaLogo';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -95,20 +95,20 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const desktopScrollPosition = useRef(0);
   const mobileScrollPosition = useRef(0);
 
-  // Restore scroll position setelah render
-  useEffect(() => {
-    if (desktopScrollRef.current) {
-      desktopScrollRef.current.scrollTop = desktopScrollPosition.current;
-    }
-  }, [payrollMainOpen, hrMainOpen, payrollMasterDataOpen, payrollProcessOpen, payrollReportsOpen, hrMasterDataOpen, presenceOpen, administrationOpen, collapsed]);
+  // Track previous menu states untuk mendeteksi perubahan
+  const prevMenuStates = useRef({
+    payrollMainOpen,
+    hrMainOpen,
+    payrollMasterDataOpen,
+    payrollProcessOpen,
+    payrollReportsOpen,
+    hrMasterDataOpen,
+    presenceOpen,
+    administrationOpen,
+    collapsed
+  });
 
-  useEffect(() => {
-    if (mobileScrollRef.current && isOpen) {
-      mobileScrollRef.current.scrollTop = mobileScrollPosition.current;
-    }
-  }, [payrollMainOpen, hrMainOpen, payrollMasterDataOpen, payrollProcessOpen, payrollReportsOpen, hrMasterDataOpen, presenceOpen, administrationOpen, isOpen]);
-
-  // Save scroll position sebelum state berubah
+  // Save scroll position sebelum state berubah dan restore setelahnya
   const handleDesktopScroll = () => {
     if (desktopScrollRef.current) {
       desktopScrollPosition.current = desktopScrollRef.current.scrollTop;
@@ -120,6 +120,67 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       mobileScrollPosition.current = mobileScrollRef.current.scrollTop;
     }
   };
+
+  // Restore scroll position hanya ketika menu collapsible state berubah
+  // Menggunakan useLayoutEffect agar terjadi sebelum browser paint
+  useLayoutEffect(() => {
+    const menuStatesChanged =
+      prevMenuStates.current.payrollMainOpen !== payrollMainOpen ||
+      prevMenuStates.current.hrMainOpen !== hrMainOpen ||
+      prevMenuStates.current.payrollMasterDataOpen !== payrollMasterDataOpen ||
+      prevMenuStates.current.payrollProcessOpen !== payrollProcessOpen ||
+      prevMenuStates.current.payrollReportsOpen !== payrollReportsOpen ||
+      prevMenuStates.current.hrMasterDataOpen !== hrMasterDataOpen ||
+      prevMenuStates.current.presenceOpen !== presenceOpen ||
+      prevMenuStates.current.administrationOpen !== administrationOpen ||
+      prevMenuStates.current.collapsed !== collapsed;
+
+    if (menuStatesChanged && desktopScrollRef.current) {
+      desktopScrollRef.current.scrollTop = desktopScrollPosition.current;
+    }
+
+    // Update previous states
+    prevMenuStates.current = {
+      payrollMainOpen,
+      hrMainOpen,
+      payrollMasterDataOpen,
+      payrollProcessOpen,
+      payrollReportsOpen,
+      hrMasterDataOpen,
+      presenceOpen,
+      administrationOpen,
+      collapsed
+    };
+  }, [payrollMainOpen, hrMainOpen, payrollMasterDataOpen, payrollProcessOpen, payrollReportsOpen, hrMasterDataOpen, presenceOpen, administrationOpen, collapsed]);
+
+  useLayoutEffect(() => {
+    if (mobileScrollRef.current && isOpen) {
+      mobileScrollRef.current.scrollTop = mobileScrollPosition.current;
+    }
+  }, [isOpen]);
+
+  // Preserve scroll position saat activeView berubah (menu item diklik)
+  // Ini memastikan scroll position tidak reset ke 0 saat re-render
+  useLayoutEffect(() => {
+    // Simpan scroll position saat ini sebelum setiap render
+    if (desktopScrollRef.current && desktopScrollRef.current.scrollTop > 0) {
+      desktopScrollPosition.current = desktopScrollRef.current.scrollTop;
+    }
+    if (mobileScrollRef.current && mobileScrollRef.current.scrollTop > 0) {
+      mobileScrollPosition.current = mobileScrollRef.current.scrollTop;
+    }
+  }); // No dependencies = run after every render
+
+  // Restore scroll position after render jika berbeda
+  useLayoutEffect(() => {
+    if (desktopScrollRef.current && desktopScrollPosition.current > 0) {
+      const currentScroll = desktopScrollRef.current.scrollTop;
+      if (currentScroll === 0 && desktopScrollPosition.current > 0) {
+        // Scroll position was reset, restore it
+        desktopScrollRef.current.scrollTop = desktopScrollPosition.current;
+      }
+    }
+  }, [activeView]); // Run when activeView changes
 
   /**
    * Menu configuration - Single menu items
@@ -197,7 +258,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    */
   const bottomMenuItems = [
     { id: 'reports', label: 'Analitik', icon: FileText, module: 'reports' },
-    { id: 'engagement', label: 'Engagement Dashboard', icon: BarChart3, module: 'engagement' },
+    { id: 'engagement', label: 'Engagement Dasbor', icon: BarChart3, module: 'engagement' },
     { id: 'settings', label: 'Pengaturan', icon: SettingsIcon, module: 'settings' },
   ];
 
@@ -238,21 +299,20 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       e.stopPropagation();
       onViewChange(item.id as any);
     };
-    
-    // Menu button dengan conditional styling
-    // Special padding untuk Engagement Dashboard (text lebih rapat ke kiri)
-    const paddingClass = item.id === 'engagement' ? 'px-2' : 'px-4';
 
+    // Menu button dengan conditional styling
     const button = (
       <button
         onClick={handleMenuClick}
-        className={`w-full flex items-center ${collapsed ? 'justify-center' : isSubMenu ? 'gap-3 pl-10' : 'gap-3'} ${paddingClass} py-2.5 rounded transition-colors ${
+        className={`w-full flex items-center ${collapsed ? 'justify-center px-4' : isSubMenu ? 'gap-3 pl-10 pr-4' : 'gap-3 px-4'} py-2.5 rounded transition-colors ${
           isActive
             ? 'bg-[#12263f] text-white'
             : 'text-[#9fa6bc] hover:bg-[#12263f] hover:text-white'
         }`}
       >
-        <Icon size={18} className="flex-shrink-0" />
+        <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
+          <Icon size={18} />
+        </div>
         {!collapsed && <span className="text-sm">{item.label}</span>}
       </button>
     );
@@ -300,8 +360,10 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="px-4 py-2.5 cursor-pointer">
-                <Icon size={18} className="text-[#9fa6bc] mx-auto" />
+              <div className="px-4 py-2.5 cursor-pointer flex justify-center">
+                <div className="w-[18px] h-[18px] flex items-center justify-center">
+                  <Icon size={18} className="text-[#9fa6bc]" />
+                </div>
               </div>
             </TooltipTrigger>
             <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2 max-w-xs">
@@ -328,7 +390,9 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                                 : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
                             }`}
                           >
-                            <ItemIcon size={14} className="flex-shrink-0" />
+                            <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
+                              <ItemIcon size={14} />
+                            </div>
                             <span>{item.label}</span>
                           </button>
                         );
@@ -348,7 +412,9 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors text-white bg-[#12263f] hover:bg-[#1c3353] font-medium">
           <div className="flex items-center gap-3">
-            <Icon size={18} className="flex-shrink-0" />
+            <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
+              <Icon size={18} />
+            </div>
             <span className="text-sm">{title}</span>
           </div>
           {isOpen ? (
@@ -392,8 +458,10 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="px-4 py-2.5 cursor-pointer">
-                <Icon size={18} className="text-[#9fa6bc] mx-auto" />
+              <div className="px-4 py-2.5 cursor-pointer flex justify-center">
+                <div className="w-[18px] h-[18px] flex items-center justify-center">
+                  <Icon size={18} className="text-[#9fa6bc]" />
+                </div>
               </div>
             </TooltipTrigger>
             <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2">
@@ -417,7 +485,9 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                             : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
                         }`}
                       >
-                        <ItemIcon size={14} className="flex-shrink-0" />
+                        <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
+                          <ItemIcon size={14} />
+                        </div>
                         <span>{item.label}</span>
                       </button>
                     );
@@ -435,7 +505,9 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors text-[#9fa6bc] hover:bg-[#12263f] hover:text-white group">
           <div className="flex items-center gap-3">
-            <Icon size={18} className="flex-shrink-0" />
+            <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
+              <Icon size={18} />
+            </div>
             <span className="text-sm">{title}</span>
           </div>
           {isOpen ? (

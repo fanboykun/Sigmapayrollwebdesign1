@@ -117,23 +117,23 @@ export function WorkingDaysMaster() {
       // Hitung total hari dalam bulan
       const totalDays = new Date(year, month, 0).getDate();
 
-      // Hitung weekend dalam bulan (Sabtu & Minggu)
+      // Hitung weekend dalam bulan (hanya Minggu, Sabtu tetap kerja)
       let weekends = 0;
       for (let day = 1; day <= totalDays; day++) {
         const date = new Date(year, month - 1, day);
         const dayOfWeek = date.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
+        if (dayOfWeek === 0) { // Hanya Minggu
           weekends++;
         }
       }
 
-      // Hitung hari libur dari master data (excluding weekends)
+      // Hitung hari libur dari master data (excluding Minggu)
       const holidaysInMonth = MASTER_HOLIDAYS_2025.filter(holiday => {
         const holidayDate = new Date(holiday.date);
         const holidayMonth = holidayDate.getMonth() + 1;
         const dayOfWeek = holidayDate.getDay();
-        // Hanya hitung libur yang bukan weekend
-        return holidayMonth === month && dayOfWeek !== 0 && dayOfWeek !== 6;
+        // Hanya hitung libur yang bukan Minggu
+        return holidayMonth === month && dayOfWeek !== 0;
       }).length;
 
       // Hari kerja = Total hari - Weekend
