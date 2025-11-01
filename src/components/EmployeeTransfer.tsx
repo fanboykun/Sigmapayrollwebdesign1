@@ -17,6 +17,8 @@ import { id } from 'date-fns/locale';
 import { MASTER_EMPLOYEES } from '../shared/employeeData';
 import { cn } from './ui/utils';
 import { EmployeeTransferForm } from './EmployeeTransferForm';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner@2.0.3';
 
 interface EmployeeTransfer {
   id: string;
@@ -316,6 +318,7 @@ const EMPLOYEE_TRANSFERS: EmployeeTransfer[] = [
 ];
 
 export function EmployeeTransfer() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('transfers');
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -325,7 +328,7 @@ export function EmployeeTransfer() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedTransfer, setSelectedTransfer] = useState<EmployeeTransfer | null>(null);
 
-  const [transfers] = useState<EmployeeTransfer[]>(EMPLOYEE_TRANSFERS);
+  const [transfers, setTransfers] = useState<EmployeeTransfer[]>(EMPLOYEE_TRANSFERS);
 
   // Form state untuk add transfer
   const [transferDate, setTransferDate] = useState<Date | undefined>();
@@ -566,7 +569,36 @@ export function EmployeeTransfer() {
                       </DialogHeader>
                       <EmployeeTransferForm
                         onSubmit={(data) => {
-                          console.log('Add transfer:', data);
+                          // Generate new transfer ID (using timestamp for uniqueness)
+                          const newId = `transfer-${Date.now()}`;
+                          
+                          // Create new transfer object
+                          const newTransfer: EmployeeTransfer = {
+                            id: newId,
+                            employeeId: data.employeeId,
+                            employeeName: data.employeeName,
+                            fromDepartment: data.fromDepartment,
+                            fromPosition: data.fromPosition,
+                            toDepartment: data.toDepartment,
+                            toPosition: data.toPosition,
+                            transferDate: data.transferDate || new Date(),
+                            effectiveDate: data.effectiveDate || new Date(),
+                            reason: data.reason,
+                            status: 'pending',
+                            notes: data.notes || '',
+                            requestedBy: user?.fullName || user?.username || 'Admin',
+                            requestDate: new Date()
+                          };
+                          
+                          // Add to transfers array
+                          setTransfers(prev => [newTransfer, ...prev]);
+                          
+                          // Show success notification
+                          toast.success('Mutasi Berhasil Ditambahkan', {
+                            description: `Mutasi ${data.employeeName} telah berhasil dicatat dengan status Menunggu.`
+                          });
+                          
+                          // Close dialog
                           setIsAddDialogOpen(false);
                         }}
                         onCancel={() => {

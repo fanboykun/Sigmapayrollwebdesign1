@@ -121,8 +121,9 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    * #MenuConfig #PayrollMenu
    */
   const payrollMenuItems = [
-    { id: 'annual-payroll', label: 'Penggajian Tahunan', icon: Gift, module: 'annual-payroll' },
-    { id: 'processing', label: 'Proses Penggajian', icon: DollarSign, module: 'processing' },
+    { id: 'annual-payroll', label: 'Proses Gaji Tahunan', icon: Gift, module: 'annual-payroll' },
+    { id: 'processing', label: 'Proses Gaji Bulanan', icon: DollarSign, module: 'processing' },
+    { id: 'employees', label: 'Gaji Karyawan', icon: Users, module: 'employees' },
   ];
 
   /**
@@ -213,7 +214,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     const button = (
       <button
         onClick={handleMenuClick}
-        className={`w-full flex items-center ${collapsed ? 'justify-center px-4' : isSubMenu ? 'gap-3 pl-10 pr-4' : 'gap-3 px-4'} py-2.5 rounded transition-colors ${
+        className={`w-full flex items-center ${collapsed ? 'justify-center' : isSubMenu ? 'gap-3 pl-10' : 'gap-3'} px-4 py-2.5 rounded transition-colors ${
           isActive
             ? 'bg-[#12263f] text-white'
             : 'text-[#9fa6bc] hover:bg-[#12263f] hover:text-white'

@@ -42,6 +42,7 @@ import { DivisionMaster } from './components/DivisionMaster';
 import { PositionMaster } from './components/PositionMaster';
 import { WageMaster } from './components/WageMaster';
 import { TaxMaster } from './components/TaxMaster';
+import { EmployeePayroll } from './components/EmployeePayroll';
 import { PayrollProcessing } from './components/PayrollProcessing';
 import { PayrollReports } from './components/PayrollReports';
 import { PremiumMaster } from './components/PremiumMaster';
@@ -65,7 +66,7 @@ import { Toaster } from './components/ui/sonner';
  * Type definition untuk semua view/halaman yang tersedia dalam aplikasi
  * #TypeDefinition #ViewTypes
  */
-type ViewType = 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'processing' | 'reports' | 'engagement' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'settings' | 'user-management' | 'role-management' | 'profile' | 'account-settings' | 'design-reference' | 'database-seeder';
+type ViewType = 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'employees' | 'processing' | 'reports' | 'engagement' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'settings' | 'user-management' | 'role-management' | 'profile' | 'account-settings' | 'design-reference' | 'database-seeder';
 
 /**
  * ==========================================================================
@@ -213,6 +214,11 @@ function MainApp() {
           {activeView === 'tax-master' && (
             <PermissionGuard module="tax_master">
               <TaxMaster />
+            </PermissionGuard>
+          )}
+          {activeView === 'employees' && (
+            <PermissionGuard module="employee_payroll">
+              <EmployeePayroll />
             </PermissionGuard>
           )}
           {activeView === 'processing' && (

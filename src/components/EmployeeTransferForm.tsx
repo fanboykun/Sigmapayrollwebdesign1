@@ -11,10 +11,12 @@ import { Textarea } from './ui/textarea';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { DatePicker } from './ui/date-picker';
-import { ChevronsUpDown, Check, User } from 'lucide-react';
+import { ChevronsUpDown, Check, User, Briefcase } from 'lucide-react';
 import { cn } from './ui/utils';
 import { MASTER_EMPLOYEES } from '../shared/employeeData';
 import { MASTER_DIVISIONS } from '../shared/divisionData';
+import { MASTER_POSITIONS } from '../shared/positionData';
+import { toast } from 'sonner@2.0.3';
 
 interface EmployeeTransferFormProps {
   onSubmit: (data: any) => void;
@@ -29,6 +31,10 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
   // State untuk division combobox
   const [openDivisionCombobox, setOpenDivisionCombobox] = useState(false);
   const [selectedDivisionId, setSelectedDivisionId] = useState('');
+  
+  // State untuk position combobox
+  const [openPositionCombobox, setOpenPositionCombobox] = useState(false);
+  const [selectedPositionId, setSelectedPositionId] = useState('');
 
   // Form state
   const [transferDate, setTransferDate] = useState<Date | undefined>();
@@ -48,8 +54,60 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
   };
 
   const handleSubmit = () => {
+    // Validasi karyawan
     if (!selectedEmployee) {
-      alert('Pilih karyawan terlebih dahulu');
+      toast.error('Validasi Gagal', {
+        description: 'Pilih karyawan terlebih dahulu'
+      });
+      return;
+    }
+
+    // Validasi divisi baru
+    if (!formData.toDepartment) {
+      toast.error('Validasi Gagal', {
+        description: 'Pilih divisi baru terlebih dahulu'
+      });
+      return;
+    }
+
+    // Validasi jabatan baru
+    if (!formData.toPosition) {
+      toast.error('Validasi Gagal', {
+        description: 'Pilih jabatan baru terlebih dahulu'
+      });
+      return;
+    }
+
+    // Validasi tanggal pengajuan
+    if (!transferDate) {
+      toast.error('Validasi Gagal', {
+        description: 'Pilih tanggal pengajuan terlebih dahulu'
+      });
+      return;
+    }
+
+    // Validasi tanggal efektif
+    if (!effectiveDate) {
+      toast.error('Validasi Gagal', {
+        description: 'Pilih tanggal efektif terlebih dahulu'
+      });
+      return;
+    }
+
+    // Validasi alasan mutasi
+    if (!formData.reason.trim()) {
+      toast.error('Validasi Gagal', {
+        description: 'Masukkan alasan mutasi terlebih dahulu'
+      });
+      return;
+    }
+
+    // Validasi minimal ada perubahan (divisi atau jabatan atau keduanya)
+    if (selectedEmployee.division === formData.toDepartment && 
+        selectedEmployee.position === formData.toPosition) {
+      toast.error('Validasi Gagal', {
+        description: 'Tidak ada perubahan divisi atau jabatan. Minimal salah satu harus berbeda.'
+      });
       return;
     }
 
@@ -232,13 +290,61 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="toPosition">Jabatan Baru *</Label>
-                <Input
-                  id="toPosition"
-                  value={formData.toPosition}
-                  onChange={(e) => handleInputChange('toPosition', e.target.value)}
-                  placeholder="Jabatan baru"
-                />
+                <Label>Jabatan Baru *</Label>
+                <Popover open={openPositionCombobox} onOpenChange={setOpenPositionCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openPositionCombobox}
+                      className="w-full justify-between"
+                    >
+                      {formData.toPosition ? (
+                        <div className="flex items-center gap-2">
+                          <Briefcase size={16} />
+                          <span>{formData.toPosition}</span>
+                        </div>
+                      ) : (
+                        "Pilih jabatan baru..."
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Cari jabatan..." />
+                      <CommandList>
+                        <CommandEmpty>Jabatan tidak ditemukan.</CommandEmpty>
+                        <CommandGroup>
+                          {MASTER_POSITIONS.filter(pos => pos.isActive).map((position) => (
+                            <CommandItem
+                              key={position.id}
+                              value={position.name}
+                              onSelect={() => {
+                                handleInputChange('toPosition', position.name);
+                                setSelectedPositionId(position.id);
+                                setOpenPositionCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.toPosition === position.name ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{position.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {position.code} • {position.level.charAt(0).toUpperCase() + position.level.slice(1)}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <p className="text-xs text-muted-foreground">
                   {selectedEmployee.position === formData.toPosition && formData.toPosition && '✓ Jabatan tetap sama'}
                   {selectedEmployee.position !== formData.toPosition && formData.toPosition && '⚠️ Mutasi jabatan'}
