@@ -28,7 +28,7 @@
  * 3. HR (menu utama):
  *    - Master Data (Data Karyawan, Mutasi, Divisi, Jabatan)
  *    - Presensi (Hari Kerja, Hari Libur, Data Presensi, Cuti)
- *    - Administrasi (Manajemen User, Role & Permission)
+ *    - Administrasi (Manajemen User, Otorisasi)
  * 4. Bottom Menu (Analitik, Engagement Dashboard, Pengaturan)
  * 
  * @author Sistem Payroll Team
@@ -188,7 +188,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    */
   const administrationMenuItems = [
     { id: 'user-management', label: 'Manajemen User', icon: Users, module: 'user-management' },
-    { id: 'role-management', label: 'Role & Permission', icon: Shield, module: 'role-management' },
+    { id: 'role-management', label: 'Otorisasi', icon: Shield, module: 'role-management' },
   ];
 
   /**
@@ -240,10 +240,13 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     };
     
     // Menu button dengan conditional styling
+    // Special padding untuk Engagement Dashboard (text lebih rapat ke kiri)
+    const paddingClass = item.id === 'engagement' ? 'px-2' : 'px-4';
+
     const button = (
       <button
         onClick={handleMenuClick}
-        className={`w-full flex items-center ${collapsed ? 'justify-center' : isSubMenu ? 'gap-3 pl-10' : 'gap-3'} px-4 py-2.5 rounded transition-colors ${
+        className={`w-full flex items-center ${collapsed ? 'justify-center' : isSubMenu ? 'gap-3 pl-10' : 'gap-3'} ${paddingClass} py-2.5 rounded transition-colors ${
           isActive
             ? 'bg-[#12263f] text-white'
             : 'text-[#9fa6bc] hover:bg-[#12263f] hover:text-white'
