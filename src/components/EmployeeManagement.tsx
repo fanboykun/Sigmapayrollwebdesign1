@@ -47,6 +47,14 @@ interface Employee {
   bankAccount: string;
   emergencyContact: string;
   emergencyPhone: string;
+  // Additional fields
+  nationalId?: string; // KTP/National ID
+  height?: number; // Height in cm
+  weight?: number; // Weight in kg
+  drivingLicenseNumber?: string; // SIM Number
+  drivingLicenseExpiry?: Date; // SIM expiry date
+  nationality?: string; // Nationality
+  bloodGroup?: string; // Blood type (A+, B+, O+, AB+, etc)
   assets?: Asset[];
 }
 
@@ -61,6 +69,7 @@ export function EmployeeManagement() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [birthDate, setBirthDate] = useState<Date | undefined>();
   const [joinDate, setJoinDate] = useState<Date | undefined>();
+  const [drivingLicenseExpiry, setDrivingLicenseExpiry] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState('personal');
 
   // Form state
@@ -79,6 +88,13 @@ export function EmployeeManagement() {
     bankAccount: '',
     emergencyContact: '',
     emergencyPhone: '',
+    // Additional fields
+    nationalId: '',
+    height: '',
+    weight: '',
+    drivingLicenseNumber: '',
+    nationality: 'Indonesian',
+    bloodGroup: '',
   });
 
   // Asset state
@@ -124,9 +140,16 @@ export function EmployeeManagement() {
       bankAccount: '',
       emergencyContact: '',
       emergencyPhone: '',
+      nationalId: '',
+      height: '',
+      weight: '',
+      drivingLicenseNumber: '',
+      nationality: 'Indonesian',
+      bloodGroup: '',
     });
     setBirthDate(undefined);
     setJoinDate(undefined);
+    setDrivingLicenseExpiry(undefined);
     setAssets([]);
     setCurrentAsset({
       assetCode: '',
@@ -159,6 +182,14 @@ export function EmployeeManagement() {
       bankAccount: formData.bankAccount,
       emergencyContact: formData.emergencyContact,
       emergencyPhone: formData.emergencyPhone,
+      // Additional fields
+      nationalId: formData.nationalId,
+      height: formData.height ? parseFloat(formData.height) : undefined,
+      weight: formData.weight ? parseFloat(formData.weight) : undefined,
+      drivingLicenseNumber: formData.drivingLicenseNumber,
+      drivingLicenseExpiry: drivingLicenseExpiry,
+      nationality: formData.nationality,
+      bloodGroup: formData.bloodGroup,
       assets: assets,
     };
 
@@ -184,9 +215,16 @@ export function EmployeeManagement() {
       bankAccount: employee.bankAccount,
       emergencyContact: employee.emergencyContact,
       emergencyPhone: employee.emergencyPhone,
+      nationalId: employee.nationalId || '',
+      height: employee.height?.toString() || '',
+      weight: employee.weight?.toString() || '',
+      drivingLicenseNumber: employee.drivingLicenseNumber || '',
+      nationality: employee.nationality || 'Indonesian',
+      bloodGroup: employee.bloodGroup || '',
     });
     setBirthDate(employee.birthDate);
     setJoinDate(employee.joinDate);
+    setDrivingLicenseExpiry(employee.drivingLicenseExpiry);
     setAssets(employee.assets || []);
     setActiveTab('personal');
     setIsEditDialogOpen(true);
@@ -195,8 +233,8 @@ export function EmployeeManagement() {
   const handleUpdateEmployee = () => {
     if (!selectedEmployee) return;
 
-    const updatedEmployees = employees.map(emp => 
-      emp.id === selectedEmployee.id 
+    const updatedEmployees = employees.map(emp =>
+      emp.id === selectedEmployee.id
         ? {
             ...emp,
             employeeId: formData.employeeId,
@@ -215,6 +253,13 @@ export function EmployeeManagement() {
             bankAccount: formData.bankAccount,
             emergencyContact: formData.emergencyContact,
             emergencyPhone: formData.emergencyPhone,
+            nationalId: formData.nationalId,
+            height: formData.height ? parseFloat(formData.height) : undefined,
+            weight: formData.weight ? parseFloat(formData.weight) : undefined,
+            drivingLicenseNumber: formData.drivingLicenseNumber,
+            drivingLicenseExpiry: drivingLicenseExpiry,
+            nationality: formData.nationality,
+            bloodGroup: formData.bloodGroup,
             assets: assets,
           }
         : emp
@@ -305,12 +350,12 @@ export function EmployeeManagement() {
       <TabsContent value="personal" className="space-y-4 mt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="employeeId">ID Karyawan *</Label>
+            <Label htmlFor="employeeId">Nomor Karyawan *</Label>
             <Input
               id="employeeId"
               value={formData.employeeId}
               onChange={(e) => handleInputChange('employeeId', e.target.value)}
-              placeholder="KRY001"
+              placeholder="1504951"
             />
           </div>
           <div className="space-y-2">
@@ -319,8 +364,34 @@ export function EmployeeManagement() {
               id="fullName"
               value={formData.fullName}
               onChange={(e) => handleInputChange('fullName', e.target.value)}
-              placeholder="Ahmad Hidayat"
+              placeholder="Imran I"
             />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="nationalId">National ID / KTP *</Label>
+            <Input
+              id="nationalId"
+              value={formData.nationalId}
+              onChange={(e) => handleInputChange('nationalId', e.target.value)}
+              placeholder="02.1504.101085.0001"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="nationality">Kewarganegaraan</Label>
+            <Select value={formData.nationality} onValueChange={(value) => handleInputChange('nationality', value)}>
+              <SelectTrigger id="nationality">
+                <SelectValue placeholder="Pilih kewarganegaraan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Indonesian">Indonesian</SelectItem>
+                <SelectItem value="Malaysian">Malaysian</SelectItem>
+                <SelectItem value="Singaporean">Singaporean</SelectItem>
+                <SelectItem value="Other">Lainnya</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -332,7 +403,7 @@ export function EmployeeManagement() {
               type="email"
               value={formData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
-              placeholder="ahmad@sigma.com"
+              placeholder="imran@sigma.com"
             />
           </div>
           <div className="space-y-2">
@@ -371,21 +442,90 @@ export function EmployeeManagement() {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="religion">Agama *</Label>
-          <Select value={formData.religion} onValueChange={(value) => handleInputChange('religion', value)}>
-            <SelectTrigger id="religion">
-              <SelectValue placeholder="Pilih agama" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="islam">Islam</SelectItem>
-              <SelectItem value="kristen">Kristen</SelectItem>
-              <SelectItem value="katolik">Katolik</SelectItem>
-              <SelectItem value="hindu">Hindu</SelectItem>
-              <SelectItem value="buddha">Buddha</SelectItem>
-              <SelectItem value="konghucu">Konghucu</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="height">Tinggi Badan (cm)</Label>
+            <Input
+              id="height"
+              type="number"
+              value={formData.height}
+              onChange={(e) => handleInputChange('height', e.target.value)}
+              placeholder="165"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="weight">Berat Badan (kg)</Label>
+            <Input
+              id="weight"
+              type="number"
+              value={formData.weight}
+              onChange={(e) => handleInputChange('weight', e.target.value)}
+              placeholder="55"
+              min="0"
+              step="0.01"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="bloodGroup">Golongan Darah</Label>
+            <Select value={formData.bloodGroup} onValueChange={(value) => handleInputChange('bloodGroup', value)}>
+              <SelectTrigger id="bloodGroup">
+                <SelectValue placeholder="Pilih golongan darah" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="A+">A+</SelectItem>
+                <SelectItem value="A-">A-</SelectItem>
+                <SelectItem value="B+">B+</SelectItem>
+                <SelectItem value="B-">B-</SelectItem>
+                <SelectItem value="AB+">AB+</SelectItem>
+                <SelectItem value="AB-">AB-</SelectItem>
+                <SelectItem value="O+">O+</SelectItem>
+                <SelectItem value="O-">O-</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="religion">Agama *</Label>
+            <Select value={formData.religion} onValueChange={(value) => handleInputChange('religion', value)}>
+              <SelectTrigger id="religion">
+                <SelectValue placeholder="Pilih agama" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="islam">Islam</SelectItem>
+                <SelectItem value="kristen">Kristen</SelectItem>
+                <SelectItem value="katolik">Katolik</SelectItem>
+                <SelectItem value="hindu">Hindu</SelectItem>
+                <SelectItem value="buddha">Buddha</SelectItem>
+                <SelectItem value="konghucu">Konghucu</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="drivingLicenseNumber">Nomor SIM</Label>
+            <Input
+              id="drivingLicenseNumber"
+              value={formData.drivingLicenseNumber}
+              onChange={(e) => handleInputChange('drivingLicenseNumber', e.target.value)}
+              placeholder="1234567890"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Tanggal Berlaku SIM</Label>
+            <DatePicker
+              date={drivingLicenseExpiry}
+              onDateChange={setDrivingLicenseExpiry}
+              placeholder="Pilih tanggal berlaku"
+              fromYear={2000}
+              toYear={new Date().getFullYear() + 20}
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -904,6 +1044,18 @@ export function EmployeeManagement() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedEmployee.nationalId && (
+                  <div className="p-4 bg-muted/30 rounded">
+                    <p className="text-sm text-muted-foreground mb-1">National ID / KTP</p>
+                    <p>{selectedEmployee.nationalId}</p>
+                  </div>
+                )}
+                {selectedEmployee.nationality && (
+                  <div className="p-4 bg-muted/30 rounded">
+                    <p className="text-sm text-muted-foreground mb-1">Kewarganegaraan</p>
+                    <p>{selectedEmployee.nationality}</p>
+                  </div>
+                )}
                 <div className="p-4 bg-muted/30 rounded">
                   <p className="text-sm text-muted-foreground mb-1">Email</p>
                   <p>{selectedEmployee.email}</p>
@@ -920,10 +1072,40 @@ export function EmployeeManagement() {
                   <p className="text-sm text-muted-foreground mb-1">Jenis Kelamin</p>
                   <p>{selectedEmployee.gender === 'male' ? 'Laki-laki' : 'Perempuan'}</p>
                 </div>
+                {selectedEmployee.height && (
+                  <div className="p-4 bg-muted/30 rounded">
+                    <p className="text-sm text-muted-foreground mb-1">Tinggi Badan</p>
+                    <p>{selectedEmployee.height} cm</p>
+                  </div>
+                )}
+                {selectedEmployee.weight && (
+                  <div className="p-4 bg-muted/30 rounded">
+                    <p className="text-sm text-muted-foreground mb-1">Berat Badan</p>
+                    <p>{selectedEmployee.weight} kg</p>
+                  </div>
+                )}
+                {selectedEmployee.bloodGroup && (
+                  <div className="p-4 bg-muted/30 rounded">
+                    <p className="text-sm text-muted-foreground mb-1">Golongan Darah</p>
+                    <p>{selectedEmployee.bloodGroup}</p>
+                  </div>
+                )}
                 <div className="p-4 bg-muted/30 rounded">
                   <p className="text-sm text-muted-foreground mb-1">Agama</p>
                   <p className="capitalize">{selectedEmployee.religion}</p>
                 </div>
+                {selectedEmployee.drivingLicenseNumber && (
+                  <div className="p-4 bg-muted/30 rounded">
+                    <p className="text-sm text-muted-foreground mb-1">Nomor SIM</p>
+                    <p>{selectedEmployee.drivingLicenseNumber}</p>
+                  </div>
+                )}
+                {selectedEmployee.drivingLicenseExpiry && (
+                  <div className="p-4 bg-muted/30 rounded">
+                    <p className="text-sm text-muted-foreground mb-1">Tanggal Berlaku SIM</p>
+                    <p>{format(selectedEmployee.drivingLicenseExpiry, 'PPP', { locale: id })}</p>
+                  </div>
+                )}
                 <div className="p-4 bg-muted/30 rounded">
                   <p className="text-sm text-muted-foreground mb-1">Divisi</p>
                   <p>{selectedEmployee.division}</p>

@@ -38,7 +38,7 @@
  * ==========================================================================
  */
 
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign } from 'lucide-react';
 import { SigmaLogo } from './SigmaLogo';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -73,19 +73,19 @@ interface SidebarProps {
 export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }: SidebarProps) {
   const { canAccessMenu } = useAuth();
   
-  // State untuk menu utama (Payroll dan HR)
-  const [payrollMainOpen, setPayrollMainOpen] = useState(true);
-  const [hrMainOpen, setHrMainOpen] = useState(true);
+  // State untuk menu utama (Payroll dan HR) - Collapsed by default
+  const [payrollMainOpen, setPayrollMainOpen] = useState(false);
+  const [hrMainOpen, setHrMainOpen] = useState(false);
 
-  // State untuk sub-menu dalam Payroll
-  const [payrollMasterDataOpen, setPayrollMasterDataOpen] = useState(true);
-  const [payrollProcessOpen, setPayrollProcessOpen] = useState(true);
-  const [payrollReportsOpen, setPayrollReportsOpen] = useState(true);
+  // State untuk sub-menu dalam Payroll - Collapsed by default
+  const [payrollMasterDataOpen, setPayrollMasterDataOpen] = useState(false);
+  const [payrollProcessOpen, setPayrollProcessOpen] = useState(false);
+  const [payrollReportsOpen, setPayrollReportsOpen] = useState(false);
 
-  // State untuk sub-menu dalam HR
-  const [hrMasterDataOpen, setHrMasterDataOpen] = useState(true);
-  const [presenceOpen, setPresenceOpen] = useState(true);
-  const [administrationOpen, setAdministrationOpen] = useState(true);
+  // State untuk sub-menu dalam HR - Collapsed by default
+  const [hrMasterDataOpen, setHrMasterDataOpen] = useState(false);
+  const [presenceOpen, setPresenceOpen] = useState(false);
+  const [administrationOpen, setAdministrationOpen] = useState(false);
 
   // Refs untuk scroll containers
   const desktopScrollRef = useRef<HTMLDivElement>(null);
