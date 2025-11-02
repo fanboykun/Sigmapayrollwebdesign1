@@ -976,19 +976,22 @@ export function AuthProvider({
     // Check active sessions and sets the user
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        // Fetch user data from our users table
+        // Fetch user data from our users table with role
         const { data: userData, error } = await supabase
           .from('users')
-          .select('*')
+          .select(`
+            *,
+            role:roles!role_id(code, name)
+          `)
           .eq('id', session.user.id)
           .single();
 
-        if (userData && !error) {
+        if (userData && !error && userData.role) {
           const appUser: User = {
             id: userData.id,
             name: userData.full_name,
             email: userData.email,
-            role: userData.role as UserRole,
+            role: userData.role.code as UserRole,
             employeeId: userData.employee_id || undefined,
             status: 'active',
             createdAt: userData.created_at,
@@ -1005,19 +1008,22 @@ export function AuthProvider({
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        // Fetch user data from our users table
+        // Fetch user data from our users table with role
         const { data: userData, error } = await supabase
           .from('users')
-          .select('*')
+          .select(`
+            *,
+            role:roles!role_id(code, name)
+          `)
           .eq('id', session.user.id)
           .single();
 
-        if (userData && !error) {
+        if (userData && !error && userData.role) {
           const appUser: User = {
             id: userData.id,
             name: userData.full_name,
             email: userData.email,
-            role: userData.role as UserRole,
+            role: userData.role.code as UserRole,
             employeeId: userData.employee_id || undefined,
             status: 'active',
             createdAt: userData.created_at,
@@ -1047,6 +1053,7 @@ export function AuthProvider({
   ): Promise<boolean> => {
     try {
       setIsLoading(true);
+      console.log('🔐 Attempting login for:', email);
 
       // Sign in with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -1054,33 +1061,43 @@ export function AuthProvider({
         password,
       });
 
+      console.log('📡 Auth response:', { authData, authError });
+
       if (authError) {
-        console.error('Login error:', authError);
+        console.error('❌ Login error:', authError);
+        alert(`Login gagal: ${authError.message}`);
         setIsLoading(false);
         return false;
       }
 
       if (authData.user) {
-        // Fetch user data from our users table
+        // Fetch user data from our users table with role
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('*')
+          .select(`
+            *,
+            role:roles!role_id(code, name)
+          `)
           .eq('id', authData.user.id)
           .single();
 
+        console.log('👤 User data response:', { userData, userError });
+
         if (userError) {
-          console.error('Error fetching user data:', userError);
+          console.error('❌ Error fetching user data:', userError);
+          alert(`Error mengambil data user: ${userError.message}`);
           await supabase.auth.signOut();
           setIsLoading(false);
           return false;
         }
 
-        if (userData) {
+        if (userData && userData.role) {
+          console.log('✅ Login successful! User data:', userData);
           const appUser: User = {
             id: userData.id,
             name: userData.full_name,
             email: userData.email,
-            role: userData.role as UserRole,
+            role: userData.role.code as UserRole,
             employeeId: userData.employee_id || undefined,
             status: 'active',
             createdAt: userData.created_at,
@@ -1092,10 +1109,13 @@ export function AuthProvider({
         }
       }
 
+      console.error('❌ No user data returned');
+      alert('Login gagal: Tidak ada data user');
       setIsLoading(false);
       return false;
     } catch (error) {
-      console.error('Unexpected login error:', error);
+      console.error('❌ Unexpected login error:', error);
+      alert(`Error tidak terduga: ${error}`);
       setIsLoading(false);
       return false;
     }

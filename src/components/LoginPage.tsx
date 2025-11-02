@@ -23,7 +23,7 @@
  * - Branding section (desktop only)
  * 
  * DEMO ACCOUNTS:
- * - Super Admin: superadmin@sawit.com / super123
+ * - Super Admin: superadmin@sawit.com / Super123!
  * - Admin: admin@sawit.com / admin123
  * - Manager: manager@sawit.com / manager123
  * - Karyawan: budi@sawit.com / karyawan123
@@ -86,10 +86,10 @@ export function LoginPage() {
    * #DemoAccounts #QuickLogin
    */
   const demoAccounts = [
-    { role: 'Super Admin', email: 'superadmin@sawit.com', password: 'super123' },
-    { role: 'Admin', email: 'admin@sawit.com', password: 'admin123' },
-    { role: 'Manager', email: 'manager@sawit.com', password: 'manager123' },
-    { role: 'Karyawan', email: 'budi@sawit.com', password: 'karyawan123' }
+    { role: 'Super Admin', email: 'superadmin@sawit.com', password: 'Super123!' },
+    { role: 'Admin', email: 'admin@sawit.com', password: 'Admin123!' },
+    { role: 'Manager', email: 'manager@sawit.com', password: 'Manager123!' },
+    { role: 'Karyawan', email: 'budi@sawit.com', password: 'Karyawan123!' }
   ];
 
   /**
