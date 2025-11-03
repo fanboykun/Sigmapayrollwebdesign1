@@ -3,11 +3,12 @@
  *
  * Centralized Supabase client untuk digunakan di seluruh aplikasi.
  * Menggunakan environment variables untuk konfigurasi.
+ * Menggunakan singleton pattern untuk menghindari multiple instances.
  *
  * @module SupabaseClient
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Get environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -24,10 +25,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 /**
+ * Singleton pattern untuk Supabase client
+ * Mencegah multiple instances saat hot reload
+ */
+let supabaseInstance: SupabaseClient | null = null;
+
+function getSupabaseClient() {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+  }
+  return supabaseInstance;
+}
+
+/**
  * Supabase client instance
  * Digunakan untuk semua operasi database
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = getSupabaseClient();
 
 /**
  * Helper function untuk handle Supabase errors

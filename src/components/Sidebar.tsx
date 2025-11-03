@@ -39,7 +39,7 @@
  */
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign, ClipboardList, Heart, Pill, Stethoscope, Syringe, PackageSearch, FileBarChart } from 'lucide-react';
 import { SigmaLogo } from './SigmaLogo';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -51,7 +51,7 @@ import { useAuth } from '../contexts/AuthContext';
  */
 interface SidebarProps {
   activeView: string;
-  onViewChange: (view: 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'employees' | 'processing' | 'reports' | 'presensi-report' | 'engagement' | 'settings' | 'user-management' | 'role-management') => void;
+  onViewChange: (view: 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'employees' | 'processing' | 'reports' | 'presensi-report' | 'engagement' | 'settings' | 'user-management' | 'role-management' | 'clinic-dashboard' | 'clinic-medicines' | 'clinic-suppliers' | 'clinic-doctors' | 'clinic-nurses' | 'clinic-diseases' | 'clinic-registration' | 'clinic-examination' | 'clinic-prescription' | 'clinic-dispensing' | 'clinic-stock' | 'clinic-receiving' | 'clinic-opname' | 'clinic-report-visits' | 'clinic-report-diseases' | 'clinic-report-medicines' | 'clinic-report-costs') => void;
   isOpen: boolean;
   onClose: () => void;
   collapsed: boolean;
@@ -73,9 +73,10 @@ interface SidebarProps {
 export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }: SidebarProps) {
   const { canAccessMenu } = useAuth();
   
-  // State untuk menu utama (Payroll dan HR) - Collapsed by default
+  // State untuk menu utama (Payroll, HR, dan Clinic) - Collapsed by default
   const [payrollMainOpen, setPayrollMainOpen] = useState(false);
   const [hrMainOpen, setHrMainOpen] = useState(false);
+  const [clinicMainOpen, setClinicMainOpen] = useState(false);
 
   // State untuk sub-menu dalam Payroll - Collapsed by default
   const [payrollMasterDataOpen, setPayrollMasterDataOpen] = useState(false);
@@ -86,6 +87,12 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const [hrMasterDataOpen, setHrMasterDataOpen] = useState(false);
   const [presenceOpen, setPresenceOpen] = useState(false);
   const [administrationOpen, setAdministrationOpen] = useState(false);
+
+  // State untuk sub-menu dalam Clinic - Collapsed by default
+  const [clinicMasterDataOpen, setClinicMasterDataOpen] = useState(false);
+  const [clinicServiceOpen, setClinicServiceOpen] = useState(false);
+  const [clinicInventoryOpen, setClinicInventoryOpen] = useState(false);
+  const [clinicReportsOpen, setClinicReportsOpen] = useState(false);
 
   // Refs untuk scroll containers
   const desktopScrollRef = useRef<HTMLDivElement>(null);
@@ -99,12 +106,17 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const prevMenuStates = useRef({
     payrollMainOpen,
     hrMainOpen,
+    clinicMainOpen,
     payrollMasterDataOpen,
     payrollProcessOpen,
     payrollReportsOpen,
     hrMasterDataOpen,
     presenceOpen,
     administrationOpen,
+    clinicMasterDataOpen,
+    clinicServiceOpen,
+    clinicInventoryOpen,
+    clinicReportsOpen,
     collapsed
   });
 
@@ -127,12 +139,17 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     const menuStatesChanged =
       prevMenuStates.current.payrollMainOpen !== payrollMainOpen ||
       prevMenuStates.current.hrMainOpen !== hrMainOpen ||
+      prevMenuStates.current.clinicMainOpen !== clinicMainOpen ||
       prevMenuStates.current.payrollMasterDataOpen !== payrollMasterDataOpen ||
       prevMenuStates.current.payrollProcessOpen !== payrollProcessOpen ||
       prevMenuStates.current.payrollReportsOpen !== payrollReportsOpen ||
       prevMenuStates.current.hrMasterDataOpen !== hrMasterDataOpen ||
       prevMenuStates.current.presenceOpen !== presenceOpen ||
       prevMenuStates.current.administrationOpen !== administrationOpen ||
+      prevMenuStates.current.clinicMasterDataOpen !== clinicMasterDataOpen ||
+      prevMenuStates.current.clinicServiceOpen !== clinicServiceOpen ||
+      prevMenuStates.current.clinicInventoryOpen !== clinicInventoryOpen ||
+      prevMenuStates.current.clinicReportsOpen !== clinicReportsOpen ||
       prevMenuStates.current.collapsed !== collapsed;
 
     if (menuStatesChanged && desktopScrollRef.current) {
@@ -143,15 +160,20 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     prevMenuStates.current = {
       payrollMainOpen,
       hrMainOpen,
+      clinicMainOpen,
       payrollMasterDataOpen,
       payrollProcessOpen,
       payrollReportsOpen,
       hrMasterDataOpen,
       presenceOpen,
       administrationOpen,
+      clinicMasterDataOpen,
+      clinicServiceOpen,
+      clinicInventoryOpen,
+      clinicReportsOpen,
       collapsed
     };
-  }, [payrollMainOpen, hrMainOpen, payrollMasterDataOpen, payrollProcessOpen, payrollReportsOpen, hrMasterDataOpen, presenceOpen, administrationOpen, collapsed]);
+  }, [payrollMainOpen, hrMainOpen, clinicMainOpen, payrollMasterDataOpen, payrollProcessOpen, payrollReportsOpen, hrMasterDataOpen, presenceOpen, administrationOpen, clinicMasterDataOpen, clinicServiceOpen, clinicInventoryOpen, clinicReportsOpen, collapsed]);
 
   useLayoutEffect(() => {
     if (mobileScrollRef.current && isOpen) {
@@ -254,6 +276,50 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   ];
 
   /**
+   * ==========================================================================
+   * CLINIC MENU CONFIGURATION
+   * ==========================================================================
+   * #MenuConfig #ClinicMenu
+   */
+
+  // Dashboard Clinic
+  const clinicDashboardItems = [
+    { id: 'clinic-dashboard', label: 'Dashboard Klinik', icon: BarChart3, module: 'clinic_dashboard' },
+  ];
+
+  // Master Data Clinic
+  const clinicMasterDataItems = [
+    { id: 'clinic-medicines', label: 'Data Obat', icon: Pill, module: 'clinic_master_medicines' },
+    { id: 'clinic-suppliers', label: 'Data Supplier', icon: PackageSearch, module: 'clinic_master_suppliers' },
+    { id: 'clinic-doctors', label: 'Data Dokter', icon: Stethoscope, module: 'clinic_master_doctors' },
+    { id: 'clinic-nurses', label: 'Data Perawat', icon: Heart, module: 'clinic_master_nurses' },
+    { id: 'clinic-diseases', label: 'Jenis Penyakit', icon: FileText, module: 'clinic_master_diseases' },
+  ];
+
+  // Pelayanan Clinic
+  const clinicServiceItems = [
+    { id: 'clinic-registration', label: 'Pendaftaran Pasien', icon: ClipboardList, module: 'clinic_registration' },
+    { id: 'clinic-examination', label: 'Pemeriksaan & Diagnosa', icon: Stethoscope, module: 'clinic_examination' },
+    { id: 'clinic-prescription', label: 'Resep Obat', icon: FileText, module: 'clinic_prescription' },
+    { id: 'clinic-dispensing', label: 'Penyerahan Obat', icon: Syringe, module: 'clinic_dispensing' },
+  ];
+
+  // Manajemen Stok Clinic
+  const clinicInventoryItems = [
+    { id: 'clinic-stock', label: 'Stok Obat', icon: Database, module: 'clinic_stock_management' },
+    { id: 'clinic-receiving', label: 'Penerimaan Obat', icon: PackageSearch, module: 'clinic_stock_management' },
+    { id: 'clinic-opname', label: 'Opname Stok', icon: ClipboardCheck, module: 'clinic_stock_management' },
+  ];
+
+  // Laporan Clinic
+  const clinicReportsItems = [
+    { id: 'clinic-report-visits', label: 'Laporan Kunjungan', icon: FileBarChart, module: 'clinic_reports' },
+    { id: 'clinic-report-diseases', label: 'Penyakit Terbanyak', icon: BarChart3, module: 'clinic_reports' },
+    { id: 'clinic-report-medicines', label: 'Pemakaian Obat', icon: TrendingUp, module: 'clinic_reports' },
+    { id: 'clinic-report-costs', label: 'Biaya Operasional', icon: DollarSign, module: 'clinic_reports' },
+  ];
+
+  /**
    * Menu configuration - Bottom menu items
    * #MenuConfig #BottomMenu
    */
@@ -278,6 +344,13 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const filteredHrMasterDataItems = hrMasterDataItems.filter(item => canAccessMenu(item.module));
   const filteredPresenceMenuItems = presenceMenuItems.filter(item => canAccessMenu(item.module));
   const filteredAdministrationMenuItems = administrationMenuItems.filter(item => canAccessMenu(item.module));
+
+  // Filter Clinic menu items
+  const filteredClinicDashboardItems = clinicDashboardItems.filter(item => canAccessMenu(item.id));
+  const filteredClinicMasterDataItems = clinicMasterDataItems.filter(item => canAccessMenu(item.id));
+  const filteredClinicServiceItems = clinicServiceItems.filter(item => canAccessMenu(item.id));
+  const filteredClinicInventoryItems = clinicInventoryItems.filter(item => canAccessMenu(item.id));
+  const filteredClinicReportsItems = clinicReportsItems.filter(item => canAccessMenu(item.id));
 
   // Filter bottom menu items
   const filteredBottomMenuItems = bottomMenuItems.filter(item => canAccessMenu(item.module));
@@ -425,6 +498,135 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
           )}
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-1 mt-1 ml-2">
+          {subGroups.map((group, idx) => (
+            <div key={idx}>
+              {renderCollapsibleMenu(group.title, group.icon, group.items, group.isOpen, group.setIsOpen)}
+            </div>
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
+
+  /**
+   * Render Klinik menu dengan direct items + sub-groups
+   */
+  const renderClinicMenu = (
+    title: string,
+    icon: any,
+    isOpen: boolean,
+    setIsOpen: (open: boolean) => void,
+    directItems: any[],
+    subGroups: Array<{ title: string; icon: any; items: any[]; isOpen: boolean; setIsOpen: (open: boolean) => void }>
+  ) => {
+    const Icon = icon;
+
+    // Mode collapsed: Tampil icon dengan tooltip
+    if (collapsed) {
+      return (
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="px-4 py-2.5 cursor-pointer flex justify-center">
+                <div className="w-[18px] h-[18px] flex items-center justify-center">
+                  <Icon size={18} className="text-[#9fa6bc]" />
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2 max-w-xs">
+              <div className="space-y-2 min-w-[180px]">
+                <p className="font-semibold text-sm px-2 py-1 border-b border-[#1c3353]">{title}</p>
+
+                {/* Direct items */}
+                {directItems.length > 0 && (
+                  <div className="space-y-0.5">
+                    {directItems.map(item => {
+                      const ItemIcon = item.icon;
+                      const isActive = activeView === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onViewChange(item.id as any);
+                          }}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
+                            isActive
+                              ? 'bg-[#1c3353] text-white'
+                              : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
+                          }`}
+                        >
+                          <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
+                            <ItemIcon size={14} />
+                          </div>
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Sub-groups */}
+                {subGroups.map((group, idx) => (
+                  <div key={idx} className="space-y-0.5">
+                    <p className="text-xs font-medium px-2 py-1 text-[#9fa6bc]">{group.title}</p>
+                    <div className="space-y-0.5">
+                      {group.items.map(item => {
+                        const ItemIcon = item.icon;
+                        const isActive = activeView === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onViewChange(item.id as any);
+                            }}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
+                              isActive
+                                ? 'bg-[#1c3353] text-white'
+                                : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
+                            }`}
+                          >
+                            <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
+                              <ItemIcon size={14} />
+                            </div>
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    // Mode expanded: Collapsible menu dengan direct items + sub-groups
+    return (
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors text-white bg-[#12263f] hover:bg-[#1c3353] font-medium">
+          <div className="flex items-center gap-3">
+            <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
+              <Icon size={18} />
+            </div>
+            <span className="text-sm">{title}</span>
+          </div>
+          {isOpen ? (
+            <ChevronDown size={16} className="flex-shrink-0" />
+          ) : (
+            <ChevronRight size={16} className="flex-shrink-0" />
+          )}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1 mt-1 ml-2">
+          {/* Direct items as menu items */}
+          {directItems.map(item => renderMenuItem(item, true))}
+
+          {/* Sub-groups as collapsible menus */}
           {subGroups.map((group, idx) => (
             <div key={idx}>
               {renderCollapsibleMenu(group.title, group.icon, group.items, group.isOpen, group.setIsOpen)}
@@ -681,6 +883,47 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
               )}
             </li>
 
+            {/* CLINIC - Menu Utama */}
+            <li className="pt-2">
+              {renderClinicMenu(
+                'Klinik',
+                Heart,
+                clinicMainOpen,
+                setClinicMainOpen,
+                filteredClinicDashboardItems,
+                [
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredClinicMasterDataItems,
+                    isOpen: clinicMasterDataOpen,
+                    setIsOpen: setClinicMasterDataOpen
+                  },
+                  {
+                    title: 'Pelayanan',
+                    icon: Stethoscope,
+                    items: filteredClinicServiceItems,
+                    isOpen: clinicServiceOpen,
+                    setIsOpen: setClinicServiceOpen
+                  },
+                  {
+                    title: 'Manajemen Stok',
+                    icon: PackageSearch,
+                    items: filteredClinicInventoryItems,
+                    isOpen: clinicInventoryOpen,
+                    setIsOpen: setClinicInventoryOpen
+                  },
+                  {
+                    title: 'Laporan',
+                    icon: FileBarChart,
+                    items: filteredClinicReportsItems,
+                    isOpen: clinicReportsOpen,
+                    setIsOpen: setClinicReportsOpen
+                  }
+                ]
+              )}
+            </li>
+
             {/* Bottom Menu Items - Analitik, Engagement & Pengaturan */}
             {filteredBottomMenuItems.length > 0 && (
               <li className="pt-4 border-t border-[#1c3353] mt-4">
@@ -851,6 +1094,47 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                   items: filteredAdministrationMenuItems,
                   isOpen: administrationOpen,
                   setIsOpen: setAdministrationOpen
+                }
+              ]
+            )}
+          </li>
+
+          {/* CLINIC - Menu Utama */}
+          <li className="pt-2">
+            {renderClinicMenu(
+              'Klinik',
+              Heart,
+              clinicMainOpen,
+              setClinicMainOpen,
+              filteredClinicDashboardItems,
+              [
+                {
+                  title: 'Master Data',
+                  icon: Database,
+                  items: filteredClinicMasterDataItems,
+                  isOpen: clinicMasterDataOpen,
+                  setIsOpen: setClinicMasterDataOpen
+                },
+                {
+                  title: 'Pelayanan',
+                  icon: Stethoscope,
+                  items: filteredClinicServiceItems,
+                  isOpen: clinicServiceOpen,
+                  setIsOpen: setClinicServiceOpen
+                },
+                {
+                  title: 'Manajemen Stok',
+                  icon: PackageSearch,
+                  items: filteredClinicInventoryItems,
+                  isOpen: clinicInventoryOpen,
+                  setIsOpen: setClinicInventoryOpen
+                },
+                {
+                  title: 'Laporan',
+                  icon: FileBarChart,
+                  items: filteredClinicReportsItems,
+                  isOpen: clinicReportsOpen,
+                  setIsOpen: setClinicReportsOpen
                 }
               ]
             )}

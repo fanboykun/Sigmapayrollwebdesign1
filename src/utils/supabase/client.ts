@@ -1,22 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from './types'
+/**
+ * DEPRECATED: This file is deprecated.
+ * Use src/lib/supabaseClient.ts instead.
+ *
+ * This file is kept for backward compatibility and now just re-exports
+ * the singleton instance from lib/supabaseClient.ts to prevent multiple instances.
+ */
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+import { supabase } from '../../lib/supabaseClient'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env file.'
-  )
-}
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storage: window.localStorage,
-    storageKey: 'supabase.auth.token',
-    flowType: 'pkce',
-  },
-})
+// Re-export the singleton instance
+export { supabase }

@@ -382,6 +382,98 @@ const ROLE_PERMISSIONS: Record<
       canEdit: true,
       canDelete: true,
     },
+    // ===== CLINIC MODULE PERMISSIONS =====
+    clinic_dashboard: {
+      module: "clinic_dashboard",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_medicines: {
+      module: "clinic_master_medicines",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_suppliers: {
+      module: "clinic_master_suppliers",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_doctors: {
+      module: "clinic_master_doctors",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_nurses: {
+      module: "clinic_master_nurses",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_diseases: {
+      module: "clinic_master_diseases",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_registration: {
+      module: "clinic_registration",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_examination: {
+      module: "clinic_examination",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_prescription: {
+      module: "clinic_prescription",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_dispensing: {
+      module: "clinic_dispensing",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_sick_letter: {
+      module: "clinic_sick_letter",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_stock_management: {
+      module: "clinic_stock_management",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_reports: {
+      module: "clinic_reports",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
   },
   admin: {
     dashboard: {
@@ -961,6 +1053,29 @@ const MENU_MODULE_MAP: Record<string, string> = {
   settings: "settings",
   "user-management": "user_management",
   "role-management": "role_management",
+
+  // ===== CLINIC MODULE MAPPINGS =====
+  "clinic-dashboard": "clinic_dashboard",
+  // Master Data Clinic
+  "clinic-medicines": "clinic_master_medicines",
+  "clinic-suppliers": "clinic_master_suppliers",
+  "clinic-doctors": "clinic_master_doctors",
+  "clinic-nurses": "clinic_master_nurses",
+  "clinic-diseases": "clinic_master_diseases",
+  // Pelayanan Clinic
+  "clinic-registration": "clinic_registration",
+  "clinic-examination": "clinic_examination",
+  "clinic-prescription": "clinic_prescription",
+  "clinic-dispensing": "clinic_dispensing",
+  // Manajemen Stok Clinic (semua menggunakan clinic_stock_management)
+  "clinic-stock": "clinic_stock_management",
+  "clinic-receiving": "clinic_stock_management",
+  "clinic-opname": "clinic_stock_management",
+  // Laporan Clinic (semua menggunakan clinic_reports)
+  "clinic-report-visits": "clinic_reports",
+  "clinic-report-diseases": "clinic_reports",
+  "clinic-report-medicines": "clinic_reports",
+  "clinic-report-costs": "clinic_reports",
 };
 
 /**

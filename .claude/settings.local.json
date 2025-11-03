@@ -13,7 +13,9 @@
       "Bash(git push:*)",
       "Bash(git rebase:*)",
       "Bash(npm run build:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npx supabase db reset:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

@@ -62,12 +62,33 @@ import { PermissionGuard } from './components/PermissionGuard';
 import { DesignReference } from './components/DesignReference';
 import DatabaseSeeder from './components/DatabaseSeeder';
 import { Toaster } from './components/ui/sonner';
+// Clinic Module Components
+import { ClinicDashboard } from './components/ClinicDashboard';
+import { ClinicMedicines } from './components/ClinicMedicines';
+import { ClinicSuppliers } from './components/ClinicSuppliers';
+import { ClinicDiseases } from './components/ClinicDiseases';
+// Clinic Module Components (Placeholder - will be replaced)
+import {
+  ClinicDoctors,
+  ClinicNurses,
+  ClinicRegistration,
+  ClinicExamination,
+  ClinicPrescription,
+  ClinicDispensing,
+  ClinicStock,
+  ClinicReceiving,
+  ClinicOpname,
+  ClinicReportVisits,
+  ClinicReportDiseases,
+  ClinicReportMedicines,
+  ClinicReportCosts
+} from './components/ClinicPlaceholder';
 
 /**
  * Type definition untuk semua view/halaman yang tersedia dalam aplikasi
  * #TypeDefinition #ViewTypes
  */
-type ViewType = 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'employees' | 'processing' | 'reports' | 'presensi-report' | 'engagement' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'settings' | 'user-management' | 'role-management' | 'profile' | 'account-settings' | 'design-reference' | 'database-seeder';
+type ViewType = 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'employees' | 'processing' | 'reports' | 'presensi-report' | 'engagement' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'settings' | 'user-management' | 'role-management' | 'profile' | 'account-settings' | 'design-reference' | 'database-seeder' | 'clinic-dashboard' | 'clinic-medicines' | 'clinic-suppliers' | 'clinic-doctors' | 'clinic-nurses' | 'clinic-diseases' | 'clinic-registration' | 'clinic-examination' | 'clinic-prescription' | 'clinic-dispensing' | 'clinic-stock' | 'clinic-receiving' | 'clinic-opname' | 'clinic-report-visits' | 'clinic-report-diseases' | 'clinic-report-medicines' | 'clinic-report-costs';
 
 /**
  * ==========================================================================
@@ -282,6 +303,98 @@ function MainApp() {
               <RoleManagement />
             </PermissionGuard>
           )}
+
+          {/* ===== CLINIC MODULE ===== */}
+          {activeView === 'clinic-dashboard' && (
+            <PermissionGuard module="clinic_dashboard">
+              <ClinicDashboard />
+            </PermissionGuard>
+          )}
+          {/* Master Data Clinic */}
+          {activeView === 'clinic-medicines' && (
+            <PermissionGuard module="clinic_master_medicines">
+              <ClinicMedicines />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-suppliers' && (
+            <PermissionGuard module="clinic_master_suppliers">
+              <ClinicSuppliers />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-doctors' && (
+            <PermissionGuard module="clinic_master_doctors">
+              <ClinicDoctors />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-nurses' && (
+            <PermissionGuard module="clinic_master_nurses">
+              <ClinicNurses />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-diseases' && (
+            <PermissionGuard module="clinic_master_diseases">
+              <ClinicDiseases />
+            </PermissionGuard>
+          )}
+          {/* Pelayanan Clinic */}
+          {activeView === 'clinic-registration' && (
+            <PermissionGuard module="clinic_registration">
+              <ClinicRegistration />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-examination' && (
+            <PermissionGuard module="clinic_examination">
+              <ClinicExamination />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-prescription' && (
+            <PermissionGuard module="clinic_prescription">
+              <ClinicPrescription />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-dispensing' && (
+            <PermissionGuard module="clinic_dispensing">
+              <ClinicDispensing />
+            </PermissionGuard>
+          )}
+          {/* Manajemen Stok Clinic */}
+          {activeView === 'clinic-stock' && (
+            <PermissionGuard module="clinic_stock_management">
+              <ClinicStock />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-receiving' && (
+            <PermissionGuard module="clinic_stock_management">
+              <ClinicReceiving />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-opname' && (
+            <PermissionGuard module="clinic_stock_management">
+              <ClinicOpname />
+            </PermissionGuard>
+          )}
+          {/* Laporan Clinic */}
+          {activeView === 'clinic-report-visits' && (
+            <PermissionGuard module="clinic_reports">
+              <ClinicReportVisits />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-report-diseases' && (
+            <PermissionGuard module="clinic_reports">
+              <ClinicReportDiseases />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-report-medicines' && (
+            <PermissionGuard module="clinic_reports">
+              <ClinicReportMedicines />
+            </PermissionGuard>
+          )}
+          {activeView === 'clinic-report-costs' && (
+            <PermissionGuard module="clinic_reports">
+              <ClinicReportCosts />
+            </PermissionGuard>
+          )}
+
           {/* Profile dan Account Settings tidak perlu PermissionGuard */}
           {activeView === 'profile' && <ProfilePage />}
           {activeView === 'account-settings' && <AccountSettings />}
