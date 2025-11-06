@@ -19,7 +19,7 @@ export function useEmployees() {
       const { data, error: fetchError } = await supabase
         .from('employees')
         .select('*')
-        .order('nik', { ascending: true })
+        .order('employee_id', { ascending: true })
 
       if (fetchError) throw fetchError
       setEmployees(data || [])

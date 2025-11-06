@@ -67,11 +67,11 @@ import { ClinicDashboard } from "./components/ClinicDashboard";
 import { ClinicMedicines } from "./components/ClinicMedicines";
 import { ClinicSuppliers } from "./components/ClinicSuppliers";
 import { ClinicDiseases } from "./components/ClinicDiseases";
-// Clinic Module Components (Placeholder - will be replaced)
+// Clinic Module Components
+import { ClinicRegistration } from "./components/clinic";
 import {
   ClinicDoctors,
   ClinicNurses,
-  ClinicRegistration,
   ClinicExamination,
   ClinicPrescription,
   ClinicDispensing,

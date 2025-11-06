@@ -1,376 +1,430 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Download, Printer, FileSpreadsheet } from 'lucide-react';
+import { Download, Printer, FileSpreadsheet, Calendar, Move } from 'lucide-react';
 import { MASTER_EMPLOYEES } from '../shared/employeeData';
+import { MASTER_DIVISIONS } from '../shared/divisionData';
+import { Label } from './ui/label';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
 interface TaxEmployee {
   no: number;
-  nik: string;
+  branch: string; // No. Cabang
   name: string;
-  npwpStatus: string; // Status NPWP: NPWP/TK/K
-  // Penghasilan Tetap
-  basicSalary: number; // Gaji Pokok
-  positionAllowance: number; // Tunjangan Jabatan
-  housingAllowance: number; // Tunjangan Perumahan
-  transportAllowance: number; // Tunjangan Transportasi
-  mealAllowance: number; // Tunjangan Makan
-  otherAllowance: number; // Tunjangan Lainnya
-  // Penghasilan Tidak Tetap
-  overtime: number; // Lembur
-  incentive: number; // Insentif
-  bonus: number; // Bonus
-  thr: number; // THR (Tunjangan Hari Raya)
-  // Total Penghasilan Bruto
-  grossIncome: number;
-  // Potongan
-  deduction1: number; // Potongan 1
-  deduction2: number; // Potongan 2  
-  deduction3: number; // Potongan 3
-  deduction4: number; // Potongan 4
-  totalDeduction: number;
-  // Pengurang (BPJS dibayar Karyawan)
-  bpjsEmployeeJKK: number; // JKK dibayar karyawan
-  bpjsEmployeeJKM: number; // JKM dibayar karyawan
-  bpjsEmployeeJHT: number; // JHT dibayar karyawan  
-  bpjsEmployeeJP: number; // JP dibayar karyawan
-  bpjsEmployeeHealth: number; // BPJS Kesehatan dibayar karyawan
-  totalBpjsEmployee: number;
-  // Iuran yang dibayar Pemberi Kerja
-  bpjsCompanyJKK: number; // JKK dibayar perusahaan
-  bpjsCompanyJKM: number; // JKM dibayar perusahaan
-  bpjsCompanyJHT: number; // JHT dibayar perusahaan
-  bpjsCompanyJP: number; // JP dibayar perusahaan  
-  bpjsCompanyHealth: number; // BPJS Kesehatan dibayar perusahaan
-  totalBpjsCompany: number;
-  // Penghasilan Bruto (setelah ditambah BPJS Perusahaan)
-  totalBruto: number;
-  // Biaya Jabatan
-  positionCost: number; // 5% dari penghasilan bruto, max 500rb/bulan
-  // Penghasilan Netto Setahun
-  yearlyNetto: number;
-  // PTKP
+  npwp: string;
+  address: string;
+  gender: string; // L/P
+  maritalStatus: 'K' | 'TK'; // K=Kawin, TK=Tidak Kawin
+  dependents: number; // Jumlah tanggungan
+  division: string; // Estate/Division
+  // Masa Perolehan PPh
+  period: {
+    from: string;
+    to: string;
+    days: number;
+    monthYear: string; // Format: YYYY-MM
+  };
+  // Penghasilan yang PPh 21 nya dipotong oleh Pemberi Kerja
+  incomeByCompany: {
+    fixedIncome: number; // Gaji tetap
+    overtimeBenefit: number; // Lembur & benefit
+    bonus: number;
+    thr: number;
+    totalGross: number; // Total bruto
+    positionCost: number; // Biaya jabatan
+    pensionFund: number; // Iuran pensiun
+    netIncome: number; // Penghasilan netto
+  };
+  // Penghasilan yang PPh 21 nya dibayar sendiri
+  selfPaidIncome: {
+    grossIncome: number;
+    deduction: number;
+    netIncome: number;
+  };
+  // Perhitungan PPh
+  yearlyNetIncome: number;
   ptkp: number;
-  // PKP (Penghasilan Kena Pajak)
   pkp: number;
-  // PPh 21 Setahun
   pph21Yearly: number;
-  // PPh 21 Sebulan
   pph21Monthly: number;
-  // PPh 21 yang sudah dipotong
-  pph21Paid: number;
-  // PPh 21 Terutang
+  pph21Withheld: number;
   pph21Payable: number;
 }
 
 export function TaxWorksheet() {
-  const [selectedPeriod, setSelectedPeriod] = useState('2025-10');
+  const [filterMode, setFilterMode] = useState<'single' | 'range'>('single');
+  const [selectedMonth, setSelectedMonth] = useState('2025-10');
+  const [startMonth, setStartMonth] = useState('2025-09');
+  const [endMonth, setEndMonth] = useState('2025-10');
   const [selectedDivision, setSelectedDivision] = useState('all');
+  
+  // Drag to scroll functionality
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
-  const taxData: TaxEmployee[] = [
-    {
-      no: 1,
-      nik: MASTER_EMPLOYEES[2].employeeId, // Budi Santoso
-      name: MASTER_EMPLOYEES[2].fullName,
-      npwpStatus: MASTER_EMPLOYEES[2].npwpStatus,
-      basicSalary: MASTER_EMPLOYEES[2].baseSalary,
-      positionAllowance: 500000,
-      housingAllowance: 300000,
-      transportAllowance: 200000,
-      mealAllowance: 150000,
-      otherAllowance: 100000,
-      overtime: 0,
-      incentive: 0,
-      bonus: 0,
-      thr: 18000,
-      grossIncome: 5468000,
-      deduction1: 0,
-      deduction2: 0,
-      deduction3: 0,
-      deduction4: 0,
-      totalDeduction: 0,
-      bpjsEmployeeJKK: 0,
-      bpjsEmployeeJKM: 0,
-      bpjsEmployeeJHT: 84000, // 2% dari gaji pokok
-      bpjsEmployeeJP: 42000, // 1% dari gaji pokok
-      bpjsEmployeeHealth: 50000,
-      totalBpjsEmployee: 176000,
-      bpjsCompanyJKK: 21000,
-      bpjsCompanyJKM: 1260,
-      bpjsCompanyJHT: 155400, // 3.7% dari gaji pokok
-      bpjsCompanyJP: 84000, // 2% dari gaji pokok
-      bpjsCompanyHealth: 150000,
-      totalBpjsCompany: 411660,
-      totalBruto: 5879660,
-      positionCost: 293983,
-      yearlyNetto: 67031124,
-      ptkp: 63000000, // K/2
-      pkp: 4031124,
-      pph21Yearly: 201556,
-      pph21Monthly: 16796,
-      pph21Paid: 0,
-      pph21Payable: 16796,
-    },
-    {
-      no: 2,
-      nik: MASTER_EMPLOYEES[6].employeeId, // Sukarman
-      name: MASTER_EMPLOYEES[6].fullName,
-      npwpStatus: MASTER_EMPLOYEES[6].npwpStatus,
-      basicSalary: MASTER_EMPLOYEES[6].baseSalary,
-      positionAllowance: 500000,
-      housingAllowance: 300000,
-      transportAllowance: 200000,
-      mealAllowance: 150000,
-      otherAllowance: 100000,
-      overtime: 0,
-      incentive: 0,
-      bonus: 0,
-      thr: 20000,
-      grossIncome: 5770000,
-      deduction1: 0,
-      deduction2: 0,
-      deduction3: 0,
-      deduction4: 0,
-      totalDeduction: 0,
-      bpjsEmployeeJKK: 0,
-      bpjsEmployeeJKM: 0,
-      bpjsEmployeeJHT: 90000,
-      bpjsEmployeeJP: 45000,
-      bpjsEmployeeHealth: 50000,
-      totalBpjsEmployee: 185000,
-      bpjsCompanyJKK: 22500,
-      bpjsCompanyJKM: 1350,
-      bpjsCompanyJHT: 166500,
-      bpjsCompanyJP: 90000,
-      bpjsCompanyHealth: 150000,
-      totalBpjsCompany: 430350,
-      totalBruto: 6200350,
-      positionCost: 310018,
-      yearlyNetto: 70683984,
-      ptkp: 63000000, // K/2
-      pkp: 7683984,
-      pph21Yearly: 384199,
-      pph21Monthly: 32017,
-      pph21Paid: 0,
-      pph21Payable: 32017,
-    },
-    {
-      no: 3,
-      nik: MASTER_EMPLOYEES[0].employeeId, // Ahmad Hidayat
-      name: MASTER_EMPLOYEES[0].fullName,
-      npwpStatus: MASTER_EMPLOYEES[0].npwpStatus,
-      basicSalary: MASTER_EMPLOYEES[0].baseSalary,
-      positionAllowance: 800000,
-      housingAllowance: 500000,
-      transportAllowance: 300000,
-      mealAllowance: 200000,
-      otherAllowance: 150000,
-      overtime: 200000,
-      incentive: 150000,
-      bonus: 0,
-      thr: 50000,
-      grossIncome: 7850000,
-      deduction1: 0,
-      deduction2: 0,
-      deduction3: 0,
-      deduction4: 0,
-      totalDeduction: 0,
-      bpjsEmployeeJKK: 0,
-      bpjsEmployeeJKM: 0,
-      bpjsEmployeeJHT: 110000,
-      bpjsEmployeeJP: 55000,
-      bpjsEmployeeHealth: 60000,
-      totalBpjsEmployee: 225000,
-      bpjsCompanyJKK: 27500,
-      bpjsCompanyJKM: 1650,
-      bpjsCompanyJHT: 203500,
-      bpjsCompanyJP: 110000,
-      bpjsCompanyHealth: 180000,
-      totalBpjsCompany: 522650,
-      totalBruto: 8372650,
-      positionCost: 418633,
-      yearlyNetto: 95448204,
-      ptkp: 58500000, // K/1
-      pkp: 36948204,
-      pph21Yearly: 1847410,
-      pph21Monthly: 153951,
-      pph21Paid: 0,
-      pph21Payable: 153951,
-    },
-    {
-      no: 4,
-      nik: MASTER_EMPLOYEES[1].employeeId, // Siti Nurhaliza
-      name: MASTER_EMPLOYEES[1].fullName,
-      npwpStatus: MASTER_EMPLOYEES[1].npwpStatus,
-      basicSalary: MASTER_EMPLOYEES[1].baseSalary,
-      positionAllowance: 1200000,
-      housingAllowance: 800000,
-      transportAllowance: 300000,
-      mealAllowance: 200000,
-      otherAllowance: 150000,
-      overtime: 0,
-      incentive: 0,
-      bonus: 0,
-      thr: 50000,
-      grossIncome: 11200000,
-      deduction1: 0,
-      deduction2: 0,
-      deduction3: 0,
-      deduction4: 0,
-      totalDeduction: 0,
-      bpjsEmployeeJKK: 0,
-      bpjsEmployeeJKM: 0,
-      bpjsEmployeeJHT: 170000,
-      bpjsEmployeeJP: 85000,
-      bpjsEmployeeHealth: 85000,
-      totalBpjsEmployee: 340000,
-      bpjsCompanyJKK: 42500,
-      bpjsCompanyJKM: 2550,
-      bpjsCompanyJHT: 314500,
-      bpjsCompanyJP: 170000,
-      bpjsCompanyHealth: 255000,
-      totalBpjsCompany: 784550,
-      totalBruto: 11984550,
-      positionCost: 500000,
-      yearlyNetto: 137814600,
-      ptkp: 54000000, // TK
-      pkp: 83814600,
-      pph21Yearly: 10557190,
-      pph21Monthly: 879766,
-      pph21Paid: 0,
-      pph21Payable: 879766,
-    },
-    {
-      no: 5,
-      nik: MASTER_EMPLOYEES[11].employeeId, // Yuni Astuti
-      name: MASTER_EMPLOYEES[11].fullName,
-      npwpStatus: MASTER_EMPLOYEES[11].npwpStatus,
-      basicSalary: MASTER_EMPLOYEES[11].baseSalary,
-      positionAllowance: 1500000,
-      housingAllowance: 1000000,
-      transportAllowance: 400000,
-      mealAllowance: 250000,
-      otherAllowance: 200000,
-      overtime: 0,
-      incentive: 0,
-      bonus: 0,
-      thr: 100000,
-      grossIncome: 13450000,
-      deduction1: 0,
-      deduction2: 0,
-      deduction3: 0,
-      deduction4: 0,
-      totalDeduction: 0,
-      bpjsEmployeeJKK: 0,
-      bpjsEmployeeJKM: 0,
-      bpjsEmployeeJHT: 200000,
-      bpjsEmployeeJP: 100000,
-      bpjsEmployeeHealth: 100000,
-      totalBpjsEmployee: 400000,
-      bpjsCompanyJKK: 50000,
-      bpjsCompanyJKM: 3000,
-      bpjsCompanyJHT: 370000,
-      bpjsCompanyJP: 200000,
-      bpjsCompanyHealth: 300000,
-      totalBpjsCompany: 923000,
-      totalBruto: 14373000,
-      positionCost: 500000,
-      yearlyNetto: 167076000,
-      ptkp: 58500000, // K/1
-      pkp: 108576000,
-      pph21Yearly: 15428800,
-      pph21Monthly: 1285733,
-      pph21Paid: 0,
-      pph21Payable: 1285733,
-    },
-    {
-      no: 6,
-      nik: MASTER_EMPLOYEES[8].employeeId, // Agus Setiawan
-      name: MASTER_EMPLOYEES[8].fullName,
-      npwpStatus: MASTER_EMPLOYEES[8].npwpStatus,
-      basicSalary: MASTER_EMPLOYEES[8].baseSalary,
-      positionAllowance: 1500000,
-      housingAllowance: 1000000,
-      transportAllowance: 400000,
-      mealAllowance: 250000,
-      otherAllowance: 200000,
-      overtime: 600000,
-      incentive: 400000,
-      bonus: 500000,
-      thr: 100000,
-      grossIncome: 13950000,
-      deduction1: 0,
-      deduction2: 0,
-      deduction3: 0,
-      deduction4: 0,
-      totalDeduction: 0,
-      bpjsEmployeeJKK: 0,
-      bpjsEmployeeJKM: 0,
-      bpjsEmployeeJHT: 180000,
-      bpjsEmployeeJP: 90000,
-      bpjsEmployeeHealth: 90000,
-      totalBpjsEmployee: 360000,
-      bpjsCompanyJKK: 45000,
-      bpjsCompanyJKM: 2700,
-      bpjsCompanyJHT: 333000,
-      bpjsCompanyJP: 180000,
-      bpjsCompanyHealth: 270000,
-      totalBpjsCompany: 830700,
-      totalBruto: 14780700,
-      positionCost: 500000,
-      yearlyNetto: 170768400,
-      ptkp: 58500000, // K/1
-      pkp: 112268400,
-      pph21Yearly: 16340260,
-      pph21Monthly: 1361688,
-      pph21Paid: 0,
-      pph21Payable: 1361688,
-    },
-  ];
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setScrollLeft(scrollContainerRef.current.scrollLeft);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleMouseUpOrLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Helper untuk determine PTKP based on marital status and dependents
+  const getPTKP = (status: 'K' | 'TK', dependents: number): number => {
+    if (status === 'TK') {
+      if (dependents === 0) return 54000000;
+      if (dependents === 1) return 58500000;
+      if (dependents === 2) return 63000000;
+      return 67500000; // 3 or more
+    } else {
+      if (dependents === 0) return 58500000;
+      if (dependents === 1) return 63000000;
+      if (dependents === 2) return 67500000;
+      return 72000000; // 3 or more
+    }
+  };
+
+  // Helper function to generate tax data
+  const generateTaxData = (): TaxEmployee[] => {
+    const employees: TaxEmployee[] = [];
+    let counter = 1;
+    
+    // Employee templates with various profiles
+    const employeeTemplates = [
+      { name: 'Ahmad Hidayat', gender: 'L', maritalStatus: 'K' as const, dependents: 1, baseSalary: 5500000 },
+      { name: 'Siti Nurhaliza', gender: 'P', maritalStatus: 'TK' as const, dependents: 0, baseSalary: 8500000 },
+      { name: 'Budi Santoso', gender: 'L', maritalStatus: 'K' as const, dependents: 2, baseSalary: 4200000 },
+      { name: 'Dewi Kartika', gender: 'P', maritalStatus: 'K' as const, dependents: 1, baseSalary: 7200000 },
+      { name: 'Eko Prasetyo', gender: 'L', maritalStatus: 'K' as const, dependents: 3, baseSalary: 6800000 },
+      { name: 'Fitri Handayani', gender: 'P', maritalStatus: 'TK' as const, dependents: 0, baseSalary: 5900000 },
+      { name: 'Gunawan Susanto', gender: 'L', maritalStatus: 'K' as const, dependents: 2, baseSalary: 9500000 },
+      { name: 'Hesti Wulandari', gender: 'P', maritalStatus: 'K' as const, dependents: 1, baseSalary: 8200000 },
+      { name: 'Indra Wijaya', gender: 'L', maritalStatus: 'K' as const, dependents: 2, baseSalary: 7500000 },
+      { name: 'Joko Susilo', gender: 'L', maritalStatus: 'TK' as const, dependents: 0, baseSalary: 4800000 },
+      { name: 'Kartini Sari', gender: 'P', maritalStatus: 'K' as const, dependents: 2, baseSalary: 6500000 },
+      { name: 'Lukman Hakim', gender: 'L', maritalStatus: 'K' as const, dependents: 1, baseSalary: 10200000 },
+      { name: 'Maya Anggraini', gender: 'P', maritalStatus: 'TK' as const, dependents: 0, baseSalary: 5200000 },
+      { name: 'Nur Azizah', gender: 'P', maritalStatus: 'K' as const, dependents: 3, baseSalary: 7800000 },
+      { name: 'Oki Firmansyah', gender: 'L', maritalStatus: 'K' as const, dependents: 2, baseSalary: 8900000 },
+      { name: 'Putri Damayanti', gender: 'P', maritalStatus: 'TK' as const, dependents: 0, baseSalary: 6200000 },
+      { name: 'Rahmat Hidayat', gender: 'L', maritalStatus: 'K' as const, dependents: 1, baseSalary: 5600000 },
+      { name: 'Sukarman', gender: 'L', maritalStatus: 'K' as const, dependents: 2, baseSalary: 4500000 },
+      { name: 'Taufik Rahman', gender: 'L', maritalStatus: 'K' as const, dependents: 2, baseSalary: 9800000 },
+      { name: 'Umi Kalsum', gender: 'P', maritalStatus: 'K' as const, dependents: 1, baseSalary: 7400000 },
+    ];
+    
+    const divisions = [
+      { name: 'Aek Loba', code: '1' },
+      { name: 'Bangun Bandar', code: '3' },
+      { name: 'Tanah Gambus', code: '5' },
+      { name: 'Aek Pamienke', code: '2' },
+    ];
+    
+    const months = [
+      { month: 1, days: 31, monthYear: '2025-01' },
+      { month: 2, days: 28, monthYear: '2025-02' },
+      { month: 3, days: 31, monthYear: '2025-03' },
+      { month: 4, days: 30, monthYear: '2025-04' },
+      { month: 5, days: 31, monthYear: '2025-05' },
+      { month: 6, days: 30, monthYear: '2025-06' },
+      { month: 7, days: 31, monthYear: '2025-07' },
+      { month: 8, days: 31, monthYear: '2025-08' },
+      { month: 9, days: 30, monthYear: '2025-09' },
+      { month: 10, days: 31, monthYear: '2025-10' },
+      { month: 11, days: 30, monthYear: '2025-11' },
+      { month: 12, days: 31, monthYear: '2025-12' },
+    ];
+    
+    // Generate data for each division
+    divisions.forEach((division) => {
+      // Each division has 15 employees
+      for (let empIndex = 0; empIndex < 15; empIndex++) {
+        const template = employeeTemplates[empIndex % employeeTemplates.length];
+        
+        // Each employee appears in 1 specific month (distributed across the year)
+        const monthIndex = empIndex % 12;
+        const monthData = months[monthIndex];
+        
+        const fixedIncome = template.baseSalary;
+        const hasOvertime = empIndex % 4 === 0;
+        const hasBonus = empIndex % 7 === 0;
+        const overtimeBenefit = hasOvertime ? Math.floor(fixedIncome * 0.15) : 0;
+        const bonus = hasBonus ? Math.floor(fixedIncome * 0.2) : 0;
+        const thr = Math.floor(fixedIncome * 0.01);
+        
+        const totalGross = fixedIncome + overtimeBenefit + bonus + thr;
+        const positionCost = Math.min(totalGross * 0.05, 500000);
+        const pensionFund = Math.floor(fixedIncome * 0.04);
+        const netIncome = totalGross - positionCost - pensionFund;
+        
+        const yearlyNetIncome = netIncome * 12;
+        const ptkp = getPTKP(template.maritalStatus, template.dependents);
+        const pkp = Math.max(0, yearlyNetIncome - ptkp);
+        
+        // Calculate PPh 21
+        let pph21Yearly = 0;
+        if (pkp > 0) {
+          if (pkp <= 60000000) {
+            pph21Yearly = pkp * 0.05;
+          } else if (pkp <= 250000000) {
+            pph21Yearly = 3000000 + (pkp - 60000000) * 0.15;
+          } else if (pkp <= 500000000) {
+            pph21Yearly = 31500000 + (pkp - 250000000) * 0.25;
+          } else {
+            pph21Yearly = 94000000 + (pkp - 500000000) * 0.30;
+          }
+        }
+        
+        const pph21Monthly = Math.floor(pph21Yearly / 12);
+        
+        employees.push({
+          no: counter++,
+          branch: '10',
+          name: `${template.name} (${division.name})`,
+          npwp: `${10 + empIndex}.${234 + empIndex}.${567 + empIndex}.${counter % 10}-${100 + parseInt(division.code)}.000`,
+          address: `Jl. Raya ${division.name} No. ${counter * 10}, Medan`,
+          gender: template.gender,
+          maritalStatus: template.maritalStatus,
+          dependents: template.dependents,
+          division: division.name,
+          period: {
+            from: `01/${monthData.month.toString().padStart(2, '0')}/2025`,
+            to: `${monthData.days}/${monthData.month.toString().padStart(2, '0')}/2025`,
+            days: monthData.days,
+            monthYear: monthData.monthYear,
+          },
+          incomeByCompany: {
+            fixedIncome,
+            overtimeBenefit,
+            bonus,
+            thr,
+            totalGross,
+            positionCost,
+            pensionFund,
+            netIncome,
+          },
+          selfPaidIncome: {
+            grossIncome: 0,
+            deduction: 0,
+            netIncome: 0,
+          },
+          yearlyNetIncome,
+          ptkp,
+          pkp,
+          pph21Yearly,
+          pph21Monthly,
+          pph21Withheld: 0,
+          pph21Payable: pph21Monthly,
+        });
+      }
+    });
+    
+    return employees;
+  };
+
+  const taxData: TaxEmployee[] = generateTaxData();
+
+  // Filter data based on mode, period, and division
+  const filteredData = useMemo(() => {
+    return taxData.filter(emp => {
+      // Filter by period
+      if (filterMode === 'single') {
+        if (emp.period.monthYear !== selectedMonth) return false;
+      } else {
+        // Range mode
+        if (emp.period.monthYear < startMonth || emp.period.monthYear > endMonth) return false;
+      }
+      
+      // Filter by division
+      if (selectedDivision !== 'all' && emp.division !== selectedDivision) return false;
+      
+      return true;
+    });
+  }, [taxData, filterMode, selectedMonth, startMonth, endMonth, selectedDivision]);
 
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString('id-ID', { minimumFractionDigits: 0 });
   };
 
-  const calculateTotal = (field: keyof TaxEmployee) => {
-    return taxData.reduce((sum, emp) => sum + (Number(emp[field]) || 0), 0);
+  const calculateTotal = (field: string) => {
+    return filteredData.reduce((sum, emp) => {
+      // Handle nested fields
+      if (field.includes('.')) {
+        const keys = field.split('.');
+        let value: any = emp;
+        for (const key of keys) {
+          value = value?.[key];
+        }
+        return sum + (Number(value) || 0);
+      }
+      return sum + (Number(emp[field as keyof TaxEmployee]) || 0);
+    }, 0);
   };
+
+  // Generate month options
+  const monthOptions = [
+    { value: '2025-01', label: 'Januari 2025' },
+    { value: '2025-02', label: 'Februari 2025' },
+    { value: '2025-03', label: 'Maret 2025' },
+    { value: '2025-04', label: 'April 2025' },
+    { value: '2025-05', label: 'Mei 2025' },
+    { value: '2025-06', label: 'Juni 2025' },
+    { value: '2025-07', label: 'Juli 2025' },
+    { value: '2025-08', label: 'Agustus 2025' },
+    { value: '2025-09', label: 'September 2025' },
+    { value: '2025-10', label: 'Oktober 2025' },
+    { value: '2025-11', label: 'November 2025' },
+    { value: '2025-12', label: 'Desember 2025' },
+  ];
 
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4 md:mb-6">
         <h1 className="mb-1">Tax Worksheet</h1>
         <p className="text-muted-foreground">PT. Socfin Indonesia - Bangun Bandar</p>
-        <p className="text-xs text-muted-foreground mt-1">PTKP 1 Bulan</p>
+        <p className="text-xs text-muted-foreground mt-1">Daftar Pemotongan Pajak Penghasilan Pasal 21</p>
       </div>
 
       <Card className="shadow-sm mb-4">
         <div className="p-4 md:p-6 border-b border-border">
-          <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-            <div className="flex flex-wrap gap-2">
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2025-10">Oktober 2025</SelectItem>
-                  <SelectItem value="2025-09">September 2025</SelectItem>
-                  <SelectItem value="2025-08">Agustus 2025</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Divisi</SelectItem>
-                  <SelectItem value="div1">Divisi 1</SelectItem>
-                  <SelectItem value="div2">Divisi 2</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Filter Mode Selection */}
+          <div className="mb-4 pb-4 border-b border-border">
+            <Label className="mb-3 block">Mode Filter Periode:</Label>
+            <RadioGroup 
+              value={filterMode} 
+              onValueChange={(value: 'single' | 'range') => setFilterMode(value)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="single" id="single" />
+                <Label htmlFor="single" className="cursor-pointer">1 Bulan</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="range" id="range" />
+                <Label htmlFor="range" className="cursor-pointer">Periode (Bulan Awal - Akhir)</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {/* Period Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="mb-2 block flex items-center gap-2">
+                  <Calendar size={14} />
+                  {filterMode === 'single' ? 'Pilih Bulan' : 'Bulan Awal'}
+                </Label>
+                {filterMode === 'single' ? (
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map(month => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={startMonth} onValueChange={setStartMonth}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map(month => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {filterMode === 'range' && (
+                <div className="flex-1 min-w-[200px]">
+                  <Label className="mb-2 block flex items-center gap-2">
+                    <Calendar size={14} />
+                    Bulan Akhir
+                  </Label>
+                  <Select value={endMonth} onValueChange={setEndMonth}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map(month => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Division Filter */}
+              <div className="flex-1 min-w-[200px]">
+                <Label className="mb-2 block">Filter Divisi/Estate</Label>
+                <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Divisi</SelectItem>
+                    {MASTER_DIVISIONS.filter(d => d.isActive).map(division => (
+                      <SelectItem key={division.id} value={division.name}>
+                        {division.shortname} - {division.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex gap-2">
+
+            {/* Summary Info */}
+            <div className="bg-muted/50 p-3 rounded-md space-y-1">
+              <p className="text-sm">
+                <span className="text-muted-foreground">Menampilkan:</span>{' '}
+                <span className="font-medium">{filteredData.length} karyawan</span>
+                {filterMode === 'single' && (
+                  <span className="text-muted-foreground">
+                    {' '}untuk bulan {monthOptions.find(m => m.value === selectedMonth)?.label}
+                  </span>
+                )}
+                {filterMode === 'range' && (
+                  <span className="text-muted-foreground">
+                    {' '}untuk periode {monthOptions.find(m => m.value === startMonth)?.label} - {monthOptions.find(m => m.value === endMonth)?.label}
+                  </span>
+                )}
+                {selectedDivision !== 'all' && (
+                  <span className="text-muted-foreground"> di {selectedDivision}</span>
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground italic flex items-center gap-1">
+                <Move size={12} className="inline" />
+                Tip: Klik dan drag pada tabel untuk menggeser ke kiri/kanan
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-2 justify-end pt-2 border-t border-border">
               <Button variant="outline" size="sm" className="gap-2">
                 <Printer size={16} />
                 <span className="hidden sm:inline">Print</span>
@@ -387,261 +441,294 @@ export function TaxWorksheet() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <div className="min-w-[4500px]">
-            <table className="w-full text-xs border-collapse">
+        <div 
+          ref={scrollContainerRef}
+          className="overflow-x-auto select-none"
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUpOrLeave}
+          onMouseLeave={handleMouseUpOrLeave}
+        >
+          <div className="min-w-[3800px]">
+            <table className="w-full text-[10px] border-collapse">
               <thead className="sticky top-0 bg-muted/50">
                 <tr>
-                  {/* Identitas */}
-                  <th rowSpan={2} className="px-2 py-3 text-center border border-border bg-muted min-w-[40px]">No</th>
-                  <th rowSpan={2} className="px-2 py-3 text-left border border-border bg-muted min-w-[100px]">NIK</th>
-                  <th rowSpan={2} className="px-2 py-3 text-left border border-border bg-muted min-w-[180px]">Nama Lengkap</th>
-                  <th rowSpan={2} className="px-2 py-3 text-center border border-border bg-muted min-w-[80px]">Status<br/>NPWP</th>
+                  {/* Basic Info */}
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-muted min-w-[35px]">No</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-muted min-w-[60px]">No. Cabang</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-muted min-w-[160px]">N A M A</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-muted min-w-[120px]">N P W P</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-muted min-w-[180px]">Alamat</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-muted min-w-[35px]">L/P</th>
                   
-                  {/* Penghasilan Tetap */}
-                  <th colSpan={6} className="px-2 py-2 text-center border border-border bg-[#e3f2fd]">Penghasilan Tetap</th>
+                  {/* Status Kawin */}
+                  <th colSpan={2} rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#e3f2fd]">Status Kawin</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-muted min-w-[50px]">ANAK/<br/>TAN</th>
                   
-                  {/* Penghasilan Tidak Tetap */}
-                  <th colSpan={4} className="px-2 py-2 text-center border border-border bg-[#fff3e0]">Penghasilan Tidak Tetap</th>
+                  {/* Masa Perolehan PPh */}
+                  <th colSpan={4} className="px-2 py-2 text-center border border-border bg-[#fff3e0]">Masa Perolehan PPh</th>
                   
-                  {/* Total Penghasilan Bruto */}
-                  <th rowSpan={2} className="px-2 py-3 text-right border border-border bg-[#ffeb3b]/30 min-w-[120px]">Total<br/>Penghasilan<br/>Bruto</th>
+                  {/* Penghasilan Yang PPh 21 nya dipotong oleh Pemberi Kerja */}
+                  <th colSpan={7} className="px-2 py-2 text-center border border-border bg-[#e8f5e9]">Penghasilan Yang PPh 21 nya dipotong oleh Pemberi Kerja</th>
                   
-                  {/* Potongan */}
-                  <th colSpan={5} className="px-2 py-2 text-center border border-border bg-[#f3e5f5]">Potongan</th>
+                  {/* Penghasilan Yang PPh 21 nya dibayar/disetor Sendiri */}
+                  <th colSpan={3} className="px-2 py-2 text-center border border-border bg-[#f3e5f5]">Penghasilan Yang PPh 21 nya<br/>dibayar/disetor Sendiri</th>
                   
-                  {/* Iuran Pensiun (dibayar Karyawan) */}
-                  <th colSpan={6} className="px-2 py-2 text-center border border-border bg-[#fce4ec]">Iuran Pensiun/JHT/THT (Dibayar Karyawan)</th>
-                  
-                  {/* Iuran Pensiun (dibayar Pemberi Kerja) */}
-                  <th colSpan={6} className="px-2 py-2 text-center border border-border bg-[#e8f5e9]">Iuran yang Dibayar Pemberi Kerja</th>
-                  
-                  {/* Penghasilan Bruto */}
-                  <th rowSpan={2} className="px-2 py-3 text-right border border-border bg-[#ffeb3b]/50 min-w-[120px]">Penghasilan<br/>Bruto</th>
-                  
-                  {/* Biaya Jabatan */}
-                  <th rowSpan={2} className="px-2 py-3 text-right border border-border bg-[#ffebee] min-w-[100px]">Biaya<br/>Jabatan</th>
-                  
-                  {/* Penghasilan Netto Setahun */}
-                  <th rowSpan={2} className="px-2 py-3 text-right border border-border bg-[#e0f2f1] min-w-[120px]">Penghasilan<br/>Netto<br/>Setahun</th>
+                  {/* Jumlah Kum. Penghasilan Netto (Total PPh) */}
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-[#ffeb3b]/30 min-w-[100px]">Jumlah Kum.<br/>Penghasilan<br/>Netto (RP)<br/>Setahun/Diset...</th>
                   
                   {/* PTKP */}
-                  <th rowSpan={2} className="px-2 py-3 text-right border border-border bg-[#f1f8e9] min-w-[120px]">PTKP</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-[#ffebee] min-w-[100px]">PTKP</th>
                   
                   {/* PKP */}
-                  <th rowSpan={2} className="px-2 py-3 text-right border border-border bg-[#fff3e0] min-w-[120px]">PKP<br/>(Penghasilan<br/>Kena Pajak)</th>
+                  <th rowSpan={3} className="px-2 py-3 text-center border border-border bg-[#e0f2f1] min-w-[100px]">PKP</th>
                   
-                  {/* PPh 21 */}
-                  <th colSpan={4} className="px-2 py-2 text-center border border-border bg-[#ffcdd2]">PPh 21</th>
+                  {/* PPh 21 Terutang */}
+                  <th colSpan={4} className="px-2 py-2 text-center border border-border bg-[#ffcdd2]">PPh 21 Dipotong</th>
                 </tr>
+                
+                {/* Row 2 */}
                 <tr>
-                  {/* Penghasilan Tetap - Row 2 */}
-                  <th className="px-2 py-2 text-right border border-border bg-[#e3f2fd] min-w-[100px]">Gaji Pokok</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e3f2fd] min-w-[100px]">Tunj. Jabatan</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e3f2fd] min-w-[100px]">Tunj. Perumahan</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e3f2fd] min-w-[100px]">Tunj. Transport</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e3f2fd] min-w-[100px]">Tunj. Makan</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e3f2fd] min-w-[100px]">Tunj. Lainnya</th>
+                  {/* Masa Perolehan PPh - Row 2 */}
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#fff3e0] min-w-[60px]">Dari</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#fff3e0] min-w-[60px]">s/d</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#fff3e0] min-w-[45px]">L/D<br/>(hari)</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#fff3e0] min-w-[60px]">Gaji</th>
                   
-                  {/* Penghasilan Tidak Tetap - Row 2 */}
-                  <th className="px-2 py-2 text-right border border-border bg-[#fff3e0] min-w-[100px]">Lembur</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fff3e0] min-w-[100px]">Insentif</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fff3e0] min-w-[100px]">Bonus</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fff3e0] min-w-[100px]">THR</th>
+                  {/* Penghasilan Pemberi Kerja - Row 2 */}
+                  <th colSpan={4} className="px-2 py-2 text-center border border-border bg-[#e8f5e9]">yang menjadi Dasar Pengenaan Tarif PPh</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#e8f5e9] min-w-[95px]">Bruto</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#e8f5e9] min-w-[95px]">Pengurang</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#e8f5e9] min-w-[95px]">Netto</th>
                   
-                  {/* Potongan - Row 2 */}
-                  <th className="px-2 py-2 text-right border border-border bg-[#f3e5f5] min-w-[90px]">Potongan 1</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#f3e5f5] min-w-[90px]">Potongan 2</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#f3e5f5] min-w-[90px]">Potongan 3</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#f3e5f5] min-w-[90px]">Potongan 4</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#f3e5f5] min-w-[110px]">Total<br/>Potongan</th>
+                  {/* Penghasilan Sendiri - Row 2 */}
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#f3e5f5] min-w-[95px]">Bruto</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#f3e5f5] min-w-[95px]">Pengurang</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#f3e5f5] min-w-[95px]">Netto</th>
                   
-                  {/* BPJS Karyawan - Row 2 */}
-                  <th className="px-2 py-2 text-right border border-border bg-[#fce4ec] min-w-[80px]">JKK</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fce4ec] min-w-[80px]">JKM</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fce4ec] min-w-[80px]">JHT</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fce4ec] min-w-[80px]">JP</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fce4ec] min-w-[100px]">BPJS Kes</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#fce4ec] min-w-[100px]">Total</th>
+                  {/* PPh 21 Dipotong - Row 2 */}
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#ffcdd2] min-w-[95px]">PPh 21<br/>Setahun</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#ffcdd2] min-w-[95px]">PPh 21<br/>Sebulan</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#ffcdd2] min-w-[95px]">PPh 21<br/>Dipotong</th>
+                  <th rowSpan={2} className="px-2 py-2 text-center border border-border bg-[#ffcdd2] min-w-[95px]">PPh 21<br/>Terutang</th>
+                </tr>
+                
+                {/* Row 3 */}
+                <tr>
+                  {/* Status Kawin - Row 3 */}
+                  <th className="px-2 py-2 text-center border border-border bg-[#e3f2fd] min-w-[35px]">K</th>
+                  <th className="px-2 py-2 text-center border border-border bg-[#e3f2fd] min-w-[35px]">TK</th>
                   
-                  {/* BPJS Perusahaan - Row 2 */}
-                  <th className="px-2 py-2 text-right border border-border bg-[#e8f5e9] min-w-[80px]">JKK</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e8f5e9] min-w-[80px]">JKM</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e8f5e9] min-w-[80px]">JHT</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e8f5e9] min-w-[80px]">JP</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e8f5e9] min-w-[100px]">BPJS Kes</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#e8f5e9] min-w-[100px]">Total</th>
-                  
-                  {/* PPh 21 - Row 2 */}
-                  <th className="px-2 py-2 text-right border border-border bg-[#ffcdd2] min-w-[120px]">PPh 21<br/>Setahun</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#ffcdd2] min-w-[120px]">PPh 21<br/>Sebulan</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#ffcdd2] min-w-[120px]">PPh 21<br/>Dipotong</th>
-                  <th className="px-2 py-2 text-right border border-border bg-[#ffcdd2] min-w-[120px]">PPh 21<br/>Terutang</th>
+                  {/* Dasar Pengenaan - Row 3 */}
+                  <th className="px-2 py-2 text-center border border-border bg-[#e8f5e9] min-w-[95px]">Gaji Tetap</th>
+                  <th className="px-2 py-2 text-center border border-border bg-[#e8f5e9] min-w-[95px]">Lembur &<br/>Benefit</th>
+                  <th className="px-2 py-2 text-center border border-border bg-[#e8f5e9] min-w-[95px]">Bonus</th>
+                  <th className="px-2 py-2 text-center border border-border bg-[#e8f5e9] min-w-[95px]">THR</th>
                 </tr>
               </thead>
+              
               <tbody>
-                {taxData.map((emp) => (
+                {filteredData.length === 0 ? (
+                  <tr>
+                    <td colSpan={28} className="px-4 py-8 text-center text-muted-foreground">
+                      Tidak ada data untuk filter yang dipilih
+                    </td>
+                  </tr>
+                ) : (
+                  filteredData.map((emp, index) => (
                   <tr 
                     key={emp.no} 
-                    className={`border-b border-border hover:bg-muted/30 ${emp.name === 'Bambang' ? 'bg-yellow-100/50' : ''}`}
+                    className="border-b border-border hover:bg-muted/30"
                   >
-                    {/* Identitas */}
-                    <td className="px-2 py-2 text-center border border-border">{emp.no}</td>
-                    <td className="px-2 py-2 border border-border">{emp.nik}</td>
+                    {/* Basic Info */}
+                    <td className="px-2 py-2 text-center border border-border">{index + 1}</td>
+                    <td className="px-2 py-2 text-center border border-border">{emp.branch}</td>
                     <td className="px-2 py-2 border border-border">{emp.name}</td>
-                    <td className="px-2 py-2 text-center border border-border">{emp.npwpStatus}</td>
+                    <td className="px-2 py-2 text-center border border-border text-[9px]">{emp.npwp}</td>
+                    <td className="px-2 py-2 border border-border text-[9px]">{emp.address}</td>
+                    <td className="px-2 py-2 text-center border border-border">{emp.gender}</td>
                     
-                    {/* Penghasilan Tetap */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#e3f2fd]/20">{formatCurrency(emp.basicSalary)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e3f2fd]/20">{formatCurrency(emp.positionAllowance)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e3f2fd]/20">{formatCurrency(emp.housingAllowance)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e3f2fd]/20">{formatCurrency(emp.transportAllowance)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e3f2fd]/20">{formatCurrency(emp.mealAllowance)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e3f2fd]/20">{formatCurrency(emp.otherAllowance)}</td>
+                    {/* Status Kawin */}
+                    <td className="px-2 py-2 text-center border border-border bg-[#e3f2fd]/10">
+                      {emp.maritalStatus === 'K' ? '√' : ''}
+                    </td>
+                    <td className="px-2 py-2 text-center border border-border bg-[#e3f2fd]/10">
+                      {emp.maritalStatus === 'TK' ? '√' : ''}
+                    </td>
+                    <td className="px-2 py-2 text-center border border-border">{emp.dependents}</td>
                     
-                    {/* Penghasilan Tidak Tetap */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#fff3e0]/20">{emp.overtime ? formatCurrency(emp.overtime) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fff3e0]/20">{emp.incentive ? formatCurrency(emp.incentive) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fff3e0]/20">{emp.bonus ? formatCurrency(emp.bonus) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fff3e0]/20">{formatCurrency(emp.thr)}</td>
+                    {/* Masa Perolehan */}
+                    <td className="px-2 py-2 text-center border border-border bg-[#fff3e0]/10 text-[9px]">
+                      {emp.period.from}
+                    </td>
+                    <td className="px-2 py-2 text-center border border-border bg-[#fff3e0]/10 text-[9px]">
+                      {emp.period.to}
+                    </td>
+                    <td className="px-2 py-2 text-center border border-border bg-[#fff3e0]/10">
+                      {emp.period.days}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#fff3e0]/10">
+                      {formatCurrency(emp.incomeByCompany.fixedIncome)}
+                    </td>
                     
-                    {/* Total Penghasilan Bruto */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#ffeb3b]/30 font-medium">{formatCurrency(emp.grossIncome)}</td>
+                    {/* Penghasilan Pemberi Kerja */}
+                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/10">
+                      {formatCurrency(emp.incomeByCompany.fixedIncome)}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/10">
+                      {emp.incomeByCompany.overtimeBenefit > 0 ? formatCurrency(emp.incomeByCompany.overtimeBenefit) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/10">
+                      {emp.incomeByCompany.bonus > 0 ? formatCurrency(emp.incomeByCompany.bonus) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/10">
+                      {formatCurrency(emp.incomeByCompany.thr)}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/20 font-medium">
+                      {formatCurrency(emp.incomeByCompany.totalGross)}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/10">
+                      {formatCurrency(emp.incomeByCompany.positionCost + emp.incomeByCompany.pensionFund)}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/20 font-medium">
+                      {formatCurrency(emp.incomeByCompany.netIncome)}
+                    </td>
                     
-                    {/* Potongan */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/20">{emp.deduction1 ? formatCurrency(emp.deduction1) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/20">{emp.deduction2 ? formatCurrency(emp.deduction2) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/20">{emp.deduction3 ? formatCurrency(emp.deduction3) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/20">{emp.deduction4 ? formatCurrency(emp.deduction4) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/30 font-medium">{formatCurrency(emp.totalDeduction)}</td>
-                    
-                    {/* BPJS Karyawan */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#fce4ec]/20">{emp.bpjsEmployeeJKK ? formatCurrency(emp.bpjsEmployeeJKK) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fce4ec]/20">{emp.bpjsEmployeeJKM ? formatCurrency(emp.bpjsEmployeeJKM) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fce4ec]/20">{formatCurrency(emp.bpjsEmployeeJHT)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fce4ec]/20">{formatCurrency(emp.bpjsEmployeeJP)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fce4ec]/20">{formatCurrency(emp.bpjsEmployeeHealth)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#fce4ec]/30 font-medium">{formatCurrency(emp.totalBpjsEmployee)}</td>
-                    
-                    {/* BPJS Perusahaan */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/20">{formatCurrency(emp.bpjsCompanyJKK)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/20">{formatCurrency(emp.bpjsCompanyJKM)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/20">{formatCurrency(emp.bpjsCompanyJHT)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/20">{formatCurrency(emp.bpjsCompanyJP)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/20">{formatCurrency(emp.bpjsCompanyHealth)}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#e8f5e9]/30 font-medium">{formatCurrency(emp.totalBpjsCompany)}</td>
-                    
-                    {/* Penghasilan Bruto */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#ffeb3b]/50 font-semibold">{formatCurrency(emp.totalBruto)}</td>
-                    
-                    {/* Biaya Jabatan */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#ffebee]/20">{formatCurrency(emp.positionCost)}</td>
+                    {/* Penghasilan Sendiri */}
+                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/10">
+                      {emp.selfPaidIncome.grossIncome > 0 ? formatCurrency(emp.selfPaidIncome.grossIncome) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/10">
+                      {emp.selfPaidIncome.deduction > 0 ? formatCurrency(emp.selfPaidIncome.deduction) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#f3e5f5]/10">
+                      {emp.selfPaidIncome.netIncome > 0 ? formatCurrency(emp.selfPaidIncome.netIncome) : '-'}
+                    </td>
                     
                     {/* Penghasilan Netto Setahun */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#e0f2f1]/30 font-medium">{formatCurrency(emp.yearlyNetto)}</td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#ffeb3b]/20 font-medium">
+                      {formatCurrency(emp.yearlyNetIncome)}
+                    </td>
                     
                     {/* PTKP */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#f1f8e9]/20">{formatCurrency(emp.ptkp)}</td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#ffebee]/10">
+                      {formatCurrency(emp.ptkp)}
+                    </td>
                     
                     {/* PKP */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#fff3e0]/30 font-medium">{emp.pkp ? formatCurrency(emp.pkp) : '0'}</td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#e0f2f1]/20 font-medium">
+                      {emp.pkp > 0 ? formatCurrency(emp.pkp) : '-'}
+                    </td>
                     
                     {/* PPh 21 */}
-                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/20">{emp.pph21Yearly ? formatCurrency(emp.pph21Yearly) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/20">{emp.pph21Monthly ? formatCurrency(emp.pph21Monthly) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/20">{emp.pph21Paid ? formatCurrency(emp.pph21Paid) : '0'}</td>
-                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/40 font-semibold">{emp.pph21Payable ? formatCurrency(emp.pph21Payable) : '0'}</td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/10">
+                      {emp.pph21Yearly > 0 ? formatCurrency(emp.pph21Yearly) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/10">
+                      {emp.pph21Monthly > 0 ? formatCurrency(emp.pph21Monthly) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/10">
+                      {emp.pph21Withheld > 0 ? formatCurrency(emp.pph21Withheld) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right border border-border bg-[#ffcdd2]/30 font-semibold">
+                      {emp.pph21Payable > 0 ? formatCurrency(emp.pph21Payable) : '-'}
+                    </td>
                   </tr>
-                ))}
+                  ))
+                )}
                 
                 {/* Total Row */}
+                {filteredData.length > 0 && (
                 <tr className="bg-primary/10 border-t-2 border-primary">
-                  <td colSpan={4} className="px-2 py-3 border border-border font-semibold">TOTAL</td>
+                  <td colSpan={9} className="px-2 py-3 border border-border font-semibold text-center">
+                    J U M L A H
+                  </td>
                   
-                  {/* Penghasilan Tetap Totals */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#e3f2fd]/30 font-semibold">{formatCurrency(calculateTotal('basicSalary'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e3f2fd]/30 font-semibold">{formatCurrency(calculateTotal('positionAllowance'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e3f2fd]/30 font-semibold">{formatCurrency(calculateTotal('housingAllowance'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e3f2fd]/30 font-semibold">{formatCurrency(calculateTotal('transportAllowance'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e3f2fd]/30 font-semibold">{formatCurrency(calculateTotal('mealAllowance'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e3f2fd]/30 font-semibold">{formatCurrency(calculateTotal('otherAllowance'))}</td>
+                  {/* Periode totals - skip dates */}
+                  <td colSpan={3} className="px-2 py-3 border border-border"></td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#fff3e0]/30 font-semibold">
+                    {formatCurrency(calculateTotal('incomeByCompany.fixedIncome'))}
+                  </td>
                   
-                  {/* Penghasilan Tidak Tetap Totals */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#fff3e0]/30 font-semibold">{formatCurrency(calculateTotal('overtime'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fff3e0]/30 font-semibold">{formatCurrency(calculateTotal('incentive'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fff3e0]/30 font-semibold">{formatCurrency(calculateTotal('bonus'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fff3e0]/30 font-semibold">{formatCurrency(calculateTotal('thr'))}</td>
+                  {/* Penghasilan Pemberi Kerja Totals */}
+                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">
+                    {formatCurrency(calculateTotal('incomeByCompany.fixedIncome'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">
+                    {formatCurrency(calculateTotal('incomeByCompany.overtimeBenefit'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">
+                    {formatCurrency(calculateTotal('incomeByCompany.bonus'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">
+                    {formatCurrency(calculateTotal('incomeByCompany.thr'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/40 font-semibold">
+                    {formatCurrency(calculateTotal('incomeByCompany.totalGross'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">
+                    {formatCurrency(filteredData.reduce((sum, emp) => 
+                      sum + emp.incomeByCompany.positionCost + emp.incomeByCompany.pensionFund, 0
+                    ))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/40 font-semibold">
+                    {formatCurrency(calculateTotal('incomeByCompany.netIncome'))}
+                  </td>
                   
-                  {/* Total Penghasilan Bruto */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#ffeb3b]/50 font-bold text-base">{formatCurrency(calculateTotal('grossIncome'))}</td>
+                  {/* Penghasilan Sendiri Totals */}
+                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/30 font-semibold">
+                    {formatCurrency(calculateTotal('selfPaidIncome.grossIncome'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/30 font-semibold">
+                    {formatCurrency(calculateTotal('selfPaidIncome.deduction'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/30 font-semibold">
+                    {formatCurrency(calculateTotal('selfPaidIncome.netIncome'))}
+                  </td>
                   
-                  {/* Potongan Totals */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/30 font-semibold">{formatCurrency(calculateTotal('deduction1'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/30 font-semibold">{formatCurrency(calculateTotal('deduction2'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/30 font-semibold">{formatCurrency(calculateTotal('deduction3'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/30 font-semibold">{formatCurrency(calculateTotal('deduction4'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#f3e5f5]/50 font-bold">{formatCurrency(calculateTotal('totalDeduction'))}</td>
-                  
-                  {/* BPJS Karyawan Totals */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#fce4ec]/30 font-semibold">{formatCurrency(calculateTotal('bpjsEmployeeJKK'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fce4ec]/30 font-semibold">{formatCurrency(calculateTotal('bpjsEmployeeJKM'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fce4ec]/30 font-semibold">{formatCurrency(calculateTotal('bpjsEmployeeJHT'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fce4ec]/30 font-semibold">{formatCurrency(calculateTotal('bpjsEmployeeJP'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fce4ec]/30 font-semibold">{formatCurrency(calculateTotal('bpjsEmployeeHealth'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#fce4ec]/50 font-bold">{formatCurrency(calculateTotal('totalBpjsEmployee'))}</td>
-                  
-                  {/* BPJS Perusahaan Totals */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">{formatCurrency(calculateTotal('bpjsCompanyJKK'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">{formatCurrency(calculateTotal('bpjsCompanyJKM'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">{formatCurrency(calculateTotal('bpjsCompanyJHT'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">{formatCurrency(calculateTotal('bpjsCompanyJP'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/30 font-semibold">{formatCurrency(calculateTotal('bpjsCompanyHealth'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#e8f5e9]/50 font-bold">{formatCurrency(calculateTotal('totalBpjsCompany'))}</td>
-                  
-                  {/* Penghasilan Bruto Total */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#ffeb3b]/60 font-bold text-base">{formatCurrency(calculateTotal('totalBruto'))}</td>
-                  
-                  {/* Biaya Jabatan Total */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#ffebee]/30 font-semibold">{formatCurrency(calculateTotal('positionCost'))}</td>
-                  
-                  {/* Penghasilan Netto Setahun Total */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#e0f2f1]/50 font-bold text-base">{formatCurrency(calculateTotal('yearlyNetto'))}</td>
-                  
-                  {/* PTKP Total */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#f1f8e9]/30 font-semibold">{formatCurrency(calculateTotal('ptkp'))}</td>
-                  
-                  {/* PKP Total */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#fff3e0]/50 font-bold text-base">{formatCurrency(calculateTotal('pkp'))}</td>
+                  {/* Total Netto & PTKP */}
+                  <td className="px-2 py-3 text-right border border-border bg-[#ffeb3b]/40 font-semibold">
+                    {formatCurrency(calculateTotal('yearlyNetIncome'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#ffebee]/30 font-semibold">
+                    {formatCurrency(calculateTotal('ptkp'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#e0f2f1]/40 font-semibold">
+                    {formatCurrency(calculateTotal('pkp'))}
+                  </td>
                   
                   {/* PPh 21 Totals */}
-                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/30 font-semibold">{formatCurrency(calculateTotal('pph21Yearly'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/30 font-semibold">{formatCurrency(calculateTotal('pph21Monthly'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/30 font-semibold">{formatCurrency(calculateTotal('pph21Paid'))}</td>
-                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/60 font-bold text-base">{formatCurrency(calculateTotal('pph21Payable'))}</td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/30 font-semibold">
+                    {formatCurrency(calculateTotal('pph21Yearly'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/30 font-semibold">
+                    {formatCurrency(calculateTotal('pph21Monthly'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/30 font-semibold">
+                    {formatCurrency(calculateTotal('pph21Withheld'))}
+                  </td>
+                  <td className="px-2 py-3 text-right border border-border bg-[#ffcdd2]/50 font-semibold">
+                    {formatCurrency(calculateTotal('pph21Payable'))}
+                  </td>
                 </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total Penghasilan Bruto</p>
-          <h3 className="text-xl text-primary">Rp {formatCurrency(calculateTotal('totalBruto'))}</h3>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total Penghasilan Netto</p>
-          <h3 className="text-xl text-[#00d27a]">Rp {formatCurrency(calculateTotal('yearlyNetto'))}</h3>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total PKP</p>
-          <h3 className="text-xl text-[#f5803e]">Rp {formatCurrency(calculateTotal('pkp'))}</h3>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total PPh 21 Terutang</p>
-          <h3 className="text-xl text-destructive">Rp {formatCurrency(calculateTotal('pph21Payable'))}</h3>
-        </Card>
+      {/* Footer Notes */}
+      <div className="mt-4 text-xs text-muted-foreground">
+        <p className="mb-2">Keterangan:</p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li>K = Kawin, TK = Tidak Kawin</li>
+          <li>ANAK/TAN = Jumlah Anak/Tanggungan (maksimal 3)</li>
+          <li>L/D = Lama hari kerja dalam periode</li>
+          <li>Biaya Jabatan = 5% dari penghasilan bruto (maksimal Rp 500.000/bulan atau Rp 6.000.000/tahun)</li>
+          <li>PTKP dihitung berdasarkan status perkawinan dan jumlah tanggungan</li>
+        </ul>
       </div>
     </div>
   );
