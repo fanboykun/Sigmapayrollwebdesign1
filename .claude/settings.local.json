@@ -1,24 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cat:*)",
-      "Bash(git fetch:*)",
-      "Bash(git stash push:*)",
-      "Bash(git pull:*)",
-      "Bash(git stash:*)",
-      "Bash(git add:*)",
-      "Bash(git restore:*)",
-      "Bash(git commit:*)",
-      "Bash(git config:*)",
-      "Bash(git push:*)",
-      "Bash(git rebase:*)",
-      "Bash(npm run build:*)",
-      "Bash(findstr:*)",
-      "Bash(npx supabase db reset:*)",
-      "Bash(dir:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true
 }

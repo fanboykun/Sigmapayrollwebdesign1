@@ -98,37 +98,28 @@ export interface Database {
       divisions: {
         Row: {
           id: string
-          code: string
-          name: string
-          type: 'estate' | 'mill' | 'office' | 'workshop'
-          area_hectares: number | null
-          location: string | null
-          manager_id: string | null
-          is_active: boolean
+          kode_divisi: string
+          nama_divisi: string
+          kepala_divisi: string | null
+          jumlah_karyawan: number | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          code: string
-          name: string
-          type: 'estate' | 'mill' | 'office' | 'workshop'
-          area_hectares?: number | null
-          location?: string | null
-          manager_id?: string | null
-          is_active?: boolean
+          kode_divisi: string
+          nama_divisi: string
+          kepala_divisi?: string | null
+          jumlah_karyawan?: number | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          code?: string
-          name?: string
-          type?: 'estate' | 'mill' | 'office' | 'workshop'
-          area_hectares?: number | null
-          location?: string | null
-          manager_id?: string | null
-          is_active?: boolean
+          kode_divisi?: string
+          nama_divisi?: string
+          kepala_divisi?: string | null
+          jumlah_karyawan?: number | null
           created_at?: string
           updated_at?: string
         }

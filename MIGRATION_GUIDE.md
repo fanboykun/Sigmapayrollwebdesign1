@@ -1,238 +1,133 @@
-# 🚀 SUPABASE MIGRATION GUIDE
+# Migration Guide - Apply Database Schema to Supabase
 
-Panduan lengkap untuk menjalankan database migrations dan setup Supabase.
-
-## 📋 Prerequisites
-
-1. Akun Supabase (https://supabase.com)
-2. Project Supabase sudah dibuat
-3. File `.env` sudah dibuat di root project
-
-## 🗄️ STEP 1: Run Database Migrations
-
-### Option A: Via Supabase Dashboard (Recommended)
-
-1. **Login ke Supabase Dashboard**
-   - Buka https://supabase.com/dashboard
-   - Login dengan akun Anda
-   - Pilih project: `gketmjcxsnzrrzwfrxfw`
-
-2. **Buka SQL Editor**
-   - Di sidebar kiri, klik **SQL Editor**
-   - Klik **New query**
-
-3. **Run Migration 001: Initial Schema**
-   - Copy seluruh isi file `supabase/migrations/001_initial_schema.sql`
-   - Paste ke SQL Editor
-   - Klik **Run** atau tekan `Ctrl+Enter`
-   - Tunggu hingga selesai (sekitar 10-15 detik)
-   - Cek di **Table Editor**, seharusnya ada 22 tabel baru
-
-4. **Run Migration 002: RLS Policies**
-   - Copy seluruh isi file `supabase/migrations/002_rls_policies.sql`
-   - Paste ke SQL Editor baru
-   - Klik **Run**
-   - Tunggu hingga selesai
-
-5. **Run Migration 003: Seed Data**
-   - Copy seluruh isi file `supabase/migrations/003_seed_data.sql`
-   - Paste ke SQL Editor baru
-   - Klik **Run**
-   - Tunggu hingga selesai
-
-### Option B: Via Supabase CLI
-
-```bash
-# Install Supabase CLI (jika belum)
-npm install -g supabase
-
-# Login
-supabase login
-
-# Link project
-supabase link --project-ref gketmjcxsnzrrzwfrxfw
-
-# Run migrations
-supabase db push
+## Error You're Experiencing
+```
+Gagal menambahkan divisi: Could not find the 'code' column of 'divisions' in the schema cache
 ```
 
-## 👤 STEP 2: Create Demo Users
+This error occurs because the database migrations haven't been applied to your Supabase database yet.
 
-Setelah migrations berhasil, buat demo users di Supabase Auth:
+## Solution: Apply Migrations Manually
 
-1. **Buka Authentication**
-   - Di sidebar kiri, klik **Authentication** → **Users**
-   - Klik **Add user** → **Create new user**
+### Step 1: Access Supabase SQL Editor
+1. Go to https://app.supabase.com
+2. Select your project
+3. Click "SQL Editor" in the left sidebar
+4. Click "New query"
 
-2. **Buat 4 Demo Users:**
+### Step 2: Run Migrations in Order
 
-   **User 1: Super Admin**
-   - Email: `superadmin@sawit.com`
-   - Password: `super123`
-   - Auto Confirm User: ✅
-   - Setelah dibuat, catat UUID user
-   - Buka **SQL Editor** dan jalankan:
-   ```sql
-   INSERT INTO public.users (id, email, full_name, role)
-   VALUES (
-     'PASTE_UUID_SUPER_ADMIN_DISINI',
-     'superadmin@sawit.com',
-     'Super Admin',
-     'super_admin'
-   );
-   ```
+You need to run each migration file in the `supabase/migrations/` folder in order. Copy and paste the contents of each file into the SQL Editor and click "Run".
 
-   **User 2: Admin Payroll**
-   - Email: `admin@sawit.com`
-   - Password: `admin123`
-   - Auto Confirm User: ✅
-   - Jalankan SQL:
-   ```sql
-   INSERT INTO public.users (id, email, full_name, role)
-   VALUES (
-     'PASTE_UUID_ADMIN_DISINI',
-     'admin@sawit.com',
-     'Admin Payroll',
-     'admin'
-   );
-   ```
+#### Required Migrations (in order):
 
-   **User 3: Manager HRD**
-   - Email: `manager@sawit.com`
-   - Password: `manager123`
-   - Auto Confirm User: ✅
-   - Jalankan SQL:
-   ```sql
-   INSERT INTO public.users (id, email, full_name, role)
-   VALUES (
-     'PASTE_UUID_MANAGER_DISINI',
-     'manager@sawit.com',
-     'Manager HRD',
-     'manager'
-   );
-   ```
+1. **001_initial_schema.sql** - Creates all tables (divisions, positions, employees, etc.)
+2. **002_add_employee_additional_fields.sql** - Adds additional employee fields
+3. **002_rls_policies.sql** - Sets up Row Level Security policies
+4. **003_seed_data.sql** - Seeds initial master data
+5. **003_seed_employees_data.sql** - Seeds employee test data
+6. **004_clinic_master_data.sql** - Clinic master data tables
+7. **005_clinic_operational.sql** - Clinic operational tables
+8. **006_clinic_inventory.sql** - Clinic inventory tables
+9. **007_clinic_triggers.sql** - Clinic triggers
+10. **008_clinic_hr_integration.sql** - HR integration
+11. **009_clinic_seed_data.sql** - Clinic seed data
+12. **009b_fix_clinic_permissions.sql** - Fix clinic permissions
+13. **009c_verify_and_fix_all_clinic_permissions.sql** - Verify clinic permissions
+14. **010_partner_plantations.sql** - Partner plantations
+15. **011_patients.sql** - Patients table
+16. **012_clinic_registrations.sql** - Clinic registrations
+17. **013_employees_family_data.sql** - Employee family data
+18. **014_seed_clinic_registration_data.sql** - Clinic registration seed data
+19. **015_add_doctor_fk_constraint.sql** - Doctor foreign key
 
-   **User 4: Karyawan**
-   - Email: `budi@sawit.com`
-   - Password: `karyawan123`
-   - Auto Confirm User: ✅
-   - Jalankan SQL:
-   ```sql
-   INSERT INTO public.users (id, email, full_name, role, employee_id)
-   VALUES (
-     'PASTE_UUID_KARYAWAN_DISINI',
-     'budi@sawit.com',
-     'Budi Santoso',
-     'karyawan',
-     'EMP001'
-   );
-   ```
+### Step 3: Verify Schema
 
-## ✅ STEP 3: Verifikasi Setup
+After running all migrations, verify the schema is correct by running:
 
-1. **Cek Tables**
-   - Buka **Table Editor**
-   - Pastikan ada 22 tabel:
-     - users, roles, role_permissions
-     - divisions, positions, wage_scales
-     - tax_brackets, bpjs_rates
-     - natura, premiums
-     - working_days, holidays
-     - employees, employee_assets, employee_transfers
-     - job_postings, applicants
-     - termination_requests
-     - attendance_records, leave_requests
-     - payroll_periods, payroll_records
+```sql
+-- Check divisions table structure
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'divisions'
+ORDER BY ordinal_position;
 
-2. **Cek Users**
-   - Buka **Authentication** → **Users**
-   - Pastikan ada 4 users
-   - Buka **Table Editor** → **users** table
-   - Pastikan semua 4 users ada dengan role yang benar
+-- Check positions table structure
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'positions'
+ORDER BY ordinal_position;
 
-3. **Test Login**
-   - Jalankan aplikasi: `npm run dev`
-   - Buka http://localhost:5173
-   - Login dengan salah satu akun:
-     - superadmin@sawit.com / super123
-     - admin@sawit.com / admin123
-     - manager@sawit.com / manager123
-     - budi@sawit.com / karyawan123
-
-## 🔒 STEP 4: Setup Row Level Security (RLS)
-
-RLS Policies sudah disetup melalui migration 002. Untuk verifikasi:
-
-1. Buka **Authentication** → **Policies**
-2. Pilih table (misal: `employees`)
-3. Pastikan ada policies untuk:
-   - SELECT (users can read based on role)
-   - INSERT (users can create based on role)
-   - UPDATE (users can update based on role)
-   - DELETE (users can delete based on role)
-
-## 🎯 STEP 5: Test API
-
-Setelah setup selesai, test API dengan:
-
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
+-- Check employees table structure
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'employees'
+ORDER BY ordinal_position;
 ```
 
-Buka aplikasi dan coba:
-1. Login dengan berbagai role
-2. Cek apakah data master muncul
-3. Coba tambah/edit/hapus data
-4. Cek apakah permission bekerja dengan benar
+### Expected Results
 
-## 📝 Troubleshooting
+After running the migrations, you should see:
 
-### Error: "relation does not exist"
-- Migration belum dijalankan
-- Jalankan migration 001 terlebih dahulu
+**divisions table:**
+- id (uuid)
+- code (varchar)
+- shortname (varchar)
+- name (varchar)
+- is_factory (boolean)
+- is_active (boolean)
+- created_at (timestamp)
+- updated_at (timestamp)
 
-### Error: "duplicate key value"
-- User sudah ada di table `users`
-- Cek di Table Editor → users
-- Hapus duplikat atau skip create user
+**positions table:**
+- id (uuid)
+- code (varchar)
+- name (varchar)
+- level (varchar)
+- description (text)
+- is_active (boolean)
+- created_at (timestamp)
+- updated_at (timestamp)
 
-### Error: "JWT expired"
-- Session sudah expired
-- Logout dan login kembali
+**employees table:**
+- id (uuid)
+- nik (varchar)
+- full_name (varchar)
+- division_id (uuid) - FK to divisions
+- position_id (uuid) - FK to positions
+- tax_ptkp_status (varchar) - NOT ptkp_status
+- ... and many other fields
 
-### Error: "permission denied"
-- RLS policies belum disetup
-- Jalankan migration 002
+## Alternative: Use Supabase CLI with Link
 
-### Error: "Missing Supabase environment variables"
-- File `.env` belum dibuat atau salah
-- Pastikan `.env` ada di root project
-- Cek format environment variables
+If you prefer to use the CLI, you need to link your project first:
 
-## 🔐 Security Notes
+```bash
+# Link to your remote Supabase project
+npx supabase link --project-ref YOUR_PROJECT_REF
 
-⚠️ **PENTING:**
-- Jangan commit file `.env` ke Git (sudah ada di `.gitignore`)
-- Gunakan password yang kuat di production
-- Enable Email Confirmation di production
-- Setup RLS policies dengan benar
-- Review permissions secara berkala
+# Push all migrations to remote database
+npx supabase db push
+```
 
-## 📚 Resources
+To find your PROJECT_REF:
+1. Go to Supabase Dashboard
+2. Click on your project
+3. Go to Settings > General
+4. Copy the "Reference ID"
 
-- [Supabase Documentation](https://supabase.com/docs)
-- [Supabase Auth Guide](https://supabase.com/docs/guides/auth)
-- [Supabase RLS Guide](https://supabase.com/docs/guides/auth/row-level-security)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+## After Applying Migrations
 
-## 🆘 Need Help?
+Once all migrations are applied:
+1. Refresh your application
+2. Try adding a division again - it should work
+3. Try adding a position - it should work
+4. Try adding/editing employees - it should work
 
-Jika ada masalah:
-1. Cek console browser untuk error messages
-2. Cek Supabase Dashboard → Logs
-3. Cek file SUPABASE_SETUP.md untuk detail lebih lengkap
-4. Contact support team
+## Troubleshooting
+
+If you still get schema cache errors:
+1. Make sure ALL migrations were applied successfully
+2. Check for any SQL errors in the Supabase SQL Editor
+3. Verify the tables exist: Go to "Table Editor" in Supabase Dashboard
+4. Try refreshing the schema cache in your app (restart dev server)

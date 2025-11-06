@@ -19,7 +19,7 @@ export function useDivisions() {
       const { data, error: fetchError } = await supabase
         .from('divisions')
         .select('*')
-        .order('code', { ascending: true })
+        .order('kode_divisi', { ascending: true })
 
       if (fetchError) throw fetchError
       setDivisions(data || [])

@@ -808,7 +808,11 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       <nav
         ref={desktopScrollRef}
         onScroll={handleDesktopScroll}
-        className="flex-1 px-4 overflow-y-auto"
+        className="flex-1 px-4 overflow-y-auto scrollbar-hide"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
       >
         <TooltipProvider delayDuration={0}>
           <ul className="space-y-1">
@@ -1025,7 +1029,11 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       <nav
         ref={mobileScrollRef}
         onScroll={handleMobileScroll}
-        className="flex-1 px-4 overflow-y-auto"
+        className="flex-1 px-4 overflow-y-auto scrollbar-hide"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
       >
         <ul className="space-y-1">
           {/* Single Menu Items - Dashboard */}

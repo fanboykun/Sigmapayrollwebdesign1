@@ -48,21 +48,40 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { MASTER_DIVISIONS } from "../shared/divisionData";
 import { Recruitment } from "./Recruitment";
 import { Termination } from "./Termination";
 import { Probasi } from "./Probasi";
 import { supabase } from "../utils/supabase/client";
 import { toast } from "sonner";
+import { usePositions } from "../hooks/usePositions";
+import { useDivisions } from "../hooks/useDivisions";
 
 interface Asset {
-  id: string;
-  assetCode: string;
-  assetName: string;
-  loanStartDate: Date | undefined;
-  loanEndDate: Date | undefined;
-  licenseManager: string;
-  personInCharge: string;
+  id?: string;
+  asset_code: string;
+  asset_name: string;
+  asset_type: string;
+  assigned_date: Date | undefined;
+  return_date: Date | undefined;
+  description?: string;
+  status?: 'assigned' | 'returned' | 'damaged' | 'lost';
+  notes?: string;
+}
+
+// Family data structure matching database JSONB format
+interface FamilyMember {
+  nik?: string;
+  fullName: string;
+  birthDate?: string;
+  gender?: "male" | "female";
+  bloodType?: string;
+  bpjsHealthNumber?: string;
+  phone?: string;
+}
+
+interface FamilyData {
+  spouse?: FamilyMember;
+  children?: FamilyMember[];
 }
 
 interface Employee {
@@ -92,10 +111,14 @@ interface Employee {
   drivingLicenseExpiry?: Date; // SIM expiry date
   nationality?: string; // Nationality
   bloodGroup?: string; // Blood type (A+, B+, O+, AB+, etc)
-  // BPJS fields
-  bpjsKesehatanNumber?: string;
-  bpjsKetenagakerjaanNumber?: string;
-  bpjsTaxStatus?: string;
+  maritalStatus?: "single" | "married" | "divorced" | "widowed";
+  // BPJS & Tax fields
+  bpjsHealthNumber?: string;
+  npwp?: string;
+  ptkpStatus?: string; // TK, K/0, K/1, K/2, K/3
+  // Family data (JSONB in database)
+  familyData?: FamilyData;
+  // For backward compatibility with form
   spouseName?: string;
   child1Name?: string;
   child2Name?: string;
@@ -142,10 +165,12 @@ export function EmployeeManagement() {
     drivingLicenseNumber: "",
     nationality: "Indonesian",
     bloodGroup: "",
-    // BPJS fields
-    bpjsKesehatanNumber: "",
-    bpjsKetenagakerjaanNumber: "",
-    bpjsTaxStatus: "",
+    maritalStatus: "single",
+    // BPJS & Tax fields
+    bpjsHealthNumber: "",
+    npwp: "",
+    ptkpStatus: "",
+    // Family fields (for form UI)
     spouseName: "",
     child1Name: "",
     child2Name: "",
@@ -155,17 +180,22 @@ export function EmployeeManagement() {
   // Asset state
   const [assets, setAssets] = useState<Asset[]>([]);
   const [currentAsset, setCurrentAsset] = useState({
-    assetCode: "",
-    assetName: "",
-    licenseManager: "",
-    personInCharge: "",
+    asset_code: "",
+    asset_name: "",
+    asset_type: "",
+    description: "",
+    status: "assigned" as const,
   });
-  const [loanStartDate, setLoanStartDate] = useState<Date | undefined>();
-  const [loanEndDate, setLoanEndDate] = useState<Date | undefined>();
+  const [assignedDate, setAssignedDate] = useState<Date | undefined>();
+  const [returnDate, setReturnDate] = useState<Date | undefined>();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Load positions and divisions from database
+  const { positions } = usePositions();
+  const { divisions } = useDivisions();
 
   // Load employees from Supabase with filters
   const loadEmployees = async () => {
@@ -201,46 +231,58 @@ export function EmployeeManagement() {
       if (error) throw error;
 
       // Transform Supabase data to match the Employee interface
-      const transformedData: Employee[] = (data || []).map((emp: any) => ({
-        id: emp.id,
-        employeeId: emp.employee_id,
-        fullName: emp.full_name,
-        email: emp.email,
-        phone: emp.phone,
-        birthDate: new Date(emp.birth_date),
-        gender: emp.gender as "male" | "female",
-        religion: emp.religion || "",
-        address: emp.address,
-        division: emp.division_id, // You may need to join with divisions table to get the name
-        position: emp.position_id, // You may need to join with positions table to get the name
-        gradeLevel:
-          emp.employment_type === "permanent"
-            ? "pegawai"
-            : emp.employment_type === "contract"
-            ? "pkwt"
-            : "karyawan",
-        joinDate: new Date(emp.join_date),
-        status: emp.status as "active" | "inactive" | "on-leave",
-        bankName: emp.bank_name,
-        bankAccount: emp.bank_account,
-        emergencyContact: emp.emergency_contact_name || "",
-        emergencyPhone: emp.emergency_contact_phone || "",
-        nationalId: emp.npwp,
-        height: undefined,
-        weight: undefined,
-        drivingLicenseNumber: undefined,
-        drivingLicenseExpiry: undefined,
-        nationality: undefined,
-        bloodGroup: undefined,
-        bpjsKesehatanNumber: emp.bpjs_kesehatan_number,
-        bpjsKetenagakerjaanNumber: emp.bpjs_ketenagakerjaan_number,
-        bpjsTaxStatus: emp.bpjs_tax_status,
-        spouseName: emp.spouse_name,
-        child1Name: emp.child1_name,
-        child2Name: emp.child2_name,
-        child3Name: emp.child3_name,
-        assets: [],
-      }));
+      const transformedData: Employee[] = (data || []).map((emp: any) => {
+        // Extract family data from JSONB
+        const familyData = emp.family_data || {};
+        const spouse = familyData.spouse;
+        const children = familyData.children || [];
+
+        return {
+          id: emp.id,
+          employeeId: emp.employee_id,
+          fullName: emp.full_name,
+          email: emp.email,
+          phone: emp.phone,
+          birthDate: new Date(emp.birth_date),
+          gender: emp.gender as "male" | "female",
+          religion: emp.religion || "",
+          address: emp.address,
+          division: emp.division_id,
+          position: emp.position_id,
+          gradeLevel:
+            emp.employment_type === "permanent"
+              ? "pegawai"
+              : emp.employment_type === "contract"
+              ? "pkwt"
+              : "karyawan",
+          joinDate: new Date(emp.join_date),
+          status: emp.status as "active" | "inactive" | "on-leave",
+          bankName: emp.bank_name,
+          bankAccount: emp.bank_account,
+          emergencyContact: emp.emergency_contact_name || "",
+          emergencyPhone: emp.emergency_contact_phone || "",
+          nationalId: emp.national_id,
+          height: emp.height,
+          weight: emp.weight,
+          drivingLicenseNumber: emp.driving_license_number,
+          drivingLicenseExpiry: emp.driving_license_expiry
+            ? new Date(emp.driving_license_expiry)
+            : undefined,
+          nationality: emp.nationality,
+          bloodGroup: emp.blood_type,
+          maritalStatus: emp.marital_status,
+          bpjsHealthNumber: emp.bpjs_health_number,
+          npwp: emp.npwp,
+          ptkpStatus: emp.tax_ptkp_status || emp.ptkp_status,
+          familyData: familyData,
+          // For backward compatibility with form
+          spouseName: spouse?.fullName || "",
+          child1Name: children[0]?.fullName || "",
+          child2Name: children[1]?.fullName || "",
+          child3Name: children[2]?.fullName || "",
+          assets: [],
+        };
+      });
 
       setEmployees(transformedData);
     } catch (err: any) {
@@ -291,9 +333,10 @@ export function EmployeeManagement() {
       drivingLicenseNumber: "",
       nationality: "Indonesian",
       bloodGroup: "",
-      bpjsKesehatanNumber: "",
-      bpjsKetenagakerjaanNumber: "",
-      bpjsTaxStatus: "",
+      maritalStatus: "single",
+      bpjsHealthNumber: "",
+      npwp: "",
+      ptkpStatus: "",
       spouseName: "",
       child1Name: "",
       child2Name: "",
@@ -304,14 +347,78 @@ export function EmployeeManagement() {
     setDrivingLicenseExpiry(undefined);
     setAssets([]);
     setCurrentAsset({
-      assetCode: "",
-      assetName: "",
-      licenseManager: "",
-      personInCharge: "",
+      asset_code: "",
+      asset_name: "",
+      asset_type: "",
+      description: "",
+      status: "assigned",
     });
-    setLoanStartDate(undefined);
-    setLoanEndDate(undefined);
+    setAssignedDate(undefined);
+    setReturnDate(undefined);
     setActiveTab("personal");
+  };
+
+  // Load assets for employee
+  const loadEmployeeAssets = async (employeeId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("employee_assets")
+        .select("*")
+        .eq("employee_id", employeeId);
+
+      if (error) throw error;
+
+      const transformedAssets: Asset[] = (data || []).map((asset: any) => ({
+        id: asset.id,
+        asset_code: asset.asset_code,
+        asset_name: asset.asset_name,
+        asset_type: asset.asset_type,
+        assigned_date: asset.assigned_date ? new Date(asset.assigned_date) : undefined,
+        return_date: asset.return_date ? new Date(asset.return_date) : undefined,
+        description: asset.description,
+        status: asset.status,
+        notes: asset.notes,
+      }));
+
+      setAssets(transformedAssets);
+    } catch (err: any) {
+      console.error("Error loading employee assets:", err);
+    }
+  };
+
+  // Save assets to database
+  const saveEmployeeAssets = async (employeeId: string) => {
+    try {
+      // Delete existing assets for this employee
+      await supabase
+        .from("employee_assets")
+        .delete()
+        .eq("employee_id", employeeId);
+
+      // Insert new assets
+      if (assets.length > 0) {
+        const assetsToInsert = assets.map((asset) => ({
+          employee_id: employeeId,
+          asset_code: asset.asset_code,
+          asset_name: asset.asset_name,
+          asset_type: asset.asset_type,
+          assigned_date: asset.assigned_date?.toISOString().split("T")[0],
+          return_date: asset.return_date?.toISOString().split("T")[0],
+          description: asset.description,
+          status: asset.status || "assigned",
+          notes: asset.notes,
+        }));
+
+        const { error } = await supabase
+          .from("employee_assets")
+          .insert(assetsToInsert);
+
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      console.error("Error saving employee assets:", err);
+      throw err;
+    }
   };
 
   const handleAddEmployee = async () => {
@@ -327,8 +434,45 @@ export function EmployeeManagement() {
         return;
       }
 
+      if (!formData.division || !formData.position) {
+        toast.error("Divisi dan Jabatan harus diisi");
+        return;
+      }
+
+      // Prepare family data in JSONB format
+      const familyData: FamilyData = {};
+
+      if (formData.spouseName) {
+        familyData.spouse = {
+          fullName: formData.spouseName,
+        };
+      }
+
+      const children: FamilyMember[] = [];
+      if (formData.child1Name) children.push({ fullName: formData.child1Name });
+      if (formData.child2Name) children.push({ fullName: formData.child2Name });
+      if (formData.child3Name) children.push({ fullName: formData.child3Name });
+
+      if (children.length > 0) {
+        familyData.children = children;
+      }
+
+      // Verify division and position exist in database
+      const divisionExists = divisions.find(d => d.id === formData.division);
+      const positionExists = positions.find(p => p.id === formData.position);
+
+      if (!divisionExists) {
+        toast.error("Divisi yang dipilih tidak valid. Silakan pilih divisi yang tersedia.");
+        return;
+      }
+
+      if (!positionExists) {
+        toast.error("Jabatan yang dipilih tidak valid. Silakan pilih jabatan yang tersedia.");
+        return;
+      }
+
       // Prepare data for Supabase (transform from component format to database format)
-      const insertData = {
+      const insertData: any = {
         employee_id: formData.employeeId,
         full_name: formData.fullName,
         email: formData.email,
@@ -351,14 +495,21 @@ export function EmployeeManagement() {
         bank_account: formData.bankAccount,
         emergency_contact_name: formData.emergencyContact,
         emergency_contact_phone: formData.emergencyPhone,
-        npwp: formData.nationalId,
-        bpjs_kesehatan_number: formData.bpjsKesehatanNumber,
-        bpjs_ketenagakerjaan_number: formData.bpjsKetenagakerjaanNumber,
-        bpjs_tax_status: formData.bpjsTaxStatus,
-        spouse_name: formData.spouseName,
-        child1_name: formData.child1Name,
-        child2_name: formData.child2Name,
-        child3_name: formData.child3Name,
+        national_id: formData.nationalId,
+        height: formData.height ? parseFloat(formData.height) : null,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        driving_license_number: formData.drivingLicenseNumber,
+        driving_license_expiry: drivingLicenseExpiry
+          ? drivingLicenseExpiry.toISOString().split("T")[0]
+          : null,
+        nationality: formData.nationality,
+        blood_type: formData.bloodGroup,
+        marital_status: formData.maritalStatus,
+        bpjs_health_number: formData.bpjsHealthNumber,
+        npwp: formData.npwp,
+        tax_ptkp_status: formData.ptkpStatus,
+        family_data: Object.keys(familyData).length > 0 ? familyData : null,
+        base_salary: 0, // Required field, set default
       };
 
       const { data, error } = await supabase
@@ -369,6 +520,11 @@ export function EmployeeManagement() {
 
       if (error) throw error;
 
+      // Save assets to database
+      if (data && assets.length > 0) {
+        await saveEmployeeAssets(data.id);
+      }
+
       toast.success("Karyawan berhasil ditambahkan");
       setIsAddDialogOpen(false);
       resetForm();
@@ -378,12 +534,12 @@ export function EmployeeManagement() {
       if (error.code === "23505") {
         toast.error("NIK atau email sudah digunakan");
       } else {
-        toast.error("Gagal menambahkan karyawan");
+        toast.error("Gagal menambahkan karyawan: " + error.message);
       }
     }
   };
 
-  const handleEditEmployee = (employee: Employee) => {
+  const handleEditEmployee = async (employee: Employee) => {
     setSelectedEmployee(employee);
     setFormData({
       employeeId: employee.employeeId,
@@ -406,9 +562,10 @@ export function EmployeeManagement() {
       drivingLicenseNumber: employee.drivingLicenseNumber || "",
       nationality: employee.nationality || "Indonesian",
       bloodGroup: employee.bloodGroup || "",
-      bpjsKesehatanNumber: employee.bpjsKesehatanNumber || "",
-      bpjsKetenagakerjaanNumber: employee.bpjsKetenagakerjaanNumber || "",
-      bpjsTaxStatus: employee.bpjsTaxStatus || "",
+      maritalStatus: employee.maritalStatus || "single",
+      bpjsHealthNumber: employee.bpjsHealthNumber || "",
+      npwp: employee.npwp || "",
+      ptkpStatus: employee.ptkpStatus || "",
       spouseName: employee.spouseName || "",
       child1Name: employee.child1Name || "",
       child2Name: employee.child2Name || "",
@@ -417,7 +574,10 @@ export function EmployeeManagement() {
     setBirthDate(employee.birthDate);
     setJoinDate(employee.joinDate);
     setDrivingLicenseExpiry(employee.drivingLicenseExpiry);
-    setAssets(employee.assets || []);
+
+    // Load assets from database
+    await loadEmployeeAssets(employee.id);
+
     setActiveTab("personal");
     setIsEditDialogOpen(true);
   };
@@ -426,8 +586,46 @@ export function EmployeeManagement() {
     if (!selectedEmployee) return;
 
     try {
+      // Validation
+      if (!formData.division || !formData.position) {
+        toast.error("Divisi dan Jabatan harus diisi");
+        return;
+      }
+
+      // Verify division and position exist in database
+      const divisionExists = divisions.find(d => d.id === formData.division);
+      const positionExists = positions.find(p => p.id === formData.position);
+
+      if (!divisionExists) {
+        toast.error("Divisi yang dipilih tidak valid. Silakan pilih divisi yang tersedia.");
+        return;
+      }
+
+      if (!positionExists) {
+        toast.error("Jabatan yang dipilih tidak valid. Silakan pilih jabatan yang tersedia.");
+        return;
+      }
+
+      // Prepare family data in JSONB format
+      const familyData: FamilyData = {};
+
+      if (formData.spouseName) {
+        familyData.spouse = {
+          fullName: formData.spouseName,
+        };
+      }
+
+      const children: FamilyMember[] = [];
+      if (formData.child1Name) children.push({ fullName: formData.child1Name });
+      if (formData.child2Name) children.push({ fullName: formData.child2Name });
+      if (formData.child3Name) children.push({ fullName: formData.child3Name });
+
+      if (children.length > 0) {
+        familyData.children = children;
+      }
+
       // Prepare data for Supabase (transform from component format to database format)
-      const updateData = {
+      const updateData: any = {
         employee_id: formData.employeeId,
         full_name: formData.fullName,
         email: formData.email,
@@ -449,14 +647,20 @@ export function EmployeeManagement() {
         bank_account: formData.bankAccount,
         emergency_contact_name: formData.emergencyContact,
         emergency_contact_phone: formData.emergencyPhone,
-        npwp: formData.nationalId,
-        bpjs_kesehatan_number: formData.bpjsKesehatanNumber,
-        bpjs_ketenagakerjaan_number: formData.bpjsKetenagakerjaanNumber,
-        bpjs_tax_status: formData.bpjsTaxStatus,
-        spouse_name: formData.spouseName,
-        child1_name: formData.child1Name,
-        child2_name: formData.child2Name,
-        child3_name: formData.child3Name,
+        national_id: formData.nationalId,
+        height: formData.height ? parseFloat(formData.height) : null,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        driving_license_number: formData.drivingLicenseNumber,
+        driving_license_expiry: drivingLicenseExpiry
+          ? drivingLicenseExpiry.toISOString().split("T")[0]
+          : null,
+        nationality: formData.nationality,
+        blood_type: formData.bloodGroup,
+        marital_status: formData.maritalStatus,
+        bpjs_health_number: formData.bpjsHealthNumber,
+        npwp: formData.npwp,
+        tax_ptkp_status: formData.ptkpStatus,
+        family_data: Object.keys(familyData).length > 0 ? familyData : null,
       };
 
       const { error } = await supabase
@@ -466,6 +670,9 @@ export function EmployeeManagement() {
 
       if (error) throw error;
 
+      // Save assets to database
+      await saveEmployeeAssets(selectedEmployee.id);
+
       toast.success("Data karyawan berhasil diupdate");
       setIsEditDialogOpen(false);
       resetForm();
@@ -473,7 +680,7 @@ export function EmployeeManagement() {
       loadEmployees(); // Refresh the employee list
     } catch (error: any) {
       console.error("Error updating employee:", error);
-      toast.error("Gagal mengupdate data karyawan");
+      toast.error("Gagal mengupdate data karyawan: " + error.message);
     }
   };
 
@@ -506,46 +713,58 @@ export function EmployeeManagement() {
   };
 
   const handleAddAsset = () => {
-    if (!currentAsset.assetCode || !currentAsset.assetName) {
-      alert("Kode Aset dan Nama Aset harus diisi!");
+    if (!currentAsset.asset_code || !currentAsset.asset_name || !currentAsset.asset_type) {
+      toast.error("Kode Aset, Nama Aset, dan Tipe Aset harus diisi!");
+      return;
+    }
+
+    if (!assignedDate) {
+      toast.error("Tanggal penugasan harus diisi!");
       return;
     }
 
     const newAsset: Asset = {
-      id: String(Date.now()),
-      assetCode: currentAsset.assetCode,
-      assetName: currentAsset.assetName,
-      loanStartDate: loanStartDate,
-      loanEndDate: loanEndDate,
-      licenseManager: currentAsset.licenseManager,
-      personInCharge: currentAsset.personInCharge,
+      asset_code: currentAsset.asset_code,
+      asset_name: currentAsset.asset_name,
+      asset_type: currentAsset.asset_type,
+      assigned_date: assignedDate,
+      return_date: returnDate,
+      description: currentAsset.description,
+      status: currentAsset.status,
     };
 
     setAssets([...assets, newAsset]);
     setCurrentAsset({
-      assetCode: "",
-      assetName: "",
-      licenseManager: "",
-      personInCharge: "",
+      asset_code: "",
+      asset_name: "",
+      asset_type: "",
+      description: "",
+      status: "assigned",
     });
-    setLoanStartDate(undefined);
-    setLoanEndDate(undefined);
+    setAssignedDate(undefined);
+    setReturnDate(undefined);
   };
 
-  const handleDeleteAsset = (id: string) => {
-    setAssets(assets.filter((asset) => asset.id !== id));
+  const handleDeleteAsset = (assetCode: string) => {
+    setAssets(assets.filter((asset) => asset.asset_code !== assetCode));
   };
 
-  // Helper function to get division name from ID
+  // Helper function to get division name (estate) from ID
   const getDivisionName = (divisionId: string) => {
-    const division = MASTER_DIVISIONS.find(div => div.id === divisionId);
-    return division ? `${division.shortname} - ${division.name}` : divisionId;
+    const division = divisions.find(div => div.id === divisionId);
+    return division ? division.nama_divisi : divisionId;
   };
 
-  // Helper function to get division shortname from ID
-  const getDivisionShortname = (divisionId: string) => {
-    const division = MASTER_DIVISIONS.find(div => div.id === divisionId);
-    return division ? division.shortname : divisionId;
+  // Helper function to get division code from ID
+  const getDivisionCode = (divisionId: string) => {
+    const division = divisions.find(div => div.id === divisionId);
+    return division ? division.kode_divisi : divisionId;
+  };
+
+  // Helper function to get position name from ID
+  const getPositionName = (positionId: string) => {
+    const position = positions.find(pos => pos.id === positionId);
+    return position ? position.name : positionId;
   };
 
   const formatCurrency = (amount: number) => {
@@ -920,33 +1139,52 @@ export function EmployeeManagement() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="division">Divisi *</Label>
+                <Label htmlFor="division">Divisi (Estate) *</Label>
                 <Select
                   value={formData.division}
                   onValueChange={(value) => handleInputChange("division", value)}
                 >
                   <SelectTrigger id="division">
-                    <SelectValue placeholder="Pilih divisi" />
+                    <SelectValue placeholder="Pilih divisi (estate)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MASTER_DIVISIONS.filter((div) => div.isActive).map(
-                      (division) => (
+                    {divisions.length === 0 ? (
+                      <div className="px-2 py-1 text-sm text-muted-foreground">
+                        Tidak ada data divisi
+                      </div>
+                    ) : (
+                      divisions.map((division) => (
                         <SelectItem key={division.id} value={division.id}>
-                          {division.shortname} - {division.name}
+                          {division.nama_divisi}
                         </SelectItem>
-                      )
+                      ))
                     )}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="position">Jabatan *</Label>
-                <Input
-                  id="position"
+                <Label htmlFor="position">Jabatan (Nama Jabatan) *</Label>
+                <Select
                   value={formData.position}
-                  onChange={(e) => handleInputChange("position", e.target.value)}
-                  placeholder="Mandor Panen"
-                />
+                  onValueChange={(value) => handleInputChange("position", value)}
+                >
+                  <SelectTrigger id="position">
+                    <SelectValue placeholder="Pilih jabatan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {positions.length === 0 ? (
+                      <div className="px-2 py-1 text-sm text-muted-foreground">
+                        Tidak ada data jabatan
+                      </div>
+                    ) : (
+                      positions.map((position) => (
+                        <SelectItem key={position.id} value={position.id}>
+                          {position.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -1032,67 +1270,89 @@ export function EmployeeManagement() {
         </TabsContent>
 
         <TabsContent value="bpjs" className="space-y-6 mt-6">
-          {/* Nomor BPJS */}
+          {/* Nomor BPJS & NPWP */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b">
               <Shield className="h-4 w-4 text-muted-foreground" />
-              <h4 className="text-sm">Nomor BPJS</h4>
+              <h4 className="text-sm">Nomor BPJS & NPWP</h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="bpjsKesehatanNumber">Nomor BPJS Kesehatan</Label>
+                <Label htmlFor="bpjsHealthNumber">Nomor BPJS Kesehatan</Label>
                 <Input
-                  id="bpjsKesehatanNumber"
-                  value={formData.bpjsKesehatanNumber}
+                  id="bpjsHealthNumber"
+                  value={formData.bpjsHealthNumber}
                   onChange={(e) =>
-                    handleInputChange("bpjsKesehatanNumber", e.target.value)
+                    handleInputChange("bpjsHealthNumber", e.target.value)
                   }
                   placeholder="0001234567890"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="bpjsKetenagakerjaanNumber">
-                  Nomor BPJS Ketenagakerjaan
-                </Label>
+                <Label htmlFor="npwp">NPWP</Label>
                 <Input
-                  id="bpjsKetenagakerjaanNumber"
-                  value={formData.bpjsKetenagakerjaanNumber}
+                  id="npwp"
+                  value={formData.npwp}
                   onChange={(e) =>
-                    handleInputChange("bpjsKetenagakerjaanNumber", e.target.value)
+                    handleInputChange("npwp", e.target.value)
                   }
-                  placeholder="1234567890123"
+                  placeholder="12.345.678.9-012.000"
                 />
               </div>
             </div>
           </div>
 
-          {/* Status Pajak */}
+          {/* Status Pajak PTKP */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b">
               <FileText className="h-4 w-4 text-muted-foreground" />
-              <h4 className="text-sm">Status Pajak</h4>
+              <h4 className="text-sm">Status Pajak (PTKP)</h4>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bpjsTaxStatus">
-                Status Pajak BPJS Ketenagakerjaan
-              </Label>
-              <Select
-                value={formData.bpjsTaxStatus}
-                onValueChange={(value) =>
-                  handleInputChange("bpjsTaxStatus", value)
-                }
-              >
-                <SelectTrigger id="bpjsTaxStatus">
-                  <SelectValue placeholder="Pilih status pajak" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TK">TK - Tidak Kawin</SelectItem>
-                  <SelectItem value="K/0">K/0 - Kawin tanpa tanggungan</SelectItem>
-                  <SelectItem value="K/1">K/1 - Kawin 1 tanggungan</SelectItem>
-                  <SelectItem value="K/2">K/2 - Kawin 2 tanggungan</SelectItem>
-                  <SelectItem value="K/3">K/3 - Kawin 3 tanggungan</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="maritalStatus">Status Pernikahan</Label>
+                <Select
+                  value={formData.maritalStatus}
+                  onValueChange={(value) =>
+                    handleInputChange("maritalStatus", value)
+                  }
+                >
+                  <SelectTrigger id="maritalStatus">
+                    <SelectValue placeholder="Pilih status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Belum Menikah</SelectItem>
+                    <SelectItem value="married">Menikah</SelectItem>
+                    <SelectItem value="divorced">Cerai</SelectItem>
+                    <SelectItem value="widowed">Janda/Duda</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ptkpStatus">
+                  Status PTKP (Penghasilan Tidak Kena Pajak)
+                </Label>
+                <Select
+                  value={formData.ptkpStatus}
+                  onValueChange={(value) =>
+                    handleInputChange("ptkpStatus", value)
+                  }
+                >
+                  <SelectTrigger id="ptkpStatus">
+                    <SelectValue placeholder="Pilih status PTKP" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TK/0">TK/0 - Tidak Kawin tanpa tanggungan</SelectItem>
+                    <SelectItem value="TK/1">TK/1 - Tidak Kawin 1 tanggungan</SelectItem>
+                    <SelectItem value="TK/2">TK/2 - Tidak Kawin 2 tanggungan</SelectItem>
+                    <SelectItem value="TK/3">TK/3 - Tidak Kawin 3 tanggungan</SelectItem>
+                    <SelectItem value="K/0">K/0 - Kawin tanpa tanggungan</SelectItem>
+                    <SelectItem value="K/1">K/1 - Kawin 1 tanggungan</SelectItem>
+                    <SelectItem value="K/2">K/2 - Kawin 2 tanggungan</SelectItem>
+                    <SelectItem value="K/3">K/3 - Kawin 3 tanggungan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -1169,23 +1429,23 @@ export function EmployeeManagement() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="assetCode">Kode Aset *</Label>
+                <Label htmlFor="asset_code">Kode Aset *</Label>
                 <Input
-                  id="assetCode"
-                  value={currentAsset.assetCode}
+                  id="asset_code"
+                  value={currentAsset.asset_code}
                   onChange={(e) =>
-                    handleAssetInputChange("assetCode", e.target.value)
+                    handleAssetInputChange("asset_code", e.target.value)
                   }
                   placeholder="AST-001"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="assetName">Nama Aset *</Label>
+                <Label htmlFor="asset_name">Nama Aset *</Label>
                 <Input
-                  id="assetName"
-                  value={currentAsset.assetName}
+                  id="asset_name"
+                  value={currentAsset.asset_name}
                   onChange={(e) =>
-                    handleAssetInputChange("assetName", e.target.value)
+                    handleAssetInputChange("asset_name", e.target.value)
                   }
                   placeholder="Laptop Dell XPS 15"
                 />
@@ -1194,50 +1454,81 @@ export function EmployeeManagement() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Tanggal Mulai Peminjaman</Label>
+                <Label htmlFor="asset_type">Tipe Aset *</Label>
+                <Select
+                  value={currentAsset.asset_type}
+                  onValueChange={(value) =>
+                    handleAssetInputChange("asset_type", value)
+                  }
+                >
+                  <SelectTrigger id="asset_type">
+                    <SelectValue placeholder="Pilih tipe aset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="laptop">Laptop</SelectItem>
+                    <SelectItem value="phone">Handphone</SelectItem>
+                    <SelectItem value="vehicle">Kendaraan</SelectItem>
+                    <SelectItem value="equipment">Peralatan</SelectItem>
+                    <SelectItem value="uniform">Seragam</SelectItem>
+                    <SelectItem value="other">Lainnya</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={currentAsset.status}
+                  onValueChange={(value) =>
+                    handleAssetInputChange("status", value)
+                  }
+                >
+                  <SelectTrigger id="status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="assigned">Ditugaskan</SelectItem>
+                    <SelectItem value="returned">Dikembalikan</SelectItem>
+                    <SelectItem value="damaged">Rusak</SelectItem>
+                    <SelectItem value="lost">Hilang</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tanggal Penugasan *</Label>
                 <DatePicker
-                  date={loanStartDate}
-                  onDateChange={setLoanStartDate}
-                  placeholder="Pilih tanggal mulai"
+                  date={assignedDate}
+                  onDateChange={setAssignedDate}
+                  placeholder="Pilih tanggal penugasan"
                   fromYear={2000}
                   toYear={new Date().getFullYear() + 5}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Tanggal Akhir Peminjaman</Label>
+                <Label>Tanggal Pengembalian</Label>
                 <DatePicker
-                  date={loanEndDate}
-                  onDateChange={setLoanEndDate}
-                  placeholder="Pilih tanggal akhir"
+                  date={returnDate}
+                  onDateChange={setReturnDate}
+                  placeholder="Pilih tanggal pengembalian"
                   fromYear={2000}
                   toYear={new Date().getFullYear() + 10}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="licenseManager">Pengurus Lisensi</Label>
-                <Input
-                  id="licenseManager"
-                  value={currentAsset.licenseManager}
-                  onChange={(e) =>
-                    handleAssetInputChange("licenseManager", e.target.value)
-                  }
-                  placeholder="Nama pengurus lisensi"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="personInCharge">Penanggung Jawab</Label>
-                <Input
-                  id="personInCharge"
-                  value={currentAsset.personInCharge}
-                  onChange={(e) =>
-                    handleAssetInputChange("personInCharge", e.target.value)
-                  }
-                  placeholder="Nama penanggung jawab"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Deskripsi</Label>
+              <Textarea
+                id="description"
+                value={currentAsset.description}
+                onChange={(e) =>
+                  handleAssetInputChange("description", e.target.value)
+                }
+                placeholder="Deskripsi detail aset"
+                rows={3}
+              />
             </div>
 
             <Button type="button" onClick={handleAddAsset} className="w-full">
@@ -1253,43 +1544,50 @@ export function EmployeeManagement() {
                 <Package className="h-4 w-4 text-muted-foreground" />
                 <h4 className="text-sm">Daftar Aset ({assets.length})</h4>
               </div>
-              {assets.map((asset) => (
-                <Card key={asset.id} className="p-4">
+              {assets.map((asset, index) => (
+                <Card key={index} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2 flex-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{asset.assetCode}</Badge>
-                        <p className="mb-0">{asset.assetName}</p>
+                        <Badge variant="secondary">{asset.asset_code}</Badge>
+                        <p className="mb-0">{asset.asset_name}</p>
+                        <Badge variant="outline" className="capitalize">
+                          {asset.asset_type}
+                        </Badge>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                        {asset.loanStartDate && (
+                        {asset.assigned_date && (
                           <div>
-                            <span>Mulai: </span>
+                            <span>Ditugaskan: </span>
                             <span>
-                              {format(asset.loanStartDate, "PPP", {
+                              {format(asset.assigned_date, "PPP", {
                                 locale: id,
                               })}
                             </span>
                           </div>
                         )}
-                        {asset.loanEndDate && (
+                        {asset.return_date && (
                           <div>
-                            <span>Akhir: </span>
+                            <span>Pengembalian: </span>
                             <span>
-                              {format(asset.loanEndDate, "PPP", { locale: id })}
+                              {format(asset.return_date, "PPP", { locale: id })}
                             </span>
                           </div>
                         )}
-                        {asset.licenseManager && (
+                        {asset.status && (
                           <div>
-                            <span>Pengurus Lisensi: </span>
-                            <span>{asset.licenseManager}</span>
+                            <span>Status: </span>
+                            <Badge variant="secondary" className="capitalize">
+                              {asset.status === 'assigned' ? 'Ditugaskan' :
+                               asset.status === 'returned' ? 'Dikembalikan' :
+                               asset.status === 'damaged' ? 'Rusak' : 'Hilang'}
+                            </Badge>
                           </div>
                         )}
-                        {asset.personInCharge && (
-                          <div>
-                            <span>Penanggung Jawab: </span>
-                            <span>{asset.personInCharge}</span>
+                        {asset.description && (
+                          <div className="md:col-span-2">
+                            <span>Deskripsi: </span>
+                            <span>{asset.description}</span>
                           </div>
                         )}
                       </div>
@@ -1299,7 +1597,7 @@ export function EmployeeManagement() {
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteAsset(asset.id)}
+                      onClick={() => handleDeleteAsset(asset.asset_code)}
                     >
                       <Trash2 size={16} />
                     </Button>
@@ -1318,9 +1616,11 @@ export function EmployeeManagement() {
       joinDate,
       assets,
       currentAsset,
-      loanStartDate,
-      loanEndDate,
+      assignedDate,
+      returnDate,
       drivingLicenseExpiry,
+      positions,
+      divisions,
     ]
   );
 
@@ -1446,13 +1746,11 @@ export function EmployeeManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua Divisi</SelectItem>
-                      {MASTER_DIVISIONS.filter((div) => div.isActive).map(
-                        (division) => (
-                          <SelectItem key={division.id} value={division.id}>
-                            {division.shortname}
-                          </SelectItem>
-                        )
-                      )}
+                      {divisions.map((division) => (
+                        <SelectItem key={division.id} value={division.id}>
+                          {division.kode_divisi}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1591,10 +1889,10 @@ export function EmployeeManagement() {
                           </div>
                         </td>
                         <td className="px-4 md:px-6 py-4">
-                          {getDivisionShortname(employee.division)}
+                          {getDivisionName(employee.division)}
                         </td>
                         <td className="px-4 md:px-6 py-4 text-muted-foreground">
-                          {employee.position}
+                          {getPositionName(employee.position)}
                         </td>
                         <td className="px-4 md:px-6 py-4">
                           {getGradeLevelBadge(employee.gradeLevel)}
