@@ -24,7 +24,8 @@ import {
   Trash2,
   Search,
   Save,
-  X
+  X,
+  Clock
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -62,12 +63,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import {
   getWorkingDaysInMonth,
   getMonthNumber,
   MASTER_HOLIDAYS_2025,
   MONTH_NAMES_ID,
 } from "../shared/holidayData";
+import { WorkingHours } from "./WorkingHours";
 
 /**
  * Interface untuk data Hari Kerja
@@ -322,6 +325,21 @@ export function WorkingDaysMaster() {
           </p>
         </div>
 
+        {/* Tabs */}
+        <Tabs defaultValue="hari-kerja" className="w-full">
+          <TabsList>
+            <TabsTrigger value="hari-kerja">
+              <Calendar className="h-4 w-4" />
+              Hari Kerja
+            </TabsTrigger>
+            <TabsTrigger value="jam-kerja">
+              <Clock className="h-4 w-4" />
+              Jam Kerja
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab Content: Hari Kerja */}
+          <TabsContent value="hari-kerja" className="space-y-6">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
@@ -624,7 +642,7 @@ export function WorkingDaysMaster() {
             <DialogHeader>
               <DialogTitle>Konfirmasi Hapus</DialogTitle>
               <DialogDescription>
-                Apakah Anda yakin ingin menghapus data hari kerja ini? 
+                Apakah Anda yakin ingin menghapus data hari kerja ini?
                 Tindakan ini tidak dapat dibatalkan.
               </DialogDescription>
             </DialogHeader>
@@ -641,6 +659,13 @@ export function WorkingDaysMaster() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+          </TabsContent>
+
+          {/* Tab Content: Jam Kerja */}
+          <TabsContent value="jam-kerja" className="space-y-6">
+            <WorkingHours />
+          </TabsContent>
+        </Tabs>
       </div>
     </PermissionGuard>
   );
