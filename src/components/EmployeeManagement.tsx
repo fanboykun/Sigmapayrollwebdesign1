@@ -193,9 +193,60 @@ export function EmployeeManagement() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Statistics state
+  const [statistics, setStatistics] = useState({
+    totalEmployees: 0,
+    activeEmployees: 0,
+    pegawaiCount: 0,
+    karyawanCount: 0,
+  });
+
   // Load positions and divisions from database
   const { positions } = usePositions();
   const { divisions } = useDivisions();
+
+  // Load statistics for cards - this gets total counts across all data
+  const loadStatistics = async () => {
+    try {
+      // Get total employees count
+      const { count: totalCount } = await supabase
+        .from("employees")
+        .select("*", { count: "exact", head: true });
+
+      // Get active employees count
+      const { count: activeCount } = await supabase
+        .from("employees")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "active");
+
+      // Get pegawai (permanent) count
+      const { count: pegawaiCount } = await supabase
+        .from("employees")
+        .select("*", { count: "exact", head: true })
+        .eq("employment_type", "permanent");
+
+      // Get karyawan (non-permanent, non-contract) count
+      // In the gradeLevel mapping: permanent = pegawai, contract = pkwt, internship = karyawan
+      const { count: karyawanCount } = await supabase
+        .from("employees")
+        .select("*", { count: "exact", head: true })
+        .eq("employment_type", "internship");
+
+      setStatistics({
+        totalEmployees: totalCount || 0,
+        activeEmployees: activeCount || 0,
+        pegawaiCount: pegawaiCount || 0,
+        karyawanCount: karyawanCount || 0,
+      });
+    } catch (err: any) {
+      console.error("Error loading statistics:", err);
+    }
+  };
 
   // Load employees from Supabase with filters
   const loadEmployees = async () => {
@@ -203,8 +254,12 @@ export function EmployeeManagement() {
       setLoading(true);
       setFetchError(null);
 
-      // Build query with filters
-      let query = supabase.from("employees").select("*");
+      // Calculate range for pagination
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      // Build query with filters - use count to get total
+      let query = supabase.from("employees").select("*", { count: "exact" });
 
       // Apply division filter
       if (departmentFilter !== "all") {
@@ -226,7 +281,10 @@ export function EmployeeManagement() {
       // Order results
       query = query.order("employee_id", { ascending: true });
 
-      const { data, error } = await query;
+      // Apply pagination range
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
 
@@ -285,6 +343,7 @@ export function EmployeeManagement() {
       });
 
       setEmployees(transformedData);
+      setTotalCount(count || 0);
     } catch (err: any) {
       setFetchError(err.message);
       console.error("Error fetching employees:", err);
@@ -294,6 +353,11 @@ export function EmployeeManagement() {
     }
   };
 
+  // Load statistics on component mount
+  useEffect(() => {
+    loadStatistics();
+  }, []);
+
   // Fetch employees on component mount and when filters change
   // Debounce search query to avoid too many API calls
   useEffect(() => {
@@ -302,6 +366,11 @@ export function EmployeeManagement() {
     }, 300); // Wait 300ms after user stops typing
 
     return () => clearTimeout(timeoutId);
+  }, [searchQuery, departmentFilter, statusFilter, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
   }, [searchQuery, departmentFilter, statusFilter]);
 
   // No need for client-side filtering anymore - filtering is done in loadEmployees
@@ -529,6 +598,7 @@ export function EmployeeManagement() {
       setIsAddDialogOpen(false);
       resetForm();
       loadEmployees(); // Refresh the employee list
+      loadStatistics(); // Refresh statistics
     } catch (error: any) {
       console.error("Error adding employee:", error);
       if (error.code === "23505") {
@@ -678,6 +748,7 @@ export function EmployeeManagement() {
       resetForm();
       setSelectedEmployee(null);
       loadEmployees(); // Refresh the employee list
+      loadStatistics(); // Refresh statistics
     } catch (error: any) {
       console.error("Error updating employee:", error);
       toast.error("Gagal mengupdate data karyawan: " + error.message);
@@ -696,6 +767,7 @@ export function EmployeeManagement() {
 
       toast.success("Karyawan berhasil dihapus");
       loadEmployees(); // Refresh the employee list
+      loadStatistics(); // Refresh statistics
     } catch (error: any) {
       console.error("Error deleting employee:", error);
       if (error.code === "23503") {
@@ -765,6 +837,15 @@ export function EmployeeManagement() {
   const getPositionName = (positionId: string) => {
     const position = positions.find(pos => pos.id === positionId);
     return position ? position.name : positionId;
+  };
+
+  // Pagination helpers
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+  const handlePreviousPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
   const formatCurrency = (amount: number) => {
@@ -1663,7 +1744,7 @@ export function EmployeeManagement() {
                   <p className="text-sm text-muted-foreground mb-1">
                     Total Karyawan
                   </p>
-                  <h3 className="text-2xl">{employees.length}</h3>
+                  <h3 className="text-2xl">{statistics.totalEmployees}</h3>
                 </div>
                 <div className="w-12 h-12 bg-primary/10 rounded flex items-center justify-center">
                   <UserPlus size={24} className="text-primary" />
@@ -1677,7 +1758,7 @@ export function EmployeeManagement() {
                     Karyawan Aktif
                   </p>
                   <h3 className="text-2xl">
-                    {employees.filter((e) => e.status === "active").length}
+                    {statistics.activeEmployees}
                   </h3>
                 </div>
                 <div className="w-12 h-12 bg-[#00d27a]/10 rounded flex items-center justify-center">
@@ -1692,7 +1773,7 @@ export function EmployeeManagement() {
                     Golongan Pegawai
                   </p>
                   <h3 className="text-2xl">
-                    {employees.filter((e) => e.gradeLevel === "pegawai").length}
+                    {statistics.pegawaiCount}
                   </h3>
                 </div>
                 <div className="w-12 h-12 bg-[#2c7be5]/10 rounded flex items-center justify-center">
@@ -1707,10 +1788,7 @@ export function EmployeeManagement() {
                     Golongan Karyawan
                   </p>
                   <h3 className="text-2xl">
-                    {
-                      employees.filter((e) => e.gradeLevel === "karyawan")
-                        .length
-                    }
+                    {statistics.karyawanCount}
                   </h3>
                 </div>
                 <div className="w-12 h-12 bg-[#00d27a]/10 rounded flex items-center justify-center">
@@ -1938,16 +2016,30 @@ export function EmployeeManagement() {
 
             <div className="px-4 md:px-6 py-3 md:py-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
               <p className="text-xs md:text-sm text-muted-foreground">
-                Menampilkan {filteredEmployees.length} dari {employees.length}{" "}
-                karyawan
+                Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} dari {totalCount} karyawan
               </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  Sebelumnya
-                </Button>
-                <Button variant="outline" size="sm">
-                  Berikutnya
-                </Button>
+              <div className="flex items-center gap-2">
+                <p className="text-xs md:text-sm text-muted-foreground">
+                  Halaman {currentPage} dari {totalPages || 1}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    Sebelumnya
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextPage}
+                    disabled={currentPage >= totalPages || loading}
+                  >
+                    Berikutnya
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
