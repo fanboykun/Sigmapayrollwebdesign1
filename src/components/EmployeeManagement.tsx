@@ -120,9 +120,13 @@ interface Employee {
   familyData?: FamilyData;
   // For backward compatibility with form
   spouseName?: string;
+  spouseNik?: string; // NIK KTP Istri/Suami
   child1Name?: string;
+  child1Nik?: string; // NIK KTP Anak 1
   child2Name?: string;
+  child2Nik?: string; // NIK KTP Anak 2
   child3Name?: string;
+  child3Nik?: string; // NIK KTP Anak 3
   assets?: Asset[];
   // Workflow status - links to Probasi, Rekrutmen, Terminasi tabs
   workflowStatus?: "none" | "recruitment" | "probation" | "termination";
@@ -176,9 +180,13 @@ export function EmployeeManagement() {
     ptkpStatus: "",
     // Family fields (for form UI)
     spouseName: "",
+    spouseNik: "",
     child1Name: "",
+    child1Nik: "",
     child2Name: "",
+    child2Nik: "",
     child3Name: "",
+    child3Nik: "",
     // Workflow status
     workflowStatus: "none",
   });
@@ -341,9 +349,13 @@ export function EmployeeManagement() {
           familyData: familyData,
           // For backward compatibility with form
           spouseName: spouse?.fullName || "",
+          spouseNik: spouse?.nik || "",
           child1Name: children[0]?.fullName || "",
+          child1Nik: children[0]?.nik || "",
           child2Name: children[1]?.fullName || "",
+          child2Nik: children[1]?.nik || "",
           child3Name: children[2]?.fullName || "",
+          child3Nik: children[2]?.nik || "",
           assets: [],
           workflowStatus: (emp.workflow_status || "none") as "none" | "recruitment" | "probation" | "termination",
           terminationReason: emp.termination_reason as "resignation" | "retirement" | "contract_end" | "layoff" | undefined,
@@ -423,9 +435,13 @@ export function EmployeeManagement() {
       npwp: "",
       ptkpStatus: "",
       spouseName: "",
+      spouseNik: "",
       child1Name: "",
+      child1Nik: "",
       child2Name: "",
+      child2Nik: "",
       child3Name: "",
+      child3Nik: "",
       workflowStatus: "none",
     });
     setBirthDate(undefined);
@@ -531,13 +547,29 @@ export function EmployeeManagement() {
       if (formData.spouseName) {
         familyData.spouse = {
           fullName: formData.spouseName,
+          nik: formData.spouseNik || undefined,
         };
       }
 
       const children: FamilyMember[] = [];
-      if (formData.child1Name) children.push({ fullName: formData.child1Name });
-      if (formData.child2Name) children.push({ fullName: formData.child2Name });
-      if (formData.child3Name) children.push({ fullName: formData.child3Name });
+      if (formData.child1Name) {
+        children.push({
+          fullName: formData.child1Name,
+          nik: formData.child1Nik || undefined,
+        });
+      }
+      if (formData.child2Name) {
+        children.push({
+          fullName: formData.child2Name,
+          nik: formData.child2Nik || undefined,
+        });
+      }
+      if (formData.child3Name) {
+        children.push({
+          fullName: formData.child3Name,
+          nik: formData.child3Nik || undefined,
+        });
+      }
 
       if (children.length > 0) {
         familyData.children = children;
@@ -655,9 +687,13 @@ export function EmployeeManagement() {
       npwp: employee.npwp || "",
       ptkpStatus: employee.ptkpStatus || "",
       spouseName: employee.spouseName || "",
+      spouseNik: employee.spouseNik || "",
       child1Name: employee.child1Name || "",
+      child1Nik: employee.child1Nik || "",
       child2Name: employee.child2Name || "",
+      child2Nik: employee.child2Nik || "",
       child3Name: employee.child3Name || "",
+      child3Nik: employee.child3Nik || "",
       workflowStatus: employee.workflowStatus || "none",
     });
     setBirthDate(employee.birthDate);
@@ -701,13 +737,29 @@ export function EmployeeManagement() {
       if (formData.spouseName) {
         familyData.spouse = {
           fullName: formData.spouseName,
+          nik: formData.spouseNik || undefined,
         };
       }
 
       const children: FamilyMember[] = [];
-      if (formData.child1Name) children.push({ fullName: formData.child1Name });
-      if (formData.child2Name) children.push({ fullName: formData.child2Name });
-      if (formData.child3Name) children.push({ fullName: formData.child3Name });
+      if (formData.child1Name) {
+        children.push({
+          fullName: formData.child1Name,
+          nik: formData.child1Nik || undefined,
+        });
+      }
+      if (formData.child2Name) {
+        children.push({
+          fullName: formData.child2Name,
+          nik: formData.child2Nik || undefined,
+        });
+      }
+      if (formData.child3Name) {
+        children.push({
+          fullName: formData.child3Name,
+          nik: formData.child3Nik || undefined,
+        });
+      }
 
       if (children.length > 0) {
         familyData.children = children;
@@ -1542,57 +1594,137 @@ export function EmployeeManagement() {
               <Users2 className="h-4 w-4 text-muted-foreground" />
               <h4 className="text-sm">Data Keluarga</h4>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="spouseName">Nama Istri/Suami</Label>
-              <Input
-                id="spouseName"
-                value={formData.spouseName}
-                onChange={(e) => handleInputChange("spouseName", e.target.value)}
-                placeholder="Nama istri/suami"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="spouseName">Nama Istri/Suami</Label>
+                <Input
+                  id="spouseName"
+                  value={formData.spouseName}
+                  onChange={(e) => handleInputChange("spouseName", e.target.value)}
+                  placeholder="Nama istri/suami"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="spouseNik">NIK KTP Istri/Suami</Label>
+                <Input
+                  id="spouseNik"
+                  value={formData.spouseNik}
+                  onChange={(e) => handleInputChange("spouseNik", e.target.value)}
+                  placeholder="NIK KTP istri/suami (16 digit)"
+                  maxLength={16}
+                />
+              </div>
             </div>
 
             <div className="space-y-4">
               <Label>Data Anak (Maksimal 3 anak)</Label>
               <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="child1Name" className="text-sm text-muted-foreground">
+                {/* Anak 1 */}
+                <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                  <Label className="text-sm font-semibold text-muted-foreground">
                     Anak 1
                   </Label>
-                  <Input
-                    id="child1Name"
-                    value={formData.child1Name}
-                    onChange={(e) =>
-                      handleInputChange("child1Name", e.target.value)
-                    }
-                    placeholder="Nama anak pertama"
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="child1Name" className="text-sm">
+                        Nama Lengkap
+                      </Label>
+                      <Input
+                        id="child1Name"
+                        value={formData.child1Name}
+                        onChange={(e) =>
+                          handleInputChange("child1Name", e.target.value)
+                        }
+                        placeholder="Nama anak pertama"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="child1Nik" className="text-sm">
+                        NIK KTP
+                      </Label>
+                      <Input
+                        id="child1Nik"
+                        value={formData.child1Nik}
+                        onChange={(e) =>
+                          handleInputChange("child1Nik", e.target.value)
+                        }
+                        placeholder="NIK KTP anak pertama (16 digit)"
+                        maxLength={16}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="child2Name" className="text-sm text-muted-foreground">
+
+                {/* Anak 2 */}
+                <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                  <Label className="text-sm font-semibold text-muted-foreground">
                     Anak 2
                   </Label>
-                  <Input
-                    id="child2Name"
-                    value={formData.child2Name}
-                    onChange={(e) =>
-                      handleInputChange("child2Name", e.target.value)
-                    }
-                    placeholder="Nama anak kedua"
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="child2Name" className="text-sm">
+                        Nama Lengkap
+                      </Label>
+                      <Input
+                        id="child2Name"
+                        value={formData.child2Name}
+                        onChange={(e) =>
+                          handleInputChange("child2Name", e.target.value)
+                        }
+                        placeholder="Nama anak kedua"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="child2Nik" className="text-sm">
+                        NIK KTP
+                      </Label>
+                      <Input
+                        id="child2Nik"
+                        value={formData.child2Nik}
+                        onChange={(e) =>
+                          handleInputChange("child2Nik", e.target.value)
+                        }
+                        placeholder="NIK KTP anak kedua (16 digit)"
+                        maxLength={16}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="child3Name" className="text-sm text-muted-foreground">
+
+                {/* Anak 3 */}
+                <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                  <Label className="text-sm font-semibold text-muted-foreground">
                     Anak 3
                   </Label>
-                  <Input
-                    id="child3Name"
-                    value={formData.child3Name}
-                    onChange={(e) =>
-                      handleInputChange("child3Name", e.target.value)
-                    }
-                    placeholder="Nama anak ketiga"
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="child3Name" className="text-sm">
+                        Nama Lengkap
+                      </Label>
+                      <Input
+                        id="child3Name"
+                        value={formData.child3Name}
+                        onChange={(e) =>
+                          handleInputChange("child3Name", e.target.value)
+                        }
+                        placeholder="Nama anak ketiga"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="child3Nik" className="text-sm">
+                        NIK KTP
+                      </Label>
+                      <Input
+                        id="child3Nik"
+                        value={formData.child3Nik}
+                        onChange={(e) =>
+                          handleInputChange("child3Nik", e.target.value)
+                        }
+                        placeholder="NIK KTP anak ketiga (16 digit)"
+                        maxLength={16}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

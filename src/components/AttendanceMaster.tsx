@@ -17,7 +17,7 @@
  * @author Sistem ERP Perkebunan Sawit
  */
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { 
   ClipboardCheck, 
   Plus, 
@@ -74,6 +74,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "./ui/pagination";
 import { MASTER_EMPLOYEES, getEmployeesByDivision } from "../shared/employeeData";
 import { MASTER_DIVISIONS, Division } from "../shared/divisionData";
 import {
@@ -87,7 +96,7 @@ import {
 /**
  * Tipe status kehadiran
  */
-type AttendanceStatus = "HK" | "P" | "S" | "A" | "C";
+type AttendanceStatus = "HK" | "P" | "S" | "A";
 
 /**
  * Interface untuk data Presensi
@@ -124,7 +133,6 @@ interface AttendanceSummary {
   totalP: number;
   totalS: number;
   totalA: number;
-  totalC: number;
   effectiveDays: number;
   month: string;
   year: number;
@@ -144,6 +152,10 @@ export function AttendanceMaster() {
   const [selectedMonth, setSelectedMonth] = useState<string>("November");
   const [selectedYear, setSelectedYear] = useState<number>(2025);
   const [selectedDivision, setSelectedDivision] = useState<string>("all");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
 
   // State untuk form input
   const [formData, setFormData] = useState({
@@ -226,11 +238,6 @@ export function AttendanceMaster() {
             status = "P";
             notes = "Permisi keperluan dinas";
           }
-          // Office staff: 4% kemungkinan cuti
-          else if (emp.division === "Head Office/Kantor Besar Medan" && randomFactor > 0.96) {
-            status = "C";
-            notes = "Cuti tahunan";
-          }
           // Karyawan permanent: 1% kemungkinan alfa
           else if (emp.employmentType === "permanent" && randomFactor > 0.99) {
             status = "A";
@@ -298,6 +305,30 @@ export function AttendanceMaster() {
   });
 
   /**
+   * Pagination calculations
+   */
+  const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedData = sortedData.slice(startIndex, endIndex);
+
+  /**
+   * Reset page to 1 when filters change
+   */
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedMonth, selectedYear, selectedDivision]);
+
+  /**
+   * Handle page change
+   */
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of table
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /**
    * Hitung ringkasan kehadiran per karyawan
    */
   const getAttendanceSummary = (): AttendanceSummary[] => {
@@ -316,7 +347,6 @@ export function AttendanceMaster() {
           totalP: 0,
           totalS: 0,
           totalA: 0,
-          totalC: 0,
           effectiveDays: 0,
           month: item.month,
           year: item.year,
@@ -336,15 +366,12 @@ export function AttendanceMaster() {
         case "A":
           summary[item.employeeId].totalA++;
           break;
-        case "C":
-          summary[item.employeeId].totalC++;
-          break;
       }
     });
 
-    // Hitung hari efektif (HK + P + S + C)
+    // Hitung hari efektif (HK + P + S)
     Object.values(summary).forEach(item => {
-      item.effectiveDays = item.totalHK + item.totalP + item.totalS + item.totalC;
+      item.effectiveDays = item.totalHK + item.totalP + item.totalS;
     });
 
     return Object.values(summary);
@@ -364,7 +391,6 @@ export function AttendanceMaster() {
       totalPermission: filteredData.filter(item => item.status === "P").length,
       totalSick: filteredData.filter(item => item.status === "S").length,
       totalAbsent: filteredData.filter(item => item.status === "A").length,
-      totalLeave: filteredData.filter(item => item.status === "C").length,
       totalRecords: filteredData.length,
       workingDaysInMonth: workingDaysInMonth,
     };
@@ -513,8 +539,6 @@ export function AttendanceMaster() {
         return { variant: "outline" as const, label: "Sakit", className: "border-yellow-500 text-yellow-700" };
       case "A":
         return { variant: "destructive" as const, label: "Alfa", className: "" };
-      case "C":
-        return { variant: "outline" as const, label: "Cuti", className: "border-blue-500 text-blue-700" };
       default:
         return { variant: "default" as const, label: status, className: "" };
     }
@@ -537,7 +561,6 @@ export function AttendanceMaster() {
       "Permisi (P)",
       "Sakit (S)",
       "Alfa (A)",
-      "Cuti (C)",
       "Total Hari Efektif",
       "Periode"
     ];
@@ -553,7 +576,6 @@ export function AttendanceMaster() {
       item.totalP,
       item.totalS,
       item.totalA,
-      item.totalC,
       item.effectiveDays,
       `${item.month} ${item.year}`
     ]);
@@ -705,11 +727,11 @@ export function AttendanceMaster() {
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Status Lainnya</CardDescription>
-              <CardTitle className="text-3xl">{stats.totalPermission + stats.totalSick + stats.totalLeave}</CardTitle>
+              <CardTitle className="text-3xl">{stats.totalPermission + stats.totalSick}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-sm text-muted-foreground">
-                P: {stats.totalPermission} | S: {stats.totalSick} | C: {stats.totalLeave}
+                P: {stats.totalPermission} | S: {stats.totalSick}
               </div>
             </CardContent>
           </Card>
@@ -848,14 +870,14 @@ export function AttendanceMaster() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedData.length === 0 ? (
+                      {paginatedData.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             Tidak ada data presensi untuk periode yang dipilih
                           </TableCell>
                         </TableRow>
                       ) : (
-                        sortedData.map((item) => {
+                        paginatedData.map((item) => {
                           const statusBadge = getStatusBadge(item.status);
                           const division = MASTER_DIVISIONS.find(d => d.name === item.division);
                           return (
@@ -938,6 +960,62 @@ export function AttendanceMaster() {
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Pagination Info and Controls */}
+                {sortedData.length > 0 && (
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    {/* Data Info */}
+                    <div className="text-sm text-muted-foreground">
+                      Menampilkan {startIndex + 1}-{Math.min(endIndex, sortedData.length)} dari {sortedData.length} data presensi
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+                              className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+
+                          {/* Page Numbers */}
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                            // Show first page, last page, current page, and pages around current page
+                            if (
+                              page === 1 ||
+                              page === totalPages ||
+                              (page >= currentPage - 1 && page <= currentPage + 1)
+                            ) {
+                              return (
+                                <PaginationItem key={page}>
+                                  <PaginationLink
+                                    onClick={() => handlePageChange(page)}
+                                    isActive={currentPage === page}
+                                    className="cursor-pointer"
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            } else if (page === currentPage - 2 || page === currentPage + 2) {
+                              return <PaginationEllipsis key={page} />;
+                            }
+                            return null;
+                          })}
+
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+                              className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1047,14 +1125,13 @@ export function AttendanceMaster() {
                         <TableHead className="text-center">Permisi (P)</TableHead>
                         <TableHead className="text-center">Sakit (S)</TableHead>
                         <TableHead className="text-center">Alfa (A)</TableHead>
-                        <TableHead className="text-center">Cuti (C)</TableHead>
                         <TableHead className="text-center">Total Hari Efektif</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {getAttendanceSummary().length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             Tidak ada data ringkasan untuk periode yang dipilih
                           </TableCell>
                         </TableRow>
@@ -1103,11 +1180,6 @@ export function AttendanceMaster() {
                               <TableCell className="text-center">
                                 <Badge variant="destructive">
                                   {summary.totalA}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="outline" className="border-blue-500 text-blue-700">
-                                  {summary.totalC}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-center">
@@ -1275,7 +1347,6 @@ export function AttendanceMaster() {
                       <SelectItem value="P">P - Permisi</SelectItem>
                       <SelectItem value="S">S - Sakit</SelectItem>
                       <SelectItem value="A">A - Alfa</SelectItem>
-                      <SelectItem value="C">C - Cuti</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1301,7 +1372,9 @@ export function AttendanceMaster() {
                   <p>• P (Permisi): Karyawan tidak hadir dengan izin</p>
                   <p>• S (Sakit): Karyawan tidak hadir karena sakit</p>
                   <p>• A (Alfa): Karyawan tidak hadir tanpa keterangan</p>
-                  <p>• C (Cuti): Karyawan mengambil cuti</p>
+                </div>
+                <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
+                  <p><strong>Catatan:</strong> Untuk cuti karyawan, silakan gunakan menu Cuti Karyawan</p>
                 </div>
               </div>
             </div>
