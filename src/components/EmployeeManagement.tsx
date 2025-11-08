@@ -124,6 +124,10 @@ interface Employee {
   child2Name?: string;
   child3Name?: string;
   assets?: Asset[];
+  // Workflow status - links to Probasi, Rekrutmen, Terminasi tabs
+  workflowStatus?: "none" | "recruitment" | "probation" | "termination";
+  // Termination reason - only applicable when status is inactive
+  terminationReason?: "resignation" | "retirement" | "contract_end" | "layoff";
 }
 
 export function EmployeeManagement() {
@@ -175,6 +179,8 @@ export function EmployeeManagement() {
     child1Name: "",
     child2Name: "",
     child3Name: "",
+    // Workflow status
+    workflowStatus: "none",
   });
 
   // Asset state
@@ -339,6 +345,8 @@ export function EmployeeManagement() {
           child2Name: children[1]?.fullName || "",
           child3Name: children[2]?.fullName || "",
           assets: [],
+          workflowStatus: (emp.workflow_status || "none") as "none" | "recruitment" | "probation" | "termination",
+          terminationReason: emp.termination_reason as "resignation" | "retirement" | "contract_end" | "layoff" | undefined,
         };
       });
 
@@ -367,6 +375,14 @@ export function EmployeeManagement() {
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, departmentFilter, statusFilter, currentPage]);
+
+  // Reload employees when switching to employees tab
+  useEffect(() => {
+    if (mainTab === 'employees') {
+      loadEmployees();
+      loadStatistics();
+    }
+  }, [mainTab]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -410,6 +426,7 @@ export function EmployeeManagement() {
       child1Name: "",
       child2Name: "",
       child3Name: "",
+      workflowStatus: "none",
     });
     setBirthDate(undefined);
     setJoinDate(undefined);
@@ -579,6 +596,7 @@ export function EmployeeManagement() {
         tax_ptkp_status: formData.ptkpStatus,
         family_data: Object.keys(familyData).length > 0 ? familyData : null,
         base_salary: 0, // Required field, set default
+        workflow_status: formData.workflowStatus,
       };
 
       const { data, error } = await supabase
@@ -640,6 +658,7 @@ export function EmployeeManagement() {
       child1Name: employee.child1Name || "",
       child2Name: employee.child2Name || "",
       child3Name: employee.child3Name || "",
+      workflowStatus: employee.workflowStatus || "none",
     });
     setBirthDate(employee.birthDate);
     setJoinDate(employee.joinDate);
@@ -731,6 +750,7 @@ export function EmployeeManagement() {
         npwp: formData.npwp,
         tax_ptkp_status: formData.ptkpStatus,
         family_data: Object.keys(familyData).length > 0 ? familyData : null,
+        workflow_status: formData.workflowStatus,
       };
 
       const { error } = await supabase
@@ -1297,6 +1317,85 @@ export function EmployeeManagement() {
                   fromYear={2000}
                   toYear={new Date().getFullYear() + 1}
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="workflowStatus">Status Workflow</Label>
+                <Select
+                  value={formData.workflowStatus}
+                  onValueChange={(value) =>
+                    handleInputChange("workflowStatus", value)
+                  }
+                >
+                  <SelectTrigger id="workflowStatus">
+                    <SelectValue placeholder="Pilih status workflow" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Tidak Ada</SelectItem>
+                    <SelectItem value="recruitment">Rekrutmen</SelectItem>
+                    <SelectItem value="probation">Probasi</SelectItem>
+                    <SelectItem value="termination">Terminasi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status Aktual Saat Ini</Label>
+                <div className="flex items-center h-10 px-3 py-2 rounded-md border border-input bg-muted/30">
+                  {selectedEmployee && selectedEmployee.terminationReason ? (
+                    <Badge variant="secondary" className="bg-red-500/10 text-red-500">
+                      {selectedEmployee.terminationReason === "resignation"
+                        ? "Pengunduran Diri"
+                        : selectedEmployee.terminationReason === "retirement"
+                        ? "Pensiun"
+                        : selectedEmployee.terminationReason === "contract_end"
+                        ? "Akhir Masa Kontrak"
+                        : "Afkir"}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="secondary"
+                      className={
+                        formData.workflowStatus === "recruitment"
+                          ? "bg-blue-500/10 text-blue-500"
+                          : formData.workflowStatus === "probation"
+                          ? "bg-orange-500/10 text-orange-500"
+                          : formData.workflowStatus === "termination"
+                          ? "bg-red-500/10 text-red-500"
+                          : "bg-gray-500/10 text-gray-500"
+                      }
+                    >
+                      {formData.workflowStatus === "recruitment"
+                        ? "Sedang Rekrutmen"
+                        : formData.workflowStatus === "probation"
+                        ? "Sedang Probasi"
+                        : formData.workflowStatus === "termination"
+                        ? "Dalam Proses Terminasi"
+                        : "Normal - Tidak Ada Status Khusus"}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Informasi Workflow */}
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
+                <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                  Integrasi dengan Tab Workflow
+                </h4>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Status workflow ini akan menentukan tampilan karyawan di tab Probasi, Rekrutmen, dan Terminasi.
+                  Ketika status diubah dari tab tersebut, data karyawan ini akan otomatis terupdate.
+                </p>
               </div>
             </div>
           </div>
@@ -2094,9 +2193,37 @@ export function EmployeeManagement() {
                         {selectedEmployee.employeeId} •{" "}
                         {selectedEmployee.position}
                       </p>
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex flex-wrap gap-2 mt-2">
                         {getGradeLevelBadge(selectedEmployee.gradeLevel)}
                         {getStatusBadge(selectedEmployee.status)}
+                        {selectedEmployee.terminationReason ? (
+                          <Badge variant="secondary" className="bg-red-500/10 text-red-500">
+                            {selectedEmployee.terminationReason === "resignation"
+                              ? "Pengunduran Diri"
+                              : selectedEmployee.terminationReason === "retirement"
+                              ? "Pensiun"
+                              : selectedEmployee.terminationReason === "contract_end"
+                              ? "Akhir Masa Kontrak"
+                              : "Afkir"}
+                          </Badge>
+                        ) : selectedEmployee.workflowStatus && selectedEmployee.workflowStatus !== "none" ? (
+                          <Badge
+                            variant="secondary"
+                            className={
+                              selectedEmployee.workflowStatus === "recruitment"
+                                ? "bg-blue-500/10 text-blue-500"
+                                : selectedEmployee.workflowStatus === "probation"
+                                ? "bg-orange-500/10 text-orange-500"
+                                : "bg-red-500/10 text-red-500"
+                            }
+                          >
+                            {selectedEmployee.workflowStatus === "recruitment"
+                              ? "Rekrutmen"
+                              : selectedEmployee.workflowStatus === "probation"
+                              ? "Probasi"
+                              : "Terminasi"}
+                          </Badge>
+                        ) : null}
                       </div>
                     </div>
                   </div>

@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Filter, Download, Eye, UserCheck, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Search, Filter, Download, Eye, UserCheck, Clock, CheckCircle2, XCircle, AlertCircle, Check, X } from 'lucide-react';
 import { format, differenceInDays, addMonths } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { supabase } from '../utils/supabase/client';
+import { toast } from 'sonner';
+import { usePositions } from '../hooks/usePositions';
+import { useDivisions } from '../hooks/useDivisions';
 
 interface ProbationEmployee {
   id: string;
@@ -15,132 +21,97 @@ interface ProbationEmployee {
   fullName: string;
   email: string;
   phone: string;
-  department: string;
-  position: string;
+  divisionId: string;
+  divisionName: string;
+  positionId: string;
+  positionName: string;
   joinDate: Date;
   probationEndDate: Date;
   probationStatus: 'ongoing' | 'passed' | 'extended' | 'failed';
-  supervisor: string;
   performanceScore?: number;
   notes?: string;
 }
-
-// Data dummy karyawan probasi
-const PROBATION_EMPLOYEES: ProbationEmployee[] = [
-  {
-    id: '1',
-    employeeId: 'EMP2024001',
-    fullName: 'Ahmad Riski Pratama',
-    email: 'ahmad.riski@company.com',
-    phone: '081234567890',
-    department: 'IT',
-    position: 'Software Engineer',
-    joinDate: new Date(2024, 7, 1), // 1 Agustus 2024
-    probationEndDate: new Date(2024, 10, 1), // 1 November 2024
-    probationStatus: 'ongoing',
-    supervisor: 'Budi Santoso',
-    performanceScore: 85,
-    notes: 'Performa baik, cepat belajar'
-  },
-  {
-    id: '2',
-    employeeId: 'EMP2024002',
-    fullName: 'Siti Nurhaliza',
-    email: 'siti.nur@company.com',
-    phone: '081234567891',
-    department: 'Finance',
-    position: 'Junior Accountant',
-    joinDate: new Date(2024, 6, 15), // 15 Juli 2024
-    probationEndDate: new Date(2024, 9, 15), // 15 Oktober 2024
-    probationStatus: 'passed',
-    supervisor: 'Ani Wijaya',
-    performanceScore: 92,
-    notes: 'Lulus probasi dengan nilai sangat baik'
-  },
-  {
-    id: '3',
-    employeeId: 'EMP2024003',
-    fullName: 'Dedy Kurniawan',
-    email: 'dedy.k@company.com',
-    phone: '081234567892',
-    department: 'Marketing',
-    position: 'Marketing Staff',
-    joinDate: new Date(2024, 8, 1), // 1 September 2024
-    probationEndDate: new Date(2024, 11, 1), // 1 Desember 2024
-    probationStatus: 'ongoing',
-    supervisor: 'Indra Gunawan',
-    performanceScore: 78,
-    notes: 'Perlu peningkatan komunikasi dengan klien'
-  },
-  {
-    id: '4',
-    employeeId: 'EMP2024004',
-    fullName: 'Maya Puspitasari',
-    email: 'maya.p@company.com',
-    phone: '081234567893',
-    department: 'HR',
-    position: 'HR Staff',
-    joinDate: new Date(2024, 5, 1), // 1 Juni 2024
-    probationEndDate: new Date(2024, 8, 1), // 1 September 2024
-    probationStatus: 'passed',
-    supervisor: 'Rina Susanti',
-    performanceScore: 88,
-    notes: 'Lulus probasi, karyawan teladan'
-  },
-  {
-    id: '5',
-    employeeId: 'EMP2024005',
-    fullName: 'Roni Setiawan',
-    email: 'roni.s@company.com',
-    phone: '081234567894',
-    department: 'Operations',
-    position: 'Operations Staff',
-    joinDate: new Date(2024, 7, 15), // 15 Agustus 2024
-    probationEndDate: new Date(2024, 10, 15), // 15 November 2024
-    probationStatus: 'extended',
-    supervisor: 'Joko Widodo',
-    performanceScore: 65,
-    notes: 'Probasi diperpanjang 1 bulan untuk evaluasi lebih lanjut'
-  },
-  {
-    id: '6',
-    employeeId: 'EMP2024006',
-    fullName: 'Linda Kartika',
-    email: 'linda.k@company.com',
-    phone: '081234567895',
-    department: 'IT',
-    position: 'UI/UX Designer',
-    joinDate: new Date(2024, 8, 10), // 10 September 2024
-    probationEndDate: new Date(2024, 11, 10), // 10 Desember 2024
-    probationStatus: 'ongoing',
-    supervisor: 'Budi Santoso',
-    performanceScore: 90,
-    notes: 'Sangat kreatif dan inovatif'
-  }
-];
 
 export function Probasi() {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<ProbationEmployee | null>(null);
+  const [employees, setEmployees] = useState<ProbationEmployee[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [employees] = useState<ProbationEmployee[]>(PROBATION_EMPLOYEES);
+  // Action dialog state
+  const [actionType, setActionType] = useState<'pass' | 'extend' | 'fail' | null>(null);
+  const [actionNotes, setActionNotes] = useState('');
+  const [performanceScore, setPerformanceScore] = useState('');
+  const [extensionMonths, setExtensionMonths] = useState('1');
+
+  const { positions } = usePositions();
+  const { divisions } = useDivisions();
+
+  // Load employees with probation status
+  const loadProbationEmployees = async () => {
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('workflow_status', 'probation')
+        .order('join_date', { ascending: false });
+
+      if (error) throw error;
+
+      const transformedData: ProbationEmployee[] = (data || []).map((emp: any) => {
+        const division = divisions.find(d => d.id === emp.division_id);
+        const position = positions.find(p => p.id === emp.position_id);
+
+        // Calculate probation end date (3 months from join date by default)
+        const probationEndDate = addMonths(new Date(emp.join_date), 3);
+
+        return {
+          id: emp.id,
+          employeeId: emp.employee_id,
+          fullName: emp.full_name,
+          email: emp.email,
+          phone: emp.phone,
+          divisionId: emp.division_id,
+          divisionName: division?.nama_divisi || emp.division_id,
+          positionId: emp.position_id,
+          positionName: position?.name || emp.position_id,
+          joinDate: new Date(emp.join_date),
+          probationEndDate: probationEndDate,
+          probationStatus: 'ongoing', // Default status, bisa dikustomisasi
+          performanceScore: undefined,
+          notes: emp.notes || '',
+        };
+      });
+
+      setEmployees(transformedData);
+    } catch (error: any) {
+      console.error('Error loading probation employees:', error);
+      toast.error('Gagal memuat data karyawan probasi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProbationEmployees();
+  }, [divisions, positions]);
 
   // Filter karyawan
   const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch = 
+    const matchesSearch =
       emp.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment = departmentFilter === 'all' || emp.department === departmentFilter;
+    const matchesDepartment = departmentFilter === 'all' || emp.divisionId === departmentFilter;
     const matchesStatus = statusFilter === 'all' || emp.probationStatus === statusFilter;
     return matchesSearch && matchesDepartment && matchesStatus;
   });
-
-  // Get unique departments
-  const departments = Array.from(new Set(employees.map(e => e.department)));
 
   // Hitung statistik
   const stats = {
@@ -159,10 +130,10 @@ export function Probasi() {
       extended: { label: 'Diperpanjang', variant: 'secondary' as const, icon: AlertCircle },
       failed: { label: 'Tidak Lulus', variant: 'destructive' as const, icon: XCircle },
     };
-    
+
     const config = statusConfig[status as keyof typeof statusConfig];
     const Icon = config?.icon;
-    
+
     return (
       <Badge variant={config?.variant || 'default'} className={config?.className || ''}>
         {Icon && <Icon size={12} className="mr-1" />}
@@ -181,7 +152,7 @@ export function Probasi() {
   // Get performance badge
   const getPerformanceBadge = (score?: number) => {
     if (!score) return null;
-    
+
     if (score >= 85) {
       return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Sangat Baik ({score})</Badge>;
     } else if (score >= 70) {
@@ -196,6 +167,59 @@ export function Probasi() {
   const handleViewDetails = (employee: ProbationEmployee) => {
     setSelectedEmployee(employee);
     setIsViewDialogOpen(true);
+  };
+
+  const handleOpenActionDialog = (employee: ProbationEmployee, action: 'pass' | 'extend' | 'fail') => {
+    setSelectedEmployee(employee);
+    setActionType(action);
+    setActionNotes('');
+    setPerformanceScore('');
+    setExtensionMonths('1');
+    setIsActionDialogOpen(true);
+  };
+
+  const handleSubmitAction = async () => {
+    if (!selectedEmployee || !actionType) return;
+
+    try {
+      const score = performanceScore ? parseInt(performanceScore) : undefined;
+
+      // Update workflow_status based on action
+      let newWorkflowStatus = 'none';
+      let newStatus = 'active';
+
+      if (actionType === 'pass') {
+        newWorkflowStatus = 'none'; // Lulus probasi, kembali ke normal
+        newStatus = 'active';
+        toast.success('Karyawan berhasil lulus probasi');
+      } else if (actionType === 'extend') {
+        newWorkflowStatus = 'probation'; // Tetap probasi
+        newStatus = 'active';
+        toast.success('Masa probasi berhasil diperpanjang');
+      } else if (actionType === 'fail') {
+        newWorkflowStatus = 'none';
+        newStatus = 'inactive'; // Set inactive jika tidak lulus
+        toast.success('Karyawan tidak lulus probasi');
+      }
+
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          workflow_status: newWorkflowStatus,
+          status: newStatus,
+        })
+        .eq('id', selectedEmployee.id);
+
+      if (error) throw error;
+
+      // Reload data
+      await loadProbationEmployees();
+      setIsActionDialogOpen(false);
+      setSelectedEmployee(null);
+    } catch (error: any) {
+      console.error('Error updating probation status:', error);
+      toast.error('Gagal mengupdate status probasi');
+    }
   };
 
   return (
@@ -213,7 +237,7 @@ export function Probasi() {
             </div>
           </div>
         </Card>
-        
+
         <Card className="p-4 md:p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -298,8 +322,8 @@ export function Probasi() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Divisi</SelectItem>
-                {departments.map(dept => (
-                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                {divisions.map(div => (
+                  <SelectItem key={div.id} value={div.id}>{div.nama_divisi}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -328,69 +352,101 @@ export function Probasi() {
                 <th className="px-4 md:px-6 py-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Tanggal Masuk</th>
                 <th className="px-4 md:px-6 py-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Akhir Probasi</th>
                 <th className="px-4 md:px-6 py-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Sisa Hari</th>
-                <th className="px-4 md:px-6 py-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Performa</th>
                 <th className="px-4 md:px-6 py-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Status</th>
                 <th className="px-4 md:px-6 py-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody className="bg-background divide-y divide-border">
-              {filteredEmployees.map((employee) => {
-                const remainingDays = getRemainingDays(employee.probationEndDate);
-                return (
-                  <tr key={employee.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 md:px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                          {employee.fullName.split(' ').map(n => n[0]).join('').substring(0, 2)}
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 md:px-6 py-8 text-center text-muted-foreground">
+                    Memuat data...
+                  </td>
+                </tr>
+              ) : filteredEmployees.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 md:px-6 py-8 text-center text-muted-foreground">
+                    Tidak ada karyawan probasi
+                  </td>
+                </tr>
+              ) : (
+                filteredEmployees.map((employee) => {
+                  const remainingDays = getRemainingDays(employee.probationEndDate);
+                  return (
+                    <tr key={employee.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 md:px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                            {employee.fullName.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="mb-0 truncate">{employee.fullName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{employee.employeeId}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="mb-0 truncate">{employee.fullName}</p>
-                          <p className="text-xs text-muted-foreground truncate">{employee.employeeId}</p>
+                      </td>
+                      <td className="px-4 md:px-6 py-4">
+                        <div>
+                          <p className="mb-0">{employee.divisionName}</p>
+                          <p className="text-xs text-muted-foreground">{employee.positionName}</p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 md:px-6 py-4">
-                      <div>
-                        <p className="mb-0">{employee.department}</p>
-                        <p className="text-xs text-muted-foreground">{employee.position}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 md:px-6 py-4 text-sm">
-                      {format(employee.joinDate, 'dd MMM yyyy', { locale: id })}
-                    </td>
-                    <td className="px-4 md:px-6 py-4 text-sm">
-                      {format(employee.probationEndDate, 'dd MMM yyyy', { locale: id })}
-                    </td>
-                    <td className="px-4 md:px-6 py-4">
-                      {employee.probationStatus === 'ongoing' ? (
-                        <div className="flex items-center gap-1">
-                          <Clock size={14} className="text-muted-foreground" />
-                          <span className={`text-sm ${remainingDays <= 7 ? 'text-red-500 font-semibold' : remainingDays <= 14 ? 'text-yellow-500 font-semibold' : ''}`}>
-                            {remainingDays > 0 ? `${remainingDays} hari` : 'Berakhir'}
-                          </span>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 text-sm">
+                        {format(employee.joinDate, 'dd MMM yyyy', { locale: id })}
+                      </td>
+                      <td className="px-4 md:px-6 py-4 text-sm">
+                        {format(employee.probationEndDate, 'dd MMM yyyy', { locale: id })}
+                      </td>
+                      <td className="px-4 md:px-6 py-4">
+                        {employee.probationStatus === 'ongoing' ? (
+                          <div className="flex items-center gap-1">
+                            <Clock size={14} className="text-muted-foreground" />
+                            <span className={`text-sm ${remainingDays <= 7 ? 'text-red-500 font-semibold' : remainingDays <= 14 ? 'text-yellow-500 font-semibold' : ''}`}>
+                              {remainingDays > 0 ? `${remainingDays} hari` : 'Berakhir'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 md:px-6 py-4">
+                        {getStatusBadge(employee.probationStatus)}
+                      </td>
+                      <td className="px-4 md:px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(employee)}
+                          >
+                            <Eye size={16} />
+                          </Button>
+                          {employee.probationStatus === 'ongoing' && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-600 hover:text-green-600"
+                                onClick={() => handleOpenActionDialog(employee, 'pass')}
+                              >
+                                <Check size={16} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-600"
+                                onClick={() => handleOpenActionDialog(employee, 'fail')}
+                              >
+                                <X size={16} />
+                              </Button>
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 md:px-6 py-4">
-                      {getPerformanceBadge(employee.performanceScore)}
-                    </td>
-                    <td className="px-4 md:px-6 py-4">
-                      {getStatusBadge(employee.probationStatus)}
-                    </td>
-                    <td className="px-4 md:px-6 py-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewDetails(employee)}
-                      >
-                        <Eye size={16} />
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -399,10 +455,6 @@ export function Probasi() {
           <p className="text-xs md:text-sm text-muted-foreground">
             Menampilkan {filteredEmployees.length} dari {employees.length} karyawan probasi
           </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">Sebelumnya</Button>
-            <Button variant="outline" size="sm">Berikutnya</Button>
-          </div>
         </div>
       </Card>
 
@@ -423,7 +475,7 @@ export function Probasi() {
                 </div>
                 <div>
                   <h3>{selectedEmployee.fullName}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedEmployee.employeeId} • {selectedEmployee.position}</p>
+                  <p className="text-sm text-muted-foreground">{selectedEmployee.employeeId} • {selectedEmployee.positionName}</p>
                   <div className="flex gap-2 mt-2">
                     {getStatusBadge(selectedEmployee.probationStatus)}
                     {getPerformanceBadge(selectedEmployee.performanceScore)}
@@ -442,11 +494,11 @@ export function Probasi() {
                 </div>
                 <div className="p-4 bg-muted/30 rounded">
                   <p className="text-sm text-muted-foreground mb-1">Divisi</p>
-                  <p className="mb-0">{selectedEmployee.department}</p>
+                  <p className="mb-0">{selectedEmployee.divisionName}</p>
                 </div>
                 <div className="p-4 bg-muted/30 rounded">
                   <p className="text-sm text-muted-foreground mb-1">Jabatan</p>
-                  <p className="mb-0">{selectedEmployee.position}</p>
+                  <p className="mb-0">{selectedEmployee.positionName}</p>
                 </div>
                 <div className="p-4 bg-muted/30 rounded">
                   <p className="text-sm text-muted-foreground mb-1">Tanggal Masuk</p>
@@ -456,23 +508,15 @@ export function Probasi() {
                   <p className="text-sm text-muted-foreground mb-1">Akhir Probasi</p>
                   <p className="mb-0">{format(selectedEmployee.probationEndDate, 'dd MMMM yyyy', { locale: id })}</p>
                 </div>
-                <div className="p-4 bg-muted/30 rounded">
-                  <p className="text-sm text-muted-foreground mb-1">Supervisor</p>
-                  <p className="mb-0">{selectedEmployee.supervisor}</p>
-                </div>
-                <div className="p-4 bg-muted/30 rounded">
-                  <p className="text-sm text-muted-foreground mb-1">Skor Performa</p>
-                  <p className="mb-0">{selectedEmployee.performanceScore || '-'}</p>
-                </div>
               </div>
 
               {selectedEmployee.probationStatus === 'ongoing' && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded">
                   <div className="flex items-start gap-3">
                     <Clock size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="mb-1 text-blue-900">Masa Probasi Berlangsung</p>
-                      <p className="text-sm text-blue-700 mb-0">
+                      <p className="mb-1 text-blue-900 dark:text-blue-100">Masa Probasi Berlangsung</p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mb-0">
                         Sisa waktu: {getRemainingDays(selectedEmployee.probationEndDate)} hari lagi
                       </p>
                     </div>
@@ -490,6 +534,75 @@ export function Probasi() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Action Dialog (Pass/Fail/Extend) */}
+      <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {actionType === 'pass' && 'Luluskan Probasi'}
+              {actionType === 'fail' && 'Tidak Lulus Probasi'}
+              {actionType === 'extend' && 'Perpanjang Probasi'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedEmployee && `Proses probasi untuk ${selectedEmployee.fullName}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {actionType === 'pass' && (
+              <div className="space-y-2">
+                <Label htmlFor="score">Skor Performa</Label>
+                <Input
+                  id="score"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={performanceScore}
+                  onChange={(e) => setPerformanceScore(e.target.value)}
+                  placeholder="Masukkan skor (0-100)"
+                />
+              </div>
+            )}
+
+            {actionType === 'extend' && (
+              <div className="space-y-2">
+                <Label htmlFor="months">Durasi Perpanjangan (Bulan)</Label>
+                <Select value={extensionMonths} onValueChange={setExtensionMonths}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 Bulan</SelectItem>
+                    <SelectItem value="2">2 Bulan</SelectItem>
+                    <SelectItem value="3">3 Bulan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Catatan</Label>
+              <Textarea
+                id="notes"
+                value={actionNotes}
+                onChange={(e) => setActionNotes(e.target.value)}
+                placeholder="Tambahkan catatan..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsActionDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button onClick={handleSubmitAction}>
+              Simpan
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
