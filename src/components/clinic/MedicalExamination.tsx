@@ -133,8 +133,11 @@ interface MedicalRecordFormData extends VitalSigns {
 }
 
 export function MedicalExamination() {
-  const { user } = useAuth()
+  const { user, hasPermission } = useAuth()
   const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null)
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([])
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('')
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   // States for visits
   const [todayVisits, setTodayVisits] = useState<Visit[]>([])
@@ -171,25 +174,66 @@ export function MedicalExamination() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  // Fetch current doctor info
+  // Check if user is superadmin
   useEffect(() => {
-    const fetchCurrentDoctor = async () => {
+    const checkSuperAdmin = async () => {
       if (!user?.id) return
 
-      const { data, error } = await supabase
-        .from('clinic_doctors')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
+      // Get user's role
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role:roles(code)')
+        .eq('id', user.id)
         .single()
 
-      if (!error && data) {
-        setCurrentDoctor(data)
+      const isSuperAdmin = userData?.role?.code === 'super_admin'
+      setIsSuperAdmin(isSuperAdmin)
+
+      if (isSuperAdmin) {
+        // Fetch all active doctors for superadmin
+        fetchAllDoctors()
+      } else {
+        // Fetch current doctor info for regular doctor
+        fetchCurrentDoctor()
       }
     }
 
-    fetchCurrentDoctor()
+    checkSuperAdmin()
   }, [user])
+
+  // Fetch current doctor info (for regular doctor users)
+  const fetchCurrentDoctor = async () => {
+    if (!user?.id) return
+
+    const { data, error } = await supabase
+      .from('clinic_doctors')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single()
+
+    if (!error && data) {
+      setCurrentDoctor(data)
+      setSelectedDoctorId(data.id)
+    }
+  }
+
+  // Fetch all active doctors (for superadmin)
+  const fetchAllDoctors = async () => {
+    const { data, error } = await supabase
+      .from('clinic_doctors')
+      .select('*')
+      .eq('is_active', true)
+      .order('full_name')
+
+    if (!error && data) {
+      setAllDoctors(data)
+      // Set first doctor as default if available
+      if (data.length > 0) {
+        setSelectedDoctorId(data[0].id)
+      }
+    }
+  }
 
   // Fetch today's visits
   useEffect(() => {
@@ -335,8 +379,8 @@ export function MedicalExamination() {
       return false
     }
 
-    if (!currentDoctor) {
-      setError('Data dokter tidak ditemukan. Pastikan Anda login sebagai dokter.')
+    if (!selectedDoctorId) {
+      setError('Pilih dokter yang melakukan pemeriksaan')
       return false
     }
 
@@ -377,7 +421,7 @@ export function MedicalExamination() {
       const recordData = {
         visit_id: selectedVisit!.id,
         patient_id: selectedVisit!.patient.id,
-        doctor_id: currentDoctor!.id,
+        doctor_id: selectedDoctorId,
         blood_pressure_systolic: formData.blood_pressure_systolic,
         blood_pressure_diastolic: formData.blood_pressure_diastolic,
         heart_rate: formData.heart_rate,
@@ -474,19 +518,27 @@ export function MedicalExamination() {
               <p className="text-sm text-gray-500">Rekam medis pemeriksaan dokter</p>
             </div>
           </div>
-          {currentDoctor && (
-            <Badge variant="outline" className="gap-2">
-              <User className="w-4 h-4" />
-              Dr. {currentDoctor.full_name}
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {isSuperAdmin && (
+              <Badge variant="secondary" className="gap-2">
+                <User className="w-4 h-4" />
+                Super Admin
+              </Badge>
+            )}
+            {!isSuperAdmin && currentDoctor && (
+              <Badge variant="outline" className="gap-2">
+                <User className="w-4 h-4" />
+                Dr. {currentDoctor.full_name}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          {!currentDoctor && (
+          {!isSuperAdmin && !currentDoctor && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -495,7 +547,16 @@ export function MedicalExamination() {
             </Alert>
           )}
 
-          {currentDoctor && (
+          {isSuperAdmin && allDoctors.length === 0 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Tidak ada dokter aktif dalam sistem. Tambahkan data dokter terlebih dahulu.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {(isSuperAdmin || currentDoctor) && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Panel - Visit List */}
               <div className="lg:col-span-1">
@@ -575,6 +636,38 @@ export function MedicalExamination() {
                   </Card>
                 ) : (
                   <div className="space-y-6">
+                    {/* Doctor Selection for SuperAdmin */}
+                    {isSuperAdmin && (
+                      <Card className="bg-blue-50 border-blue-200">
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <User className="w-5 h-5" />
+                            Pilih Dokter Pemeriksa
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Select
+                            value={selectedDoctorId}
+                            onValueChange={setSelectedDoctorId}
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Pilih dokter yang melakukan pemeriksaan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allDoctors.map(doctor => (
+                                <SelectItem key={doctor.id} value={doctor.id}>
+                                  Dr. {doctor.full_name} - {doctor.specialization}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-blue-700 mt-2">
+                            Sebagai Super Admin, Anda dapat memilih dokter yang akan tercatat melakukan pemeriksaan
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
                     {/* Patient Info */}
                     <Card>
                       <CardHeader>
