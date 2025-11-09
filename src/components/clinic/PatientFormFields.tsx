@@ -76,22 +76,20 @@ export function PatientFormFields({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* NIK */}
-          {patientType !== 'employee' && patientType !== 'employee_family' && (
-            <div>
-              <Label htmlFor="nik">
-                NIK {patientType === 'public' && <span className="text-destructive">*</span>}
-              </Label>
-              <Input
-                id="nik"
-                value={formData.nik || ''}
-                onChange={(e) => onChange('nik', e.target.value)}
-                placeholder="Nomor Induk Kependudukan"
-                maxLength={16}
-                disabled={isReadOnly('nik')}
-              />
-            </div>
-          )}
+          {/* NIK KTP */}
+          <div>
+            <Label htmlFor="nik">
+              NIK KTP {patientType === 'public' && <span className="text-destructive">*</span>}
+            </Label>
+            <Input
+              id="nik"
+              value={formData.nik || ''}
+              onChange={(e) => onChange('nik', e.target.value)}
+              placeholder="Nomor Induk Kependudukan (16 digit)"
+              maxLength={16}
+              disabled={isReadOnly('nik')}
+            />
+          </div>
 
           {/* Full Name */}
           <div>

@@ -17,10 +17,8 @@ import { useState, useEffect } from 'react'
 import { Search, Users, User, Baby } from 'lucide-react'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { useEmployees } from '../../hooks'
-import type { FamilyMember } from '../../types/clinic-registration'
 
 interface Employee {
   id: string
@@ -31,6 +29,12 @@ interface Employee {
   gender?: string
   birth_date?: string
   phone?: string
+  email?: string
+  address?: string
+  bpjs_health_number?: string
+  blood_type?: string
+  height?: number
+  weight?: number
   marital_status?: string
   family_data?: any
 }
@@ -47,6 +51,14 @@ interface EmployeeSearchResult {
   memberAge?: number
   memberGender?: string
   memberRelation?: string
+  memberBirthDate?: string
+  memberPhone?: string
+  memberEmail?: string
+  memberAddress?: string
+  memberBpjsHealthNumber?: string
+  memberBloodType?: string
+  memberHeight?: number
+  memberWeight?: number
   childIndex?: number
 }
 
@@ -105,6 +117,14 @@ export function EmployeeSearchSelector({ onSelect, placeholder, label }: Props) 
           memberAge: age,
           memberGender: emp.gender,
           memberRelation: 'self',
+          memberBirthDate: emp.birth_date,
+          memberPhone: emp.phone,
+          memberEmail: emp.email,
+          memberAddress: emp.address,
+          memberBpjsHealthNumber: emp.bpjs_health_number,
+          memberBloodType: emp.blood_type,
+          memberHeight: emp.height,
+          memberWeight: emp.weight,
         })
       }
 
@@ -126,6 +146,10 @@ export function EmployeeSearchSelector({ onSelect, placeholder, label }: Props) 
               : undefined,
             memberGender: spouse.gender,
             memberRelation: 'spouse',
+            memberBirthDate: spouse.birthDate,
+            memberPhone: spouse.phone,
+            memberBpjsHealthNumber: spouse.bpjsHealthNumber,
+            memberBloodType: spouse.bloodType,
           })
         }
       }
@@ -148,6 +172,9 @@ export function EmployeeSearchSelector({ onSelect, placeholder, label }: Props) 
                 : undefined,
               memberGender: child.gender,
               memberRelation: 'child',
+              memberBirthDate: child.birthDate,
+              memberBpjsHealthNumber: child.bpjsHealthNumber,
+              memberBloodType: child.bloodType,
               childIndex: index,
             })
           }

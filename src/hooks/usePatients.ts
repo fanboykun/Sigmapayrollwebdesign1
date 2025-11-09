@@ -286,7 +286,25 @@ export function usePatients() {
 
       if (rpcError) throw rpcError
 
-      return { data: data as FamilyMember[], error: null }
+      // Map snake_case from DB to camelCase for TypeScript
+      const mappedData: FamilyMember[] = (data || []).map((member: any) => ({
+        relation: member.relation,
+        nik: member.nik,
+        nationalId: member.national_id,
+        fullName: member.full_name,
+        birthDate: member.birth_date,
+        age: member.age,
+        gender: member.gender,
+        bloodType: member.blood_type,
+        bpjsHealthNumber: member.bpjs_health_number,
+        phone: member.phone,
+        email: member.email,
+        address: member.address,
+        height: member.height,
+        weight: member.weight,
+      }))
+
+      return { data: mappedData, error: null }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch family members'
       setError(errorMessage)

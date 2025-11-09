@@ -135,6 +135,10 @@ export interface FamilyMember {
   bloodType?: BloodType;
   bpjsHealthNumber?: string;
   phone?: string;
+  email?: string;
+  address?: string;
+  height?: number;
+  weight?: number;
 }
 
 // ============================================================================

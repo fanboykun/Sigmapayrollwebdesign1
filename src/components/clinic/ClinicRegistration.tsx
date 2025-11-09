@@ -160,18 +160,28 @@ export function ClinicRegistration() {
         relation: 'self',
         fullName: result.memberName,
         nik: result.memberNik,
-        birthDate: '', // Will need to be filled in form
+        birthDate: result.memberBirthDate || '',
         age: result.memberAge || 0,
         gender: result.memberGender || 'male',
         phone: result.memberPhone,
+        bpjsHealthNumber: result.memberBpjsHealthNumber,
+        bloodType: result.memberBloodType,
       }
       setSelectedFamilyMember(selfMember)
 
-      // Auto-fill form data for employee
+      // Auto-fill form data for employee with complete information
       setPatientFormData({
         full_name: result.memberName,
         nik: result.memberNik,
+        birth_date: result.memberBirthDate,
         gender: result.memberGender,
+        phone: result.memberPhone,
+        email: result.memberEmail,
+        address: result.memberAddress,
+        bpjs_health_number: result.memberBpjsHealthNumber,
+        blood_type: result.memberBloodType,
+        height: result.memberHeight,
+        weight: result.memberWeight,
       })
     } else {
       // Family member selected directly (spouse/child)
@@ -179,15 +189,22 @@ export function ClinicRegistration() {
         relation: result.memberRelation,
         fullName: result.memberName,
         nik: result.memberNik,
-        birthDate: '', // Will be from family data
+        birthDate: result.memberBirthDate || '',
         age: result.memberAge,
         gender: result.memberGender,
+        phone: result.memberPhone,
+        bpjsHealthNumber: result.memberBpjsHealthNumber,
+        bloodType: result.memberBloodType,
       })
-      // Auto-fill form data
+      // Auto-fill form data for family member with complete information
       setPatientFormData({
         full_name: result.memberName,
         nik: result.memberNik,
+        birth_date: result.memberBirthDate,
         gender: result.memberGender,
+        phone: result.memberPhone,
+        bpjs_health_number: result.memberBpjsHealthNumber,
+        blood_type: result.memberBloodType,
       })
     }
   }
@@ -196,15 +213,19 @@ export function ClinicRegistration() {
   const handleFamilyMemberSelect = (member: FamilyMember) => {
     setSelectedFamilyMember(member)
     setError(undefined)
-    // Auto-fill form data
+    // Auto-fill form data with all available fields
     setPatientFormData({
       full_name: member.fullName,
-      nik: member.nik,
+      nik: member.nationalId || member.nik, // Prioritize national_id (NIK KTP) over nik (employee_id)
       birth_date: member.birthDate,
       gender: member.gender,
       phone: member.phone,
+      email: member.email,
+      address: member.address,
       blood_type: member.bloodType,
       bpjs_health_number: member.bpjsHealthNumber,
+      height: member.height,
+      weight: member.weight,
     })
   }
 
@@ -526,7 +547,7 @@ export function ClinicRegistration() {
             patientType={patientType!}
             readOnlyFields={
               selectedFamilyMember
-                ? ['full_name', 'nik', 'birth_date', 'gender', 'blood_type', 'bpjs_health_number']
+                ? ['full_name', 'nik', 'birth_date', 'gender', 'blood_type', 'bpjs_health_number', 'phone', 'email', 'address', 'height', 'weight']
                 : []
             }
             showVitalSigns={false}

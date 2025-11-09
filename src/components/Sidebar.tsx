@@ -299,7 +299,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   // Pelayanan Clinic
   const clinicServiceItems = [
     { id: 'clinic-registration', label: 'Pendaftaran Pasien', icon: ClipboardList, module: 'clinic_registration' },
-    { id: 'clinic-examination', label: 'Pemeriksaan & Diagnosa', icon: Stethoscope, module: 'clinic_examination' },
+    { id: 'clinic-examination', label: 'Pemeriksaan Diagnosa', icon: Stethoscope, module: 'clinic_examination' },
     { id: 'clinic-prescription', label: 'Resep Obat', icon: FileText, module: 'clinic_prescription' },
     { id: 'clinic-dispensing', label: 'Penyerahan Obat', icon: Syringe, module: 'clinic_dispensing' },
   ];
