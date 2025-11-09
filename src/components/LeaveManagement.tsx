@@ -4,7 +4,7 @@
  * dan search karyawan berdasarkan divisi yang dipilih
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -16,40 +16,53 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { DatePicker } from './ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Eye, CheckCircle, XCircle, Clock, Calendar as CalendarIcon, FileText, Users, User, ChevronsUpDown, Check, Building2, Plus } from 'lucide-react';
+import { Search, Eye, CheckCircle, XCircle, Clock, Calendar as CalendarIcon, FileText, Users, User, ChevronsUpDown, Check, Building2, Plus, Loader2 } from 'lucide-react';
 import { cn } from './ui/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { MASTER_EMPLOYEES } from '../shared/employeeData';
-import { MASTER_DIVISIONS } from '../shared/divisionData';
-
-interface LeaveRequest {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  division: string;
-  position: string;
-  leaveType: 'annual' | 'sick' | 'maternity' | 'marriage' | 'bereavement' | 'unpaid' | 'other';
-  startDate: string;
-  endDate: string;
-  days: number;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected';
-  submittedDate: string;
-  approvedBy?: string;
-  approvedDate?: string;
-  rejectionReason?: string;
-}
+import { useLeaveRequests, type LeaveRequestWithEmployee } from '../hooks/useLeaveRequests';
+import { useDivisions } from '../hooks/useDivisions';
+import { useEmployees } from '../hooks/useEmployees';
+import { usePositions } from '../hooks/usePositions';
+import { toast } from 'sonner';
 
 export function LeaveManagement() {
+  // Use the Supabase hooks
+  const {
+    leaveRequests: dbLeaveRequests,
+    loading: dbLoading,
+    error: dbError,
+    addLeaveRequest,
+    approveLeaveRequest,
+    rejectLeaveRequest,
+  } = useLeaveRequests();
+
+  const { divisions, loading: divisionsLoading } = useDivisions();
+  const { employees, loading: employeesLoading } = useEmployees();
+  const { positions, loading: positionsLoading } = usePositions();
+
+  // Enrich employees with division and position names
+  const enrichedEmployees = useMemo(() => {
+    return employees.map(emp => {
+      const division = divisions.find(d => d.id === emp.division_id);
+      const position = positions.find(p => p.id === emp.position_id);
+      return {
+        ...emp,
+        divisionName: division?.nama_divisi || '',
+        divisionCode: division?.kode_divisi || '',
+        positionName: position?.name || '',
+        positionCode: position?.code || '',
+      };
+    });
+  }, [employees, divisions, positions]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [divisionFilter, setDivisionFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
+  const [selectedLeave, setSelectedLeave] = useState<LeaveRequestWithEmployee | null>(null);
 
   // Form state
   const [openDivisionCombobox, setOpenDivisionCombobox] = useState(false);
@@ -63,94 +76,49 @@ export function LeaveManagement() {
     reason: '',
   });
 
-  // Mock data cuti
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([
-    {
-      id: '1',
-      employeeId: '1782829',
-      employeeName: 'Ahmad Hidayat',
-      employeeCode: '1782829',
-      division: 'Bangun Bandar',
-      position: 'Mandor Panen',
-      leaveType: 'annual',
-      startDate: '2025-11-15',
-      endDate: '2025-11-17',
-      days: 3,
-      reason: 'Liburan keluarga',
-      status: 'approved',
-      submittedDate: '2025-11-01',
-      approvedBy: 'Manager HR',
-      approvedDate: '2025-11-02',
-    },
-    {
-      id: '2',
-      employeeId: '1745623',
-      employeeName: 'Budi Santoso',
-      employeeCode: '1745623',
-      division: 'Bangun Bandar',
-      position: 'Pemanen',
-      leaveType: 'sick',
-      startDate: '2025-10-25',
-      endDate: '2025-10-26',
-      days: 2,
-      reason: 'Sakit demam, ada surat dokter',
-      status: 'approved',
-      submittedDate: '2025-10-25',
-      approvedBy: 'Manager HR',
-      approvedDate: '2025-10-25',
-    },
-    {
-      id: '3',
-      employeeId: '1793012',
-      employeeName: 'Susanto Wijaya',
-      employeeCode: '1793012',
-      division: 'PT Socfindo Kebun TG',
-      position: 'Mandor Panen',
-      leaveType: 'annual',
-      startDate: '2025-11-20',
-      endDate: '2025-11-23',
-      days: 4,
-      reason: 'Mudik ke kampung halaman',
-      status: 'pending',
-      submittedDate: '2025-10-28',
-    },
-    {
-      id: '4',
-      employeeId: '1782634',
-      employeeName: 'Siti Nurhaliza',
-      employeeCode: '1782634',
-      division: 'Head Office/Kantor Besar Medan',
-      position: 'Manajer Administrasi',
-      leaveType: 'annual',
-      startDate: '2025-12-01',
-      endDate: '2025-12-05',
-      days: 5,
-      reason: 'Liburan akhir tahun',
-      status: 'pending',
-      submittedDate: '2025-10-29',
-    },
-  ]);
+  // Transform Supabase data to component format
+  const leaveRequests = useMemo(() => {
+    return dbLeaveRequests.map((req) => ({
+      ...req,
+      employeeId: req.employees?.employee_id || '',
+      employeeName: req.employees?.full_name || '',
+      employeeCode: req.employees?.employee_id || '',
+      division: req.employees?.divisions?.nama_divisi || '',
+      position: req.employees?.positions?.name || '',
+      startDate: req.start_date,
+      endDate: req.end_date,
+      days: req.total_days,
+      leaveType: req.leave_type,
+      submittedDate: req.requested_date || req.created_at.split('T')[0],
+      approvedDate: req.approved_date ? req.approved_date.split('T')[0] : undefined,
+      rejectionReason: req.rejection_reason || undefined,
+    }))
+  }, [dbLeaveRequests]);
 
-  // Get selected division and employee
-  const selectedDivision = MASTER_DIVISIONS.find(div => div.id === selectedDivisionId);
-  const selectedEmployee = MASTER_EMPLOYEES.find(emp => emp.id === selectedEmployeeId);
+  // Get selected division and employee from Supabase data
+  const selectedDivision = divisions.find(div => div.id === selectedDivisionId);
+  const selectedEmployee = enrichedEmployees.find(emp => emp.id === selectedEmployeeId);
 
-  // Filter employees by selected division
-  const filteredEmployeesByDivision = selectedDivisionId
-    ? MASTER_EMPLOYEES.filter(emp => emp.division === selectedDivision?.name)
-    : [];
+  // Filter employees by selected division (using division_id, not division name)
+  // Only show active employees
+  const filteredEmployeesByDivision = useMemo(() => {
+    if (!selectedDivisionId) return [];
+    return enrichedEmployees.filter(emp => emp.division_id === selectedDivisionId && emp.status === 'active');
+  }, [enrichedEmployees, selectedDivisionId]);
 
   // Filter leave requests
-  const filteredRequests = leaveRequests.filter((req) => {
-    const matchesSearch =
-      req.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.employeeCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.division.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDivision = divisionFilter === 'all' || req.division === divisionFilter;
-    const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
-    const matchesLeaveType = leaveTypeFilter === 'all' || req.leaveType === leaveTypeFilter;
-    return matchesSearch && matchesDivision && matchesStatus && matchesLeaveType;
-  });
+  const filteredRequests = useMemo(() => {
+    return leaveRequests.filter((req) => {
+      const matchesSearch =
+        req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.employeeCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.division?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDivision = divisionFilter === 'all' || req.division === divisionFilter;
+      const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
+      const matchesLeaveType = leaveTypeFilter === 'all' || req.leaveType === leaveTypeFilter;
+      return matchesSearch && matchesDivision && matchesStatus && matchesLeaveType;
+    });
+  }, [leaveRequests, searchQuery, divisionFilter, statusFilter, leaveTypeFilter]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -173,61 +141,58 @@ export function LeaveManagement() {
     return diffDays;
   };
 
-  const handleAddLeaveRequest = () => {
+  const handleAddLeaveRequest = async () => {
     if (!selectedEmployee || !startDate || !endDate || !formData.reason) {
-      alert('Mohon lengkapi semua data yang diperlukan');
+      toast.error('Mohon lengkapi semua data yang diperlukan');
       return;
     }
 
     const days = calculateDays(startDate, endDate);
 
-    const newRequest: LeaveRequest = {
-      id: String(leaveRequests.length + 1),
-      employeeId: selectedEmployee.employeeId,
-      employeeName: selectedEmployee.fullName,
-      employeeCode: selectedEmployee.employeeId,
-      division: selectedEmployee.division,
-      position: selectedEmployee.position,
-      leaveType: formData.leaveType as LeaveRequest['leaveType'],
-      startDate: format(startDate, 'yyyy-MM-dd'),
-      endDate: format(endDate, 'yyyy-MM-dd'),
-      days,
+    const { data, error } = await addLeaveRequest({
+      employee_id: selectedEmployee.id, // Use the UUID from the database
+      leave_type: formData.leaveType as any,
+      start_date: format(startDate, 'yyyy-MM-dd'),
+      end_date: format(endDate, 'yyyy-MM-dd'),
+      total_days: days,
       reason: formData.reason,
       status: 'pending',
-      submittedDate: format(new Date(), 'yyyy-MM-dd'),
-    };
+      requested_date: format(new Date(), 'yyyy-MM-dd'),
+    });
 
-    setLeaveRequests([newRequest, ...leaveRequests]);
+    if (error) {
+      toast.error(`Gagal menambahkan pengajuan cuti: ${error}`);
+      return;
+    }
+
+    toast.success('Pengajuan cuti berhasil ditambahkan');
     setIsAddDialogOpen(false);
     resetForm();
   };
 
-  const handleApprove = (id: string) => {
-    setLeaveRequests(leaveRequests.map(req =>
-      req.id === id
-        ? {
-            ...req,
-            status: 'approved',
-            approvedBy: 'Manager HR',
-            approvedDate: format(new Date(), 'yyyy-MM-dd'),
-          }
-        : req
-    ));
+  const handleApprove = async (id: string) => {
+    // TODO: Get current user ID from auth context
+    const { error } = await approveLeaveRequest(id);
+
+    if (error) {
+      toast.error(`Gagal menyetujui cuti: ${error}`);
+      return;
+    }
+
+    toast.success('Pengajuan cuti telah disetujui');
     setIsDetailDialogOpen(false);
   };
 
-  const handleReject = (id: string, reason: string) => {
-    setLeaveRequests(leaveRequests.map(req =>
-      req.id === id
-        ? {
-            ...req,
-            status: 'rejected',
-            approvedBy: 'Manager HR',
-            approvedDate: format(new Date(), 'yyyy-MM-dd'),
-            rejectionReason: reason,
-          }
-        : req
-    ));
+  const handleReject = async (id: string, reason: string) => {
+    // TODO: Get current user ID from auth context
+    const { error } = await rejectLeaveRequest(id, reason);
+
+    if (error) {
+      toast.error(`Gagal menolak cuti: ${error}`);
+      return;
+    }
+
+    toast.success('Pengajuan cuti telah ditolak');
     setIsDetailDialogOpen(false);
   };
 
@@ -236,8 +201,7 @@ export function LeaveManagement() {
       annual: 'Cuti Tahunan',
       sick: 'Cuti Sakit',
       maternity: 'Cuti Hamil/Melahirkan',
-      marriage: 'Cuti Menikah',
-      bereavement: 'Cuti Duka',
+      paternity: 'Cuti Ayah',
       unpaid: 'Cuti Tanpa Gaji',
       other: 'Lainnya',
     };
@@ -249,8 +213,7 @@ export function LeaveManagement() {
       annual: { className: 'bg-[#2c7be5]/10 text-[#2c7be5]' },
       sick: { className: 'bg-[#e63757]/10 text-[#e63757]' },
       maternity: { className: 'bg-[#d946ef]/10 text-[#d946ef]' },
-      marriage: { className: 'bg-[#ec4899]/10 text-[#ec4899]' },
-      bereavement: { className: 'bg-[#6b7280]/10 text-[#6b7280]' },
+      paternity: { className: 'bg-[#3b82f6]/10 text-[#3b82f6]' },
       unpaid: { className: 'bg-[#f59e0b]/10 text-[#f59e0b]' },
       other: { className: 'bg-[#95aac9]/10 text-[#95aac9]' },
     };
@@ -290,6 +253,26 @@ export function LeaveManagement() {
         <h1 className="mb-1">Manajemen Cuti Karyawan</h1>
         <p className="text-muted-foreground">Kelola pengajuan cuti karyawan</p>
       </div>
+
+      {/* Error Display */}
+      {dbError && (
+        <Card className="mb-4 p-4 border-red-200 bg-red-50">
+          <div className="flex items-center gap-2 text-red-600">
+            <XCircle size={20} />
+            <p className="mb-0">Error: {dbError}</p>
+          </div>
+        </Card>
+      )}
+
+      {/* Loading Indicator */}
+      {dbLoading && (
+        <Card className="mb-4 p-8 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="animate-spin text-primary" size={32} />
+            <p className="text-muted-foreground">Memuat data cuti...</p>
+          </div>
+        </Card>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
@@ -363,8 +346,8 @@ export function LeaveManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Divisi</SelectItem>
-                  {MASTER_DIVISIONS.filter(d => d.isActive).map(div => (
-                    <SelectItem key={div.id} value={div.name}>{div.name}</SelectItem>
+                  {divisions.map(div => (
+                    <SelectItem key={div.id} value={div.nama_divisi}>{div.nama_divisi}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -390,8 +373,7 @@ export function LeaveManagement() {
                   <SelectItem value="annual">Cuti Tahunan</SelectItem>
                   <SelectItem value="sick">Cuti Sakit</SelectItem>
                   <SelectItem value="maternity">Cuti Hamil/Melahirkan</SelectItem>
-                  <SelectItem value="marriage">Cuti Menikah</SelectItem>
-                  <SelectItem value="bereavement">Cuti Duka</SelectItem>
+                  <SelectItem value="paternity">Cuti Ayah</SelectItem>
                   <SelectItem value="unpaid">Cuti Tanpa Gaji</SelectItem>
                   <SelectItem value="other">Lainnya</SelectItem>
                 </SelectContent>
@@ -433,7 +415,7 @@ export function LeaveManagement() {
                             {selectedDivision ? (
                               <div className="flex items-center gap-2">
                                 <Building2 size={16} />
-                                <span>{selectedDivision.name} ({selectedDivision.code})</span>
+                                <span>{selectedDivision.kode_divisi} - {selectedDivision.nama_divisi}</span>
                               </div>
                             ) : (
                               "Pilih divisi..."
@@ -447,30 +429,33 @@ export function LeaveManagement() {
                             <CommandList>
                               <CommandEmpty>Divisi tidak ditemukan.</CommandEmpty>
                               <CommandGroup>
-                                {MASTER_DIVISIONS.filter(d => d.isActive).map((division) => (
-                                  <CommandItem
-                                    key={division.id}
-                                    value={`${division.name} ${division.code}`}
-                                    onSelect={() => {
-                                      setSelectedDivisionId(division.id);
-                                      setSelectedEmployeeId(''); // Reset employee selection
-                                      setOpenDivisionCombobox(false);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        selectedDivisionId === division.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    <div className="flex flex-col">
-                                      <span>{division.name}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {division.code} • {division.shortname}
-                                      </span>
-                                    </div>
-                                  </CommandItem>
-                                ))}
+                                {divisions.map((division) => {
+                                  const employeeCount = employees.filter(emp => emp.division_id === division.id && emp.status === 'active').length;
+                                  return (
+                                    <CommandItem
+                                      key={division.id}
+                                      value={`${division.nama_divisi} ${division.kode_divisi}`}
+                                      onSelect={() => {
+                                        setSelectedDivisionId(division.id);
+                                        setSelectedEmployeeId(''); // Reset employee selection
+                                        setOpenDivisionCombobox(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedDivisionId === division.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <div className="flex flex-col">
+                                        <span>{division.kode_divisi} - {division.nama_divisi}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {employeeCount} karyawan aktif
+                                        </span>
+                                      </div>
+                                    </CommandItem>
+                                  );
+                                })}
                               </CommandGroup>
                             </CommandList>
                           </Command>
@@ -493,7 +478,7 @@ export function LeaveManagement() {
                               {selectedEmployee ? (
                                 <div className="flex items-center gap-2">
                                   <User size={16} />
-                                  <span>{selectedEmployee.fullName} ({selectedEmployee.employeeId})</span>
+                                  <span>{selectedEmployee.full_name} ({selectedEmployee.employee_id})</span>
                                 </div>
                               ) : (
                                 "Cari dan pilih karyawan..."
@@ -503,14 +488,14 @@ export function LeaveManagement() {
                           </PopoverTrigger>
                           <PopoverContent className="w-full p-0" align="start">
                             <Command>
-                              <CommandInput placeholder="Cari nama atau NIK karyawan..." />
+                              <CommandInput placeholder="Cari nama atau Employee ID..." />
                               <CommandList>
                                 <CommandEmpty>Karyawan tidak ditemukan.</CommandEmpty>
                                 <CommandGroup>
                                   {filteredEmployeesByDivision.map((employee) => (
                                     <CommandItem
                                       key={employee.id}
-                                      value={`${employee.fullName} ${employee.employeeId}`}
+                                      value={`${employee.full_name} ${employee.employee_id}`}
                                       onSelect={() => {
                                         setSelectedEmployeeId(employee.id);
                                         setOpenEmployeeCombobox(false);
@@ -523,9 +508,9 @@ export function LeaveManagement() {
                                         )}
                                       />
                                       <div className="flex flex-col">
-                                        <span>{employee.fullName}</span>
+                                        <span>{employee.full_name}</span>
                                         <span className="text-xs text-muted-foreground">
-                                          {employee.employeeId} • {employee.position}
+                                          {employee.employee_id} • {employee.positionName}
                                         </span>
                                       </div>
                                     </CommandItem>
@@ -536,7 +521,7 @@ export function LeaveManagement() {
                           </PopoverContent>
                         </Popover>
                         <p className="text-xs text-muted-foreground">
-                          Menampilkan {filteredEmployeesByDivision.length} karyawan dari divisi {selectedDivision?.name}
+                          Menampilkan {filteredEmployeesByDivision.length} karyawan aktif dari divisi {selectedDivision?.nama_divisi}
                         </p>
                       </div>
                     )}
@@ -547,28 +532,30 @@ export function LeaveManagement() {
                         <h4 className="mb-3 text-sm">Data Karyawan Terpilih</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 border border-blue-200 rounded">
                           <div>
-                            <p className="text-xs text-muted-foreground mb-1">NIK</p>
-                            <p className="mb-0">{selectedEmployee.employeeId}</p>
+                            <p className="text-xs text-muted-foreground mb-1">Employee ID</p>
+                            <p className="mb-0">{selectedEmployee.employee_id}</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Nama Lengkap</p>
-                            <p className="mb-0">{selectedEmployee.fullName}</p>
+                            <p className="mb-0">{selectedEmployee.full_name}</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Divisi</p>
-                            <p className="mb-0">{selectedEmployee.division}</p>
+                            <p className="mb-0">{selectedEmployee.divisionName} ({selectedEmployee.divisionCode})</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Jabatan</p>
-                            <p className="mb-0">{selectedEmployee.position}</p>
+                            <p className="mb-0">{selectedEmployee.positionName}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground mb-1">Departemen</p>
-                            <p className="mb-0">{selectedEmployee.department}</p>
+                            <p className="text-xs text-muted-foreground mb-1">Status Karyawan</p>
+                            <p className="mb-0 capitalize">{selectedEmployee.employment_status === 'permanent' ? 'Tetap' : selectedEmployee.employment_status === 'contract' ? 'Kontrak' : 'Harian'}</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Status</p>
-                            <p className="mb-0 capitalize">{selectedEmployee.status === 'active' ? 'Aktif' : selectedEmployee.status}</p>
+                            <Badge variant={selectedEmployee.status === 'active' ? 'default' : 'secondary'}>
+                              {selectedEmployee.status === 'active' ? 'Aktif' : selectedEmployee.status === 'inactive' ? 'Tidak Aktif' : selectedEmployee.status === 'on-leave' ? 'Cuti' : 'Terminated'}
+                            </Badge>
                           </div>
                         </div>
                       </div>
@@ -591,8 +578,7 @@ export function LeaveManagement() {
                                   <SelectItem value="annual">Cuti Tahunan</SelectItem>
                                   <SelectItem value="sick">Cuti Sakit</SelectItem>
                                   <SelectItem value="maternity">Cuti Hamil/Melahirkan</SelectItem>
-                                  <SelectItem value="marriage">Cuti Menikah</SelectItem>
-                                  <SelectItem value="bereavement">Cuti Duka</SelectItem>
+                                  <SelectItem value="paternity">Cuti Ayah</SelectItem>
                                   <SelectItem value="unpaid">Cuti Tanpa Gaji</SelectItem>
                                   <SelectItem value="other">Lainnya</SelectItem>
                                 </SelectContent>
@@ -730,23 +716,23 @@ export function LeaveManagement() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Nama Karyawan</p>
-                  <p className="mb-0">{selectedLeave.employeeName}</p>
+                  <p className="mb-0">{selectedLeave.employees?.full_name || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">NIK</p>
-                  <p className="mb-0">{selectedLeave.employeeCode}</p>
+                  <p className="mb-0">{selectedLeave.employees?.employee_id || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Divisi</p>
-                  <p className="mb-0">{selectedLeave.division}</p>
+                  <p className="mb-0">{selectedLeave.employees?.divisions?.nama_divisi || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Jabatan</p>
-                  <p className="mb-0">{selectedLeave.position}</p>
+                  <p className="mb-0">{selectedLeave.employees?.positions?.name || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Jenis Cuti</p>
-                  {getLeaveTypeBadge(selectedLeave.leaveType)}
+                  {getLeaveTypeBadge(selectedLeave.leave_type)}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Status</p>
@@ -754,45 +740,41 @@ export function LeaveManagement() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Tanggal Mulai</p>
-                  <p className="mb-0">{format(new Date(selectedLeave.startDate), 'dd MMMM yyyy', { locale: idLocale })}</p>
+                  <p className="mb-0">{format(new Date(selectedLeave.start_date), 'dd MMMM yyyy', { locale: idLocale })}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Tanggal Selesai</p>
-                  <p className="mb-0">{format(new Date(selectedLeave.endDate), 'dd MMMM yyyy', { locale: idLocale })}</p>
+                  <p className="mb-0">{format(new Date(selectedLeave.end_date), 'dd MMMM yyyy', { locale: idLocale })}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Durasi</p>
-                  <p className="mb-0">{selectedLeave.days} hari</p>
+                  <p className="mb-0">{selectedLeave.total_days} hari</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Tanggal Pengajuan</p>
-                  <p className="mb-0">{format(new Date(selectedLeave.submittedDate), 'dd MMMM yyyy', { locale: idLocale })}</p>
+                  <p className="mb-0">{selectedLeave.requested_date ? format(new Date(selectedLeave.requested_date), 'dd MMMM yyyy', { locale: idLocale }) : format(new Date(selectedLeave.created_at), 'dd MMMM yyyy', { locale: idLocale })}</p>
                 </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Alasan</p>
-                <p className="mb-0">{selectedLeave.reason}</p>
+                <p className="mb-0">{selectedLeave.reason || '-'}</p>
               </div>
-              {selectedLeave.status === 'approved' && (
+              {selectedLeave.status === 'approved' && selectedLeave.approved_date && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded">
-                  <p className="text-sm mb-1">
-                    <strong>Disetujui oleh:</strong> {selectedLeave.approvedBy}
-                  </p>
                   <p className="text-sm mb-0">
-                    <strong>Tanggal Approval:</strong> {selectedLeave.approvedDate && format(new Date(selectedLeave.approvedDate), 'dd MMMM yyyy', { locale: idLocale })}
+                    <strong>Tanggal Approval:</strong> {format(new Date(selectedLeave.approved_date), 'dd MMMM yyyy', { locale: idLocale })}
                   </p>
                 </div>
               )}
               {selectedLeave.status === 'rejected' && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded">
-                  <p className="text-sm mb-1">
-                    <strong>Ditolak oleh:</strong> {selectedLeave.approvedBy}
-                  </p>
-                  <p className="text-sm mb-1">
-                    <strong>Tanggal:</strong> {selectedLeave.approvedDate && format(new Date(selectedLeave.approvedDate), 'dd MMMM yyyy', { locale: idLocale })}
-                  </p>
+                  {selectedLeave.approved_date && (
+                    <p className="text-sm mb-1">
+                      <strong>Tanggal:</strong> {format(new Date(selectedLeave.approved_date), 'dd MMMM yyyy', { locale: idLocale })}
+                    </p>
+                  )}
                   <p className="text-sm mb-0">
-                    <strong>Alasan Penolakan:</strong> {selectedLeave.rejectionReason}
+                    <strong>Alasan Penolakan:</strong> {selectedLeave.rejection_reason || '-'}
                   </p>
                 </div>
               )}

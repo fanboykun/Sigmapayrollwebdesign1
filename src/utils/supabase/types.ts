@@ -404,9 +404,11 @@ export interface Database {
       employees: {
         Row: {
           id: string
-          nik: string
-          nip: string | null
+          uuid: string
+          employee_id: string
           full_name: string
+          national_id: string | null
+          nationality: string | null
           division_id: string
           position_id: string
           wage_scale_id: string
@@ -425,15 +427,17 @@ export interface Database {
           phone: string | null
           email: string | null
           photo_url: string | null
-          is_active: boolean
+          status: 'active' | 'inactive' | 'on-leave' | 'terminated'
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          nik: string
-          nip?: string | null
+          uuid?: string
+          employee_id: string
           full_name: string
+          national_id?: string | null
+          nationality?: string | null
           division_id: string
           position_id: string
           wage_scale_id: string
@@ -452,15 +456,17 @@ export interface Database {
           phone?: string | null
           email?: string | null
           photo_url?: string | null
-          is_active?: boolean
+          status?: 'active' | 'inactive' | 'on-leave' | 'terminated'
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          nik?: string
-          nip?: string | null
+          uuid?: string
+          employee_id?: string
           full_name?: string
+          national_id?: string | null
+          nationality?: string | null
           division_id?: string
           position_id?: string
           wage_scale_id?: string
@@ -479,7 +485,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           photo_url?: string | null
-          is_active?: boolean
+          status?: 'active' | 'inactive' | 'on-leave' | 'terminated'
           created_at?: string
           updated_at?: string
         }
@@ -526,44 +532,50 @@ export interface Database {
         Row: {
           id: string
           employee_id: string
-          leave_type: 'annual' | 'sick' | 'marriage' | 'maternity' | 'paternity' | 'unpaid'
+          leave_type: 'annual' | 'sick' | 'maternity' | 'paternity' | 'unpaid' | 'other'
           start_date: string
           end_date: string
           total_days: number
           reason: string | null
-          status: 'pending' | 'approved' | 'rejected'
+          status: 'pending' | 'approved' | 'rejected' | 'cancelled'
           approved_by: string | null
-          approved_at: string | null
+          approved_date: string | null
           rejection_reason: string | null
+          requested_date: string | null
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
           employee_id: string
-          leave_type: 'annual' | 'sick' | 'marriage' | 'maternity' | 'paternity' | 'unpaid'
+          leave_type: 'annual' | 'sick' | 'maternity' | 'paternity' | 'unpaid' | 'other'
           start_date: string
           end_date: string
           total_days: number
           reason?: string | null
-          status?: 'pending' | 'approved' | 'rejected'
+          status?: 'pending' | 'approved' | 'rejected' | 'cancelled'
           approved_by?: string | null
-          approved_at?: string | null
+          approved_date?: string | null
           rejection_reason?: string | null
+          requested_date?: string | null
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
           employee_id?: string
-          leave_type?: 'annual' | 'sick' | 'marriage' | 'maternity' | 'paternity' | 'unpaid'
+          leave_type?: 'annual' | 'sick' | 'maternity' | 'paternity' | 'unpaid' | 'other'
           start_date?: string
           end_date?: string
           total_days?: number
           reason?: string | null
-          status?: 'pending' | 'approved' | 'rejected'
+          status?: 'pending' | 'approved' | 'rejected' | 'cancelled'
           approved_by?: string | null
-          approved_at?: string | null
+          approved_date?: string | null
           rejection_reason?: string | null
+          requested_date?: string | null
           created_at?: string
+          updated_at?: string
         }
       }
       payroll_periods: {
