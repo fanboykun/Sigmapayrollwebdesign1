@@ -24,6 +24,7 @@ import { useLeaveRequests, type LeaveRequestWithEmployee } from '../hooks/useLea
 import { useDivisions } from '../hooks/useDivisions';
 import { useEmployees } from '../hooks/useEmployees';
 import { usePositions } from '../hooks/usePositions';
+import { useHolidays } from '../hooks/useHolidays';
 import { toast } from 'sonner';
 
 export function LeaveManagement() {
@@ -40,6 +41,7 @@ export function LeaveManagement() {
   const { divisions, loading: divisionsLoading } = useDivisions();
   const { employees, loading: employeesLoading } = useEmployees();
   const { positions, loading: positionsLoading } = usePositions();
+  const { holidays } = useHolidays();
 
   // Enrich employees with division and position names
   const enrichedEmployees = useMemo(() => {
@@ -136,9 +138,27 @@ export function LeaveManagement() {
   };
 
   const calculateDays = (start: Date, end: Date) => {
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays;
+    let count = 0;
+    const currentDate = new Date(start);
+
+    // Create a Set of holiday dates for efficient lookup
+    const holidayDates = new Set(holidays.map(h => h.date));
+
+    // Loop through each day from start to end
+    while (currentDate <= end) {
+      const dayOfWeek = currentDate.getDay();
+      const dateStr = format(currentDate, 'yyyy-MM-dd');
+
+      // Skip Sunday (0 = Sunday) and holidays
+      if (dayOfWeek !== 0 && !holidayDates.has(dateStr)) {
+        count++;
+      }
+
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return count;
   };
 
   const handleAddLeaveRequest = async () => {
@@ -428,7 +448,7 @@ export function LeaveManagement() {
                             <CommandInput placeholder="Cari divisi..." />
                             <CommandList>
                               <CommandEmpty>Divisi tidak ditemukan.</CommandEmpty>
-                              <CommandGroup>
+                              <CommandGroup className="overflow-visible">
                                 {divisions.map((division) => {
                                   const employeeCount = employees.filter(emp => emp.division_id === division.id && emp.status === 'active').length;
                                   return (
@@ -491,7 +511,7 @@ export function LeaveManagement() {
                               <CommandInput placeholder="Cari nama atau Employee ID..." />
                               <CommandList>
                                 <CommandEmpty>Karyawan tidak ditemukan.</CommandEmpty>
-                                <CommandGroup>
+                                <CommandGroup className="overflow-visible">
                                   {filteredEmployeesByDivision.map((employee) => (
                                     <CommandItem
                                       key={employee.id}
@@ -601,6 +621,9 @@ export function LeaveManagement() {
                               <div className="p-3 bg-muted/30 rounded">
                                 <p className="text-sm">
                                   Durasi: <span className="font-medium">{calculateDays(startDate, endDate)} hari</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  * Hari Minggu dan hari libur tidak dihitung sebagai hari cuti
                                 </p>
                               </div>
                             )}
