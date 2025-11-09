@@ -70,11 +70,10 @@ import { ClinicMedicines } from "./components/ClinicMedicines";
 import { ClinicSuppliers } from "./components/ClinicSuppliers";
 import { ClinicDiseases } from "./components/ClinicDiseases";
 // Clinic Module Components
-import { ClinicRegistration } from "./components/clinic";
+import { ClinicRegistration, MedicalExamination } from "./components/clinic";
 import {
   ClinicDoctors,
   ClinicNurses,
-  ClinicExamination,
   ClinicPrescription,
   ClinicDispensing,
   ClinicStock,
@@ -409,7 +408,7 @@ function MainApp() {
           )}
           {activeView === "clinic-examination" && (
             <PermissionGuard module="clinic_examination">
-              <ClinicExamination />
+              <MedicalExamination />
             </PermissionGuard>
           )}
           {activeView === "clinic-prescription" && (
