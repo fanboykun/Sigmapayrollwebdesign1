@@ -42,6 +42,7 @@ import { DivisionMaster } from "./components/DivisionMaster";
 import { PositionMaster } from "./components/PositionMaster";
 import { WageMaster } from "./components/WageMaster";
 import { TaxMaster } from "./components/TaxMaster";
+import { PotonganMaster } from "./components/PotonganMaster";
 import { EmployeePayroll } from "./components/EmployeePayroll";
 import { PayrollProcessing } from "./components/PayrollProcessing";
 import { PayrollReports } from "./components/PayrollReports";
@@ -107,6 +108,7 @@ type ViewType =
   | "engagement"
   | "premium"
   | "tax-master"
+  | "potongan"
   | "working-days"
   | "holidays"
   | "attendance"
@@ -289,6 +291,13 @@ function MainApp() {
               <TaxMaster />
             </PermissionGuard>
           )}
+
+          {activeView === "potongan" && (
+            <PermissionGuard module="potongan_master">
+              <PotonganMaster />
+            </PermissionGuard>
+          )}
+
           {activeView === "employees" && (
             <PermissionGuard module="employee_payroll">
               <EmployeePayroll />

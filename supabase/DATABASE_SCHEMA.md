@@ -236,6 +236,20 @@ Premium/bonus types (attendance, performance, position).
 | description | TEXT | Premium description |
 | is_active | BOOLEAN | Active status |
 
+#### potongan
+Deduction types (Potongan) for payroll processing.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | PK |
+| code | VARCHAR(3) | Deduction code (3 digits, unique) |
+| name | VARCHAR(255) | Deduction name |
+| type | VARCHAR(20) | external/perusahaan |
+| coa_account_number | VARCHAR(50) | COA account number (nullable) |
+| coa_account_name | VARCHAR(255) | COA account name (nullable) |
+| description | TEXT | Deduction description (nullable) |
+| is_active | BOOLEAN | Active status |
+
 ---
 
 ### 4. Master Data - Time Management

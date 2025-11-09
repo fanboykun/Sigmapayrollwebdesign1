@@ -275,6 +275,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: true,
       canDelete: true,
     },
+    potongan_master: {
+      module: "potongan_master",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
     working_days_master: {
       module: "working_days_master",
       canView: true,
@@ -558,6 +565,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: true,
       canDelete: true,
     },
+    potongan_master: {
+      module: "potongan_master",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
     working_days_master: {
       module: "working_days_master",
       canView: true,
@@ -749,6 +763,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: false,
       canDelete: false,
     },
+    potongan_master: {
+      module: "potongan_master",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     working_days_master: {
       module: "working_days_master",
       canView: true,
@@ -926,6 +947,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: false,
       canDelete: false,
     },
+    potongan_master: {
+      module: "potongan_master",
+      canView: false,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     employee_payroll: {
       module: "employee_payroll",
       canView: false,
@@ -1045,6 +1073,7 @@ const MENU_MODULE_MAP: Record<string, string> = {
   "wage-master": "wage_master",
   premium: "premium_master",
   "tax-master": "tax_master",
+  potongan: "potongan_master",
   "working-days": "working_days_master",
   holidays: "holiday_master",
   attendance: "attendance_master",

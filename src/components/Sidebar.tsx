@@ -39,7 +39,7 @@
  */
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign, ClipboardList, Heart, Pill, Stethoscope, Syringe, PackageSearch, FileBarChart } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign, ClipboardList, Heart, Pill, Stethoscope, Syringe, PackageSearch, FileBarChart, Wallet } from 'lucide-react';
 import { SigmaLogo } from './SigmaLogo';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -224,6 +224,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'wage-master', label: 'Skala Upah', icon: TrendingUp, module: 'wage-master' },
     { id: 'premium', label: 'Premi & Tunjangan', icon: Award, module: 'premium' },
     { id: 'tax-master', label: 'Pajak & BPJS', icon: Receipt, module: 'tax-master' },
+    { id: 'potongan', label: 'Potongan', icon: Wallet, module: 'potongan' },
   ];
 
   // Proses Penggajian
