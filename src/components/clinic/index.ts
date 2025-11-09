@@ -2,6 +2,7 @@
 
 // Registration Components
 export { ClinicRegistration } from './ClinicRegistration'
+export { MedicalExamination } from './MedicalExamination'
 export { EmployeeSearchSelector } from './EmployeeSearchSelector'
 export { FamilyMemberSelector } from './FamilyMemberSelector'
 export { PatientFormFields } from './PatientFormFields'
