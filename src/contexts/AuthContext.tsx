@@ -38,6 +38,10 @@ import {
 import { supabase } from "../utils/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { clearAuthStorage } from "../utils/auth-cleanup";
+import {
+  fetchPermissionsByRoleCode,
+  type RolePermission,
+} from "../services/rolePermissionService";
 
 /**
  * User role types yang tersedia dalam sistem
@@ -1140,6 +1144,26 @@ function delFromLocalStorage() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(getFromLS);
   const [isLoading, setIsLoading] = useState(true);
+  const [supabasePermissions, setSupabasePermissions] = useState<
+    RolePermission[] | null
+  >(null);
+
+  /**
+   * Load permissions on mount if user is logged in
+   * #InitialLoad #PermissionSync
+   */
+  useEffect(() => {
+    const initializePermissions = async () => {
+      if (user && user.role) {
+        console.log("🔄 Loading permissions for existing user session");
+        await loadPermissionsFromSupabase(user.role);
+      }
+      setIsLoading(false);
+    };
+
+    initializePermissions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   /**
    * Fungsi login untuk autentikasi user menggunakan Supabase Auth
@@ -1207,6 +1231,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
           setUser(appUser);
           setToLocalStotrage(appUser);
+
+          // Load permissions from Supabase
+          await loadPermissionsFromSupabase(appUser.role);
+
           setIsLoading(false);
           return true;
         }
@@ -1241,8 +1269,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear any remaining auth storage (important for Chrome)
       clearAuthStorage();
 
-      // Clear user state
+      // Clear user state and permissions
       setUser(null);
+      setSupabasePermissions(null);
       delFromLocalStorage();
 
       console.log("✅ Logout successful");
@@ -1252,6 +1281,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearAuthStorage();
       setUser(null);
       delFromLocalStorage();
+    }
+  };
+
+  /**
+   * Fungsi untuk load permissions dari Supabase
+   * #PermissionLoad #SupabaseIntegration
+   *
+   * @param roleCode - Code role user (super_admin, admin, etc)
+   */
+  const loadPermissionsFromSupabase = async (roleCode: UserRole) => {
+    try {
+      console.log("📡 Loading permissions from Supabase for role:", roleCode);
+      const { data, error } = await fetchPermissionsByRoleCode(roleCode);
+
+      if (error) {
+        console.error("❌ Error loading permissions:", error);
+        console.log("⚠️ Using hardcoded permissions as fallback");
+        setSupabasePermissions(null);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        console.log("✅ Loaded permissions from Supabase:", data.length, "modules");
+        setSupabasePermissions(data);
+      } else {
+        console.log("⚠️ No permissions found in Supabase, using hardcoded");
+        setSupabasePermissions(null);
+      }
+    } catch (error) {
+      console.error("❌ Unexpected error loading permissions:", error);
+      setSupabasePermissions(null);
     }
   };
 
@@ -1269,6 +1329,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): boolean => {
     if (!user) return false;
 
+    // Try to use Supabase permissions first
+    if (supabasePermissions && supabasePermissions.length > 0) {
+      const permission = supabasePermissions.find(
+        (p) => p.module_name === module
+      );
+
+      if (!permission) return false;
+
+      // Check permission based on action type
+      switch (action) {
+        case "view":
+          return permission.can_view;
+        case "create":
+          return permission.can_create;
+        case "edit":
+          return permission.can_edit;
+        case "delete":
+          return permission.can_delete;
+        default:
+          return false;
+      }
+    }
+
+    // Fallback to hardcoded permissions
     const permissions = ROLE_PERMISSIONS[user.role];
     const modulePermission = permissions[module];
 
