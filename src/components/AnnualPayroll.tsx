@@ -57,14 +57,15 @@ import {
 } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
-import { 
-  Search, 
-  Gift, 
-  Award, 
-  Users, 
-  DollarSign, 
-  FileDown, 
-  Eye, 
+import { Progress } from './ui/progress';
+import {
+  Search,
+  Gift,
+  Award,
+  Users,
+  DollarSign,
+  FileDown,
+  Eye,
   CheckCircle,
   Clock,
   XCircle,
@@ -147,6 +148,12 @@ export function AnnualPayroll() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<AnnualPayrollData>>({});
+
+  // State untuk progress bar
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingType, setProcessingType] = useState<'thr' | 'bonus' | 'surut' | null>(null);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processedCount, setProcessedCount] = useState(0);
 
   /**
    * Generate data penggajian tahunan dari master employee
@@ -333,10 +340,41 @@ export function AnnualPayroll() {
   /**
    * Handle process payment
    */
-  const handleProcessPayment = (type: 'thr' | 'bonus' | 'surut') => {
+  const handleProcessPayment = async (type: 'thr' | 'bonus' | 'surut') => {
     const labels = { thr: 'THR', bonus: 'Bonus', surut: 'Surut' };
     const label = labels[type];
-    toast.success(`Memproses pembayaran ${label} untuk ${statistics.totalEmployees} karyawan`);
+    const totalEmployees = filteredData.length;
+
+    if (totalEmployees === 0) {
+      toast.error('Tidak ada karyawan yang akan diproses');
+      return;
+    }
+
+    setIsProcessing(true);
+    setProcessingType(type);
+    setProcessingProgress(0);
+    setProcessedCount(0);
+
+    toast.info(`Memulai pemrosesan ${label} untuk ${totalEmployees} karyawan...`);
+
+    // Simulasi proses pembayaran per karyawan
+    for (let i = 0; i < totalEmployees; i++) {
+      // Simulasi delay untuk setiap karyawan (100ms per karyawan)
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const progress = ((i + 1) / totalEmployees) * 100;
+      setProcessingProgress(progress);
+      setProcessedCount(i + 1);
+    }
+
+    // Selesai
+    setTimeout(() => {
+      setIsProcessing(false);
+      setProcessingType(null);
+      setProcessingProgress(0);
+      setProcessedCount(0);
+      toast.success(`Pembayaran ${label} untuk ${totalEmployees} karyawan berhasil diproses!`);
+    }, 500);
   };
 
   /**
@@ -395,6 +433,32 @@ export function AnnualPayroll() {
             Surut
           </TabsTrigger>
         </TabsList>
+
+        {/* Progress Bar */}
+        {isProcessing && processingType && (
+          <Card className="border-2 border-blue-500 bg-blue-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock size={16} className="animate-spin text-blue-600" />
+                Memproses {processingType === 'thr' ? 'THR' : processingType === 'bonus' ? 'Bonus' : 'Surut'}...
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-[#4a5568]">
+                  Karyawan yang diproses: <span className="font-semibold text-blue-600">{processedCount}</span> dari {filteredData.length}
+                </span>
+                <span className="font-semibold text-blue-600">
+                  {Math.round(processingProgress)}%
+                </span>
+              </div>
+              <Progress value={processingProgress} className="h-3" />
+              <p className="text-xs text-[#6b7280]">
+                Mohon tunggu, sistem sedang memproses pembayaran untuk setiap karyawan...
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* TAB CONTENT: THR */}
         <TabsContent value="thr" className="space-y-6 mt-0">
@@ -526,13 +590,26 @@ export function AnnualPayroll() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => handleExport('thr')}>
+                  <Button variant="outline" onClick={() => handleExport('thr')} disabled={isProcessing}>
                     <FileDown size={16} className="mr-2" />
                     Export
                   </Button>
-                  <Button onClick={() => handleProcessPayment('thr')} className="bg-[#10b981] hover:bg-[#059669]">
-                    <CheckCircle size={16} className="mr-2" />
-                    Proses THR
+                  <Button
+                    onClick={() => handleProcessPayment('thr')}
+                    className="bg-[#10b981] hover:bg-[#059669]"
+                    disabled={isProcessing}
+                  >
+                    {isProcessing && processingType === 'thr' ? (
+                      <>
+                        <Clock size={16} className="mr-2 animate-spin" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} className="mr-2" />
+                        Proses THR
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -743,13 +820,26 @@ export function AnnualPayroll() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => handleExport('bonus')}>
+                  <Button variant="outline" onClick={() => handleExport('bonus')} disabled={isProcessing}>
                     <FileDown size={16} className="mr-2" />
                     Export
                   </Button>
-                  <Button onClick={() => handleProcessPayment('bonus')} className="bg-[#f59e0b] hover:bg-[#d97706]">
-                    <CheckCircle size={16} className="mr-2" />
-                    Proses Bonus
+                  <Button
+                    onClick={() => handleProcessPayment('bonus')}
+                    className="bg-[#f59e0b] hover:bg-[#d97706]"
+                    disabled={isProcessing}
+                  >
+                    {isProcessing && processingType === 'bonus' ? (
+                      <>
+                        <Clock size={16} className="mr-2 animate-spin" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} className="mr-2" />
+                        Proses Bonus
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -1009,13 +1099,26 @@ export function AnnualPayroll() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => handleExport('surut')}>
+                  <Button variant="outline" onClick={() => handleExport('surut')} disabled={isProcessing}>
                     <FileDown size={16} className="mr-2" />
                     Export
                   </Button>
-                  <Button onClick={() => handleProcessPayment('surut')} className="bg-[#3b82f6] hover:bg-[#2563eb]">
-                    <CheckCircle size={16} className="mr-2" />
-                    Proses Surut
+                  <Button
+                    onClick={() => handleProcessPayment('surut')}
+                    className="bg-[#3b82f6] hover:bg-[#2563eb]"
+                    disabled={isProcessing}
+                  >
+                    {isProcessing && processingType === 'surut' ? (
+                      <>
+                        <Clock size={16} className="mr-2 animate-spin" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} className="mr-2" />
+                        Proses Surut
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
