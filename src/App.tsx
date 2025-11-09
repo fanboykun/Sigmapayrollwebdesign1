@@ -46,6 +46,7 @@ import { EmployeePayroll } from "./components/EmployeePayroll";
 import { PayrollProcessing } from "./components/PayrollProcessing";
 import { PayrollReports } from "./components/PayrollReports";
 import { PresensiReport } from "./components/PresensiReport";
+import { BpjsReport } from "./components/BpjsReport";
 import { PremiumMaster } from "./components/PremiumMaster";
 import { WorkingDaysMaster } from "./components/WorkingDaysMaster";
 import { HolidayMaster } from "./components/HolidayMaster";
@@ -102,6 +103,7 @@ type ViewType =
   | "processing"
   | "reports"
   | "presensi-report"
+  | "bpjs-report"
   | "engagement"
   | "premium"
   | "tax-master"
@@ -305,6 +307,11 @@ function MainApp() {
           {activeView === "presensi-report" && (
             <PermissionGuard module="presensi_report">
               <PresensiReport />
+            </PermissionGuard>
+          )}
+          {activeView === "bpjs-report" && (
+            <PermissionGuard module="bpjs_report">
+              <BpjsReport />
             </PermissionGuard>
           )}
           {activeView === "premium" && (

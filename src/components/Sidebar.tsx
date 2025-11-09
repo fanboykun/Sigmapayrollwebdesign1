@@ -238,6 +238,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'payroll-view', label: 'Buku Gaji', icon: Receipt, module: 'payroll-view' },
     { id: 'tax-worksheet', label: 'Tax Worksheet', icon: Calculator, module: 'tax-worksheet' },
     { id: 'presensi-report', label: 'Presensi', icon: ClipboardList, module: 'presensi-report' },
+    { id: 'bpjs-report', label: 'BPJS', icon: Heart, module: 'bpjs-report' },
   ];
 
   /**

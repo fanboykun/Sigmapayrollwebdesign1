@@ -345,6 +345,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: true,
       canDelete: true,
     },
+    bpjs_report: {
+      module: "bpjs_report",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
     engagement: {
       module: "engagement",
       canView: true,
@@ -616,6 +623,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
     },
     presensi_report: {
       module: "presensi_report",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    bpjs_report: {
+      module: "bpjs_report",
       canView: true,
       canCreate: true,
       canEdit: true,
@@ -1040,6 +1054,7 @@ const MENU_MODULE_MAP: Record<string, string> = {
   processing: "payroll_processing",
   reports: "payroll_reports",
   "presensi-report": "presensi_report",
+  "bpjs-report": "bpjs_report",
   engagement: "engagement",
   settings: "settings",
   "user-management": "user_management",
