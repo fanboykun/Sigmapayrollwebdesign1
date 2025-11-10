@@ -53,6 +53,7 @@ import { PatientFormFields } from './PatientFormFields'
 import { QueueSlip } from './QueueSlip'
 import { useEmployees, usePartnerPlantations, usePatients, useClinicRegistrations } from '../../hooks'
 import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabaseClient'
 import type {
   PatientType,
   PatientInsert,
@@ -384,6 +385,80 @@ export function ClinicRegistration() {
 
       if (regError || !regData) {
         throw new Error(regError || 'Gagal membuat pendaftaran')
+      }
+
+      // Step 3: Create clinic_visits record for Medical Examination
+      console.log('🔄 Creating visit record for registration:', regData.registration_number)
+
+      try {
+        // Generate visit number
+        const today = new Date()
+        const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
+
+        // Get last visit number for today
+        const { data: lastVisit, error: lastVisitError } = await supabase
+          .from('clinic_visits')
+          .select('visit_number')
+          .like('visit_number', `VISIT-${dateStr}%`)
+          .order('visit_number', { ascending: false })
+          .limit(1)
+          .single()
+
+        // Ignore error if no visits found (PGRST116)
+        if (lastVisitError && lastVisitError.code !== 'PGRST116') {
+          console.error('Error fetching last visit:', lastVisitError)
+        }
+
+        let sequence = 1
+        if (lastVisit) {
+          const lastSeq = parseInt(lastVisit.visit_number.split('-')[2])
+          sequence = lastSeq + 1
+        }
+
+        const visitNumber = `VISIT-${dateStr}-${sequence.toString().padStart(4, '0')}`
+        console.log('📝 Generated visit number:', visitNumber)
+
+        // Map visit_type: new → general, follow_up → follow_up, emergency → emergency
+        let mappedVisitType = 'general'
+        if (registrationFormData.visit_type === 'follow_up') {
+          mappedVisitType = 'follow_up'
+        } else if (registrationFormData.service_type === 'emergency') {
+          mappedVisitType = 'emergency'
+        } else if (registrationFormData.service_type === 'medical_checkup') {
+          mappedVisitType = 'mcu'
+        }
+
+        const visit = {
+          visit_number: visitNumber,
+          patient_id: regData.patient_id, // Use patient_id from registration (already confirmed in DB)
+          visit_date: today.toISOString().split('T')[0],
+          visit_time: today.toTimeString().split(' ')[0],
+          queue_number: regData.queue_number,
+          chief_complaint: registrationFormData.complaint!,
+          visit_type: mappedVisitType,
+          status: 'waiting',
+          registered_by: user?.id,
+          notes: registrationFormData.notes || null,
+        }
+
+        console.log('💾 Inserting visit data:', visit)
+
+        const { data: visitData, error: visitError } = await supabase
+          .from('clinic_visits')
+          .insert(visit)
+          .select()
+          .single()
+
+        if (visitError) {
+          console.error('❌ Error creating visit:', visitError)
+          throw new Error(`Gagal membuat data kunjungan: ${visitError.message}`)
+        }
+
+        console.log('✅ Visit created successfully:', visitData)
+      } catch (visitErr: any) {
+        console.error('❌ Visit creation failed:', visitErr)
+        // Show error to user but don't fail the whole registration
+        setError(`Pendaftaran berhasil tapi gagal membuat antrian pemeriksaan: ${visitErr.message}`)
       }
 
       setCreatedRegistration(regData)

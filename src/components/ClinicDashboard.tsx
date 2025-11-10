@@ -117,7 +117,7 @@ export function ClinicDashboard() {
 
       // Total patients
       const { count: totalPatients } = await supabase
-        .from('clinic_patients')
+        .from('patients')
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true);
 
@@ -184,7 +184,7 @@ export function ClinicDashboard() {
           visit_time,
           chief_complaint,
           status,
-          patient:clinic_patients(full_name)
+          patient:patients(full_name)
         `)
         .order('visit_date', { ascending: false })
         .order('visit_time', { ascending: false })

@@ -263,7 +263,7 @@ export function MedicalExamination() {
         .from('clinic_visits')
         .select(`
           *,
-          patient:clinic_patients(*)
+          patient:patients(*)
         `)
         .eq('visit_date', today)
         .in('status', ['waiting', 'in_progress'])
