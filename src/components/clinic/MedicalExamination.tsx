@@ -28,7 +28,6 @@ import {
   Clock,
   User,
   Calendar,
-  ChevronRight,
   Heart,
   Thermometer,
   Weight,
@@ -52,21 +51,14 @@ import {
   SelectValue,
 } from '../ui/select'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../ui/table'
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '../ui/command'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { supabase } from '../../lib/supabaseClient'
 import { toast } from 'sonner'
@@ -84,7 +76,7 @@ interface Visit {
   status: string
   patient: {
     id: string
-    patient_code: string
+    patient_number: string
     full_name: string
     gender: string
     birth_date: string
@@ -149,6 +141,7 @@ export function MedicalExamination() {
   const [diseases, setDiseases] = useState<Disease[]>([])
   const [commonDiseases, setCommonDiseases] = useState<Disease[]>([])
   const [diseaseSearch, setDiseaseSearch] = useState('')
+  const [diseasesByCategory, setDiseasesByCategory] = useState<Record<string, Disease[]>>({})
 
   // States for form
   const [formData, setFormData] = useState<MedicalRecordFormData>({
@@ -290,6 +283,17 @@ export function MedicalExamination() {
       if (allError) throw allError
       setDiseases(allDiseases || [])
 
+      // Group diseases by category
+      const grouped = (allDiseases || []).reduce((acc, disease) => {
+        const category = disease.category || 'Lainnya'
+        if (!acc[category]) {
+          acc[category] = []
+        }
+        acc[category].push(disease)
+        return acc
+      }, {} as Record<string, Disease[]>)
+      setDiseasesByCategory(grouped)
+
       // Fetch common diseases
       const { data: commonData, error: commonError } = await supabase
         .from('clinic_diseases')
@@ -370,7 +374,11 @@ export function MedicalExamination() {
       setFormData(prev => ({ ...prev, diagnosis_secondary: diseaseId }))
     }
     setShowDiseaseDialog(false)
-    setDiseaseSearch('')
+  }
+
+  const handleOpenDiseaseDialog = (isPrimary: boolean) => {
+    setSelectingPrimaryDiagnosis(isPrimary)
+    setShowDiseaseDialog(true)
   }
 
   const validateForm = (): boolean => {
@@ -498,11 +506,6 @@ export function MedicalExamination() {
     }
     return age
   }
-
-  const filteredDiseases = diseases.filter(d =>
-    d.name.toLowerCase().includes(diseaseSearch.toLowerCase()) ||
-    d.icd10_code.toLowerCase().includes(diseaseSearch.toLowerCase())
-  )
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -874,15 +877,13 @@ export function MedicalExamination() {
                                   value={formData.diagnosis_primary ? getDiseaseName(formData.diagnosis_primary) : ''}
                                   readOnly
                                   placeholder="Pilih diagnosa utama (ICD-10)"
-                                  className="flex-1"
+                                  className="flex-1 cursor-pointer"
+                                  onClick={() => handleOpenDiseaseDialog(true)}
                                 />
                                 <Button
                                   type="button"
                                   variant="outline"
-                                  onClick={() => {
-                                    setSelectingPrimaryDiagnosis(true)
-                                    setShowDiseaseDialog(true)
-                                  }}
+                                  onClick={() => handleOpenDiseaseDialog(true)}
                                 >
                                   <Search className="w-4 h-4" />
                                 </Button>
@@ -896,15 +897,13 @@ export function MedicalExamination() {
                                   value={formData.diagnosis_secondary ? getDiseaseName(formData.diagnosis_secondary) : ''}
                                   readOnly
                                   placeholder="Pilih diagnosa sekunder (ICD-10)"
-                                  className="flex-1"
+                                  className="flex-1 cursor-pointer"
+                                  onClick={() => handleOpenDiseaseDialog(false)}
                                 />
                                 <Button
                                   type="button"
                                   variant="outline"
-                                  onClick={() => {
-                                    setSelectingPrimaryDiagnosis(false)
-                                    setShowDiseaseDialog(true)
-                                  }}
+                                  onClick={() => handleOpenDiseaseDialog(false)}
                                 >
                                   <Search className="w-4 h-4" />
                                 </Button>
@@ -1029,90 +1028,65 @@ export function MedicalExamination() {
         </div>
       </div>
 
-      {/* Disease Selection Dialog */}
-      <Dialog open={showDiseaseDialog} onOpenChange={setShowDiseaseDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>
-              Pilih Diagnosa {selectingPrimaryDiagnosis ? 'Utama' : 'Sekunder'}
-            </DialogTitle>
-            <DialogDescription>
-              Cari berdasarkan kode ICD-10 atau nama penyakit
-            </DialogDescription>
-          </DialogHeader>
+      {/* Disease Selection Command Dialog */}
+      <CommandDialog
+        open={showDiseaseDialog}
+        onOpenChange={setShowDiseaseDialog}
+        title={`Pilih Diagnosa ${selectingPrimaryDiagnosis ? 'Utama' : 'Sekunder'}`}
+        description="Cari berdasarkan kode ICD-10 atau nama penyakit"
+      >
+        <CommandInput placeholder="Ketik untuk mencari penyakit (ICD-10 atau nama)..." />
+        <CommandList className="max-h-[400px]">
+          <CommandEmpty>Tidak ditemukan penyakit yang sesuai.</CommandEmpty>
 
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Cari penyakit..."
-                className="pl-9"
-                value={diseaseSearch}
-                onChange={(e) => setDiseaseSearch(e.target.value)}
-              />
-            </div>
-
-            {!diseaseSearch && commonDiseases.length > 0 && (
-              <div>
-                <Label className="text-xs text-gray-500 mb-2 block">Penyakit Umum</Label>
-                <div className="flex flex-wrap gap-2">
-                  {commonDiseases.map(disease => (
-                    <Badge
-                      key={disease.id}
-                      variant="outline"
-                      className="cursor-pointer hover:bg-emerald-50"
-                      onClick={() => handleSelectDisease(disease.id)}
-                    >
-                      {disease.icd10_code} - {disease.name}
+          {/* Common Diseases Group */}
+          {commonDiseases.length > 0 && (
+            <CommandGroup heading="Penyakit Umum">
+              {commonDiseases.map((disease) => (
+                <CommandItem
+                  key={disease.id}
+                  value={`${disease.icd10_code} ${disease.name}`}
+                  onSelect={() => handleSelectDisease(disease.id)}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {disease.icd10_code}
                     </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+                    <span className="flex-1">{disease.name}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {disease.category}
+                    </Badge>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
 
-            <div className="border rounded-lg max-h-96 overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-32">Kode ICD-10</TableHead>
-                    <TableHead>Nama Penyakit</TableHead>
-                    <TableHead className="w-40">Kategori</TableHead>
-                    <TableHead className="w-24"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDiseases.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                        Tidak ada data penyakit
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredDiseases.slice(0, 50).map(disease => (
-                      <TableRow
-                        key={disease.id}
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSelectDisease(disease.id)}
-                      >
-                        <TableCell className="font-mono text-sm">{disease.icd10_code}</TableCell>
-                        <TableCell>{disease.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{disease.category}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost">
-                            <ChevronRight className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          {/* All Diseases Grouped by Category */}
+          {Object.entries(diseasesByCategory)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([category, categoryDiseases]) => (
+              <CommandGroup key={category} heading={category}>
+                {categoryDiseases.map((disease) => (
+                  <CommandItem
+                    key={disease.id}
+                    value={`${disease.icd10_code} ${disease.name}`}
+                    onSelect={() => handleSelectDisease(disease.id)}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {disease.icd10_code}
+                      </Badge>
+                      <span className="flex-1">{disease.name}</span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+        </CommandList>
+      </CommandDialog>
     </div>
   )
 }

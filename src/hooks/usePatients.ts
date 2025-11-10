@@ -183,9 +183,18 @@ export function usePatients() {
       setLoading(true)
       setError(null)
 
+      // Sanitize data before insert
+      // Convert allergies from empty string to null or proper array
+      const sanitizedPatient = {
+        ...patient,
+        allergies: patient.allergies && typeof patient.allergies === 'string'
+          ? (patient.allergies.trim() ? [patient.allergies.trim()] : null)
+          : (patient.allergies || null),
+      }
+
       const { data, error: insertError } = await supabase
         .from('patients')
-        .insert(patient)
+        .insert(sanitizedPatient)
         .select()
         .single()
 
@@ -213,9 +222,19 @@ export function usePatients() {
       setLoading(true)
       setError(null)
 
+      // Sanitize data before update
+      const sanitizedUpdates = {
+        ...updates,
+        allergies: updates.allergies !== undefined
+          ? (updates.allergies && typeof updates.allergies === 'string'
+            ? (updates.allergies.trim() ? [updates.allergies.trim()] : null)
+            : (updates.allergies || null))
+          : undefined,
+      }
+
       const { data, error: updateError } = await supabase
         .from('patients')
-        .update(updates)
+        .update(sanitizedUpdates)
         .eq('id', id)
         .select()
         .single()

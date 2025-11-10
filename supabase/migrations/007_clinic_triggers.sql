@@ -398,6 +398,10 @@ COMMENT ON FUNCTION update_receiving_totals() IS 'Updates receiving totals when 
 -- ============================================================================
 -- 15. AUTO-GENERATE PATIENT CODE
 -- ============================================================================
+-- ⚠️ DEPRECATION NOTICE (2025-11-11):
+-- This function is for clinic_patients table which has been deprecated.
+-- Use 'patients' table with auto-generated 'patient_number' instead (see migration 011).
+-- ============================================================================
 CREATE SEQUENCE IF NOT EXISTS clinic_patient_seq START 1;
 
 CREATE OR REPLACE FUNCTION generate_clinic_patient_code()

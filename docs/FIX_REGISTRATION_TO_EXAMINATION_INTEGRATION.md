@@ -168,9 +168,9 @@ Example:
 ```sql
 -- Check if visit was created
 SELECT v.visit_number, v.chief_complaint, v.status,
-       p.full_name, p.patient_code
+       p.full_name, p.patient_number
 FROM clinic_visits v
-JOIN clinic_patients p ON v.patient_id = p.id
+JOIN patients p ON v.patient_id = p.id
 WHERE v.visit_date = CURRENT_DATE
 ORDER BY v.queue_number;
 ```

@@ -83,7 +83,7 @@ interface Prescription {
     examination_date: string
     diagnosis_notes: string
     patient: {
-      patient_code: string
+      patient_number: string
       full_name: string
       gender: string
       birth_date: string
@@ -123,7 +123,7 @@ interface MedicalRecord {
   treatment_plan: string
   patient: {
     id: string
-    patient_code: string
+    patient_number: string
     full_name: string
     gender: string
     birth_date: string
@@ -215,7 +215,7 @@ export function ClinicPrescription() {
             examination_date,
             diagnosis_notes,
             patient:patients!inner(
-              patient_code,
+              patient_number,
               full_name,
               gender,
               birth_date
@@ -286,7 +286,7 @@ export function ClinicPrescription() {
           treatment_plan,
           patient:patients!inner(
             id,
-            patient_code,
+            patient_number,
             full_name,
             gender,
             birth_date
@@ -515,7 +515,7 @@ export function ClinicPrescription() {
     const matchesSearch =
       prescription.prescription_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       prescription.medical_record.patient.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      prescription.medical_record.patient.patient_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      prescription.medical_record.patient.patient_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       prescription.medical_record.doctor.full_name.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesStatus = statusFilter === 'all' || prescription.status === statusFilter
@@ -685,7 +685,7 @@ export function ClinicPrescription() {
                           <TableCell>
                             <div>
                               <p className="font-medium">{prescription.medical_record.patient.full_name}</p>
-                              <p className="text-sm text-gray-500">{prescription.medical_record.patient.patient_code}</p>
+                              <p className="text-sm text-gray-500">{prescription.medical_record.patient.patient_number}</p>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -757,7 +757,7 @@ export function ClinicPrescription() {
                               <div>
                                 <p className="font-medium">{record.patient.full_name}</p>
                                 <p className="text-sm text-gray-500">
-                                  {record.patient.patient_code} • {record.patient.gender === 'male' ? 'Laki-laki' : 'Perempuan'} • {calculateAge(record.patient.birth_date)} tahun
+                                  {record.patient.patient_number} • {record.patient.gender === 'male' ? 'Laki-laki' : 'Perempuan'} • {calculateAge(record.patient.birth_date)} tahun
                                 </p>
                               </div>
                             </div>
@@ -1034,7 +1034,7 @@ export function ClinicPrescription() {
                   </div>
                   <div>
                     <p className="text-gray-500">No. Rekam Medis</p>
-                    <p className="font-medium">{selectedPrescription.medical_record.patient.patient_code}</p>
+                    <p className="font-medium">{selectedPrescription.medical_record.patient.patient_number}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Jenis Kelamin</p>

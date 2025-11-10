@@ -81,7 +81,7 @@ interface Prescription {
     examination_date: string
     patient: {
       id: string
-      patient_code: string
+      patient_number: string
       full_name: string
       gender: string
       birth_date: string
@@ -188,7 +188,7 @@ export function ClinicDispensing() {
             examination_date,
             patient:patients!inner(
               id,
-              patient_code,
+              patient_number,
               full_name,
               gender,
               birth_date,
@@ -452,7 +452,7 @@ export function ClinicDispensing() {
             unit
           ),
           dispensed_by_user:users!inner(
-            name
+            full_name
           )
         `)
         .order('dispensed_date', { ascending: false })
@@ -472,7 +472,7 @@ export function ClinicDispensing() {
             prescription_number: item.prescription.prescription_number,
             patient_name: item.prescription.medical_record.patient.full_name,
             dispensed_date: item.dispensed_date,
-            dispensed_by_name: item.dispensed_by_user.name,
+            dispensed_by_name: item.dispensed_by_user.full_name,
             total_items: 0,
             details: [],
           })
@@ -503,7 +503,7 @@ export function ClinicDispensing() {
     return (
       prescription.prescription_number.toLowerCase().includes(searchLower) ||
       prescription.medical_record.patient.full_name.toLowerCase().includes(searchLower) ||
-      prescription.medical_record.patient.patient_code.toLowerCase().includes(searchLower)
+      prescription.medical_record.patient.patient_number.toLowerCase().includes(searchLower)
     )
   })
 
@@ -644,7 +644,7 @@ export function ClinicDispensing() {
                                   <span className="font-medium">{prescription.medical_record.patient.full_name}</span>
                                 </p>
                                 <p className="text-sm text-gray-600">
-                                  {prescription.medical_record.patient.patient_code} •{' '}
+                                  {prescription.medical_record.patient.patient_number} •{' '}
                                   {prescription.medical_record.patient.gender === 'male' ? 'L' : 'P'} •{' '}
                                   {calculateAge(prescription.medical_record.patient.birth_date)} tahun
                                 </p>
@@ -785,7 +785,7 @@ export function ClinicDispensing() {
                     <p className="text-gray-500">Pasien</p>
                     <p className="font-medium">{selectedPrescription.medical_record.patient.full_name}</p>
                     <p className="text-gray-600">
-                      {selectedPrescription.medical_record.patient.patient_code}
+                      {selectedPrescription.medical_record.patient.patient_number}
                     </p>
                   </div>
                   <div>

@@ -371,6 +371,10 @@ COMMENT ON VIEW v_clinic_medicine_stock_summary IS 'Summary view of current medi
 -- ============================================================================
 -- 9. VIEW: PATIENT WITH EMPLOYEE INFO
 -- ============================================================================
+-- ⚠️ DEPRECATION NOTICE (2025-11-11):
+-- This view uses deprecated clinic_patients table with patient_code.
+-- For current operations, query 'patients' table directly with patient_number.
+-- ============================================================================
 CREATE OR REPLACE VIEW v_clinic_patients_with_employee AS
 SELECT
   p.id AS patient_id,

@@ -10,6 +10,12 @@
 -- ============================================================================
 -- 1. PATIENTS
 -- ============================================================================
+-- ⚠️ DEPRECATION NOTICE (2025-11-11):
+-- This table (clinic_patients) has been replaced by the unified 'patients' table
+-- (migration 011_patients.sql). Foreign keys were updated in migrations 012 & 013
+-- to reference 'patients' table which uses 'patient_number' instead of 'patient_code'.
+-- This table is kept for backward compatibility and historical data.
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS clinic_patients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_code VARCHAR(50) NOT NULL UNIQUE,

@@ -297,16 +297,16 @@ export function PatientFormFields({
           />
         </div>
 
-        {/* Medical History */}
+        {/* Notes - untuk catatan tambahan termasuk riwayat penyakit */}
         <div>
-          <Label htmlFor="medical_history">Riwayat Penyakit</Label>
+          <Label htmlFor="notes">Catatan Tambahan</Label>
           <Textarea
-            id="medical_history"
-            value={formData.medical_history || ''}
-            onChange={(e) => onChange('medical_history', e.target.value)}
-            placeholder="Tulis riwayat penyakit yang pernah diderita"
+            id="notes"
+            value={formData.notes || ''}
+            onChange={(e) => onChange('notes', e.target.value)}
+            placeholder="Catatan tambahan (termasuk riwayat penyakit jika ada)"
             className="min-h-16"
-            disabled={isReadOnly('medical_history')}
+            disabled={isReadOnly('notes')}
           />
         </div>
       </div>
