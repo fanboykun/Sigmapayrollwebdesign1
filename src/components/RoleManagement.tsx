@@ -124,6 +124,29 @@ export function RoleManagement() {
     settings: { name: 'Pengaturan', category: 'Lainnya', description: 'Konfigurasi sistem' },
     recruitment: { name: 'Rekrutmen', category: 'HR', description: 'Kelola rekrutmen karyawan' },
     termination: { name: 'Terminasi', category: 'HR', description: 'Kelola terminasi karyawan' },
+
+    // Clinic Module - Dashboard
+    clinic_dashboard: { name: 'Dashboard Klinik', category: 'Klinik', description: 'Lihat statistik dan aktivitas klinik' },
+
+    // Clinic Module - Master Data
+    clinic_master_medicines: { name: 'Master Data Obat', category: 'Klinik - Master Data', description: 'Kelola data obat dan kategori' },
+    clinic_master_suppliers: { name: 'Master Data Supplier', category: 'Klinik - Master Data', description: 'Kelola data supplier obat' },
+    clinic_master_doctors: { name: 'Master Data Dokter', category: 'Klinik - Master Data', description: 'Kelola data dokter yang bertugas' },
+    clinic_master_nurses: { name: 'Master Data Perawat', category: 'Klinik - Master Data', description: 'Kelola data perawat yang bertugas' },
+    clinic_master_diseases: { name: 'Master Data Penyakit', category: 'Klinik - Master Data', description: 'Kelola data penyakit/diagnosa (ICD-10)' },
+
+    // Clinic Module - Pelayanan
+    clinic_registration: { name: 'Pendaftaran Pasien', category: 'Klinik - Pelayanan', description: 'Registrasi pasien untuk kunjungan' },
+    clinic_examination: { name: 'Pemeriksaan & Diagnosa', category: 'Klinik - Pelayanan', description: 'Rekam medis pemeriksaan dokter' },
+    clinic_prescription: { name: 'Resep Obat', category: 'Klinik - Pelayanan', description: 'Kelola resep obat dari dokter' },
+    clinic_dispensing: { name: 'Penyerahan Obat', category: 'Klinik - Pelayanan', description: 'Proses penyerahan obat ke pasien' },
+    clinic_sick_letter: { name: 'Surat Sakit', category: 'Klinik - Pelayanan', description: 'Cetak surat keterangan sakit' },
+
+    // Clinic Module - Inventory
+    clinic_stock_management: { name: 'Manajemen Stok Obat', category: 'Klinik - Inventori', description: 'Monitor dan kelola stok obat' },
+
+    // Clinic Module - Reports
+    clinic_reports: { name: 'Laporan Klinik', category: 'Klinik - Laporan', description: 'Lihat berbagai laporan klinik' },
   };
 
   /**
