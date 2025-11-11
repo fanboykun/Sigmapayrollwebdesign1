@@ -449,3 +449,98 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+// ============================================================================
+// MEDICINE RECEIVING (PENERIMAAN OBAT)
+// ============================================================================
+
+export type ReceivingStatus = 'draft' | 'verified' | 'posted';
+
+export interface MedicineReceiving {
+  id: string;
+  receiving_number: string; // RCV-20251111-0001
+  receiving_date: string; // ISO date
+  supplier_id: string;
+  invoice_number?: string;
+  po_number?: string;
+  total_items: number;
+  total_quantity: number;
+  total_amount: number;
+  received_by: string;
+  verified_by?: string;
+  status: ReceivingStatus;
+  document_url?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicineReceivingDetail {
+  id: string;
+  receiving_id: string;
+  medicine_id: string;
+  batch_number: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  expiry_date: string; // ISO date
+  manufacturing_date?: string; // ISO date
+  notes?: string;
+  created_at: string;
+}
+
+export interface MedicineReceivingInsert {
+  receiving_date: string;
+  supplier_id: string;
+  invoice_number?: string;
+  po_number?: string;
+  received_by: string;
+  notes?: string;
+}
+
+export interface MedicineReceivingDetailInsert {
+  medicine_id: string;
+  batch_number: string;
+  quantity: number;
+  unit_price: number;
+  expiry_date: string;
+  manufacturing_date?: string;
+  notes?: string;
+}
+
+export interface MedicineReceivingWithDetails extends MedicineReceiving {
+  clinic_suppliers?: {
+    name: string;
+    supplier_code: string;
+  };
+  users_clinic_medicine_receiving_received_byTousers?: {
+    full_name: string;
+  };
+  users_clinic_medicine_receiving_verified_byTousers?: {
+    full_name: string;
+  };
+  clinic_medicine_receiving_details?: (MedicineReceivingDetail & {
+    clinic_medicines?: {
+      name: string;
+      medicine_code: string;
+      unit: string;
+    };
+  })[];
+}
+
+export interface SupplierOption {
+  id: string;
+  supplier_code: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+}
+
+export interface MedicineOption {
+  id: string;
+  medicine_code: string;
+  name: string;
+  generic_name?: string;
+  unit: string;
+  price_per_unit: number;
+}

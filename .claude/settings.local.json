@@ -8,7 +8,9 @@
       "Bash(npx supabase:*)",
       "Bash(find:*)",
       "Bash(dir /b *.md *.sql 2)",
-      "Bash(findstr /i \"SETUP ADD FIX PERMISSION COMPLETE CLINIC BEFORE\")"
+      "Bash(findstr /i \"SETUP ADD FIX PERMISSION COMPLETE CLINIC BEFORE\")",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
