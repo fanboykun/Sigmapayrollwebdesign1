@@ -5,7 +5,10 @@
       "Bash(nul)",
       "Bash(npm run build:*)",
       "Bash(cat:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(find:*)",
+      "Bash(dir /b *.md *.sql 2)",
+      "Bash(findstr /i \"SETUP ADD FIX PERMISSION COMPLETE CLINIC BEFORE\")"
     ],
     "deny": [],
     "ask": []

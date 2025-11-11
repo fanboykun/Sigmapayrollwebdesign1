@@ -47,7 +47,7 @@ import {
  * User role types yang tersedia dalam sistem
  * #UserRoles #AccessLevels
  */
-export type UserRole = "super_admin" | "admin" | "manager" | "karyawan";
+export type UserRole = "super_admin" | "admin" | "manager" | "karyawan" | "admin_klinik" | "dokter_klinik" | "perawat";
 
 /**
  * Interface untuk data user
@@ -837,6 +837,20 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: false,
       canDelete: false,
     },
+    presensi_report: {
+      module: "presensi_report",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    bpjs_report: {
+      module: "bpjs_report",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     engagement: {
       module: "engagement",
       canView: true,
@@ -1017,6 +1031,20 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
     termination: {
       module: "termination",
       canView: false,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    presensi_report: {
+      module: "presensi_report",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    bpjs_report: {
+      module: "bpjs_report",
+      canView: true,
       canCreate: false,
       canEdit: false,
       canDelete: false,
