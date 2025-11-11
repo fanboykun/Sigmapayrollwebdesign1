@@ -301,7 +301,7 @@ export function ClinicMedicines() {
       loadMedicines();
     } catch (error: any) {
       console.error('Error updating medicine:', error);
-      toast.error('Gagal mengupdate obat');
+      toast.error('Gagal mengupdate obat: ' + error.message);
     }
   };
 
@@ -589,7 +589,7 @@ export function ClinicMedicines() {
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>

@@ -365,17 +365,25 @@ export function ClinicReceiving() {
       if (receivingError) throw receivingError;
 
       // Insert receiving details
-      const detailsToInsert = detailItems.map(item => ({
-        receiving_id: receiving.id,
-        medicine_id: item.medicine_id,
-        batch_number: item.batch_number,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-        expiry_date: item.expiry_date,
-        manufacturing_date: item.manufacturing_date || null,
-        notes: item.notes || null
-      }));
+      const detailsToInsert = detailItems.map(item => {
+        // Get medicine to ensure we have price_per_unit as fallback
+        const medicine = medicines.find(m => m.id === item.medicine_id);
+        const finalUnitPrice = (item.unit_price && item.unit_price > 0)
+          ? item.unit_price
+          : medicine?.price_per_unit || null;
+
+        return {
+          receiving_id: receiving.id,
+          medicine_id: item.medicine_id,
+          batch_number: item.batch_number,
+          quantity: item.quantity,
+          unit_price: finalUnitPrice, // Never store 0, use medicine price or null
+          total_price: item.total_price,
+          expiry_date: item.expiry_date,
+          manufacturing_date: item.manufacturing_date || null,
+          notes: item.notes || null
+        };
+      });
 
       const { error: detailsError } = await supabase
         .from('clinic_medicine_receiving_details')
@@ -437,10 +445,15 @@ export function ClinicReceiving() {
         return;
       }
 
-      // Get receiving details
+      // Get receiving details with medicine info
       const { data: details, error: detailsError } = await supabase
         .from('clinic_medicine_receiving_details')
-        .select('*')
+        .select(`
+          *,
+          clinic_medicines (
+            price_per_unit
+          )
+        `)
         .eq('receiving_id', receiving.id);
 
       if (detailsError) throw detailsError;
@@ -452,6 +465,32 @@ export function ClinicReceiving() {
 
       // Start transaction: Update stock for each item
       for (const detail of details) {
+        // Use detail.unit_price or fallback to medicine price_per_unit
+        let unitPrice: number | null = null;
+
+        if (detail.unit_price !== null && detail.unit_price !== undefined && detail.unit_price > 0) {
+          unitPrice = detail.unit_price;
+        } else if (detail.clinic_medicines?.price_per_unit !== null &&
+                   detail.clinic_medicines?.price_per_unit !== undefined &&
+                   detail.clinic_medicines?.price_per_unit > 0) {
+          unitPrice = detail.clinic_medicines.price_per_unit;
+        } else {
+          // Last resort: Query medicine directly
+          const { data: medicineData, error: medicineError } = await supabase
+            .from('clinic_medicines')
+            .select('price_per_unit')
+            .eq('id', detail.medicine_id)
+            .single();
+
+          if (!medicineError && medicineData?.price_per_unit && medicineData.price_per_unit > 0) {
+            unitPrice = medicineData.price_per_unit;
+          }
+        }
+
+        if (unitPrice === null || unitPrice === undefined || unitPrice <= 0) {
+          toast.error(`Harga obat tidak ditemukan untuk batch ${detail.batch_number}`);
+          return;
+        }
         // Check if batch already exists
         const { data: existingStock, error: checkError } = await supabase
           .from('clinic_medicine_stock')
@@ -470,7 +509,7 @@ export function ClinicReceiving() {
             .from('clinic_medicine_stock')
             .update({
               quantity: existingStock.quantity + detail.quantity,
-              unit_price: detail.unit_price, // Update with latest price
+              unit_price: unitPrice, // Update with latest price
               updated_at: new Date().toISOString()
             })
             .eq('id', existingStock.id);
@@ -485,13 +524,13 @@ export function ClinicReceiving() {
               batch_number: detail.batch_number,
               quantity: detail.quantity,
               reserved_quantity: 0,
-              unit_price: detail.unit_price,
+              unit_price: Number(unitPrice),
               expiry_date: detail.expiry_date,
-              manufacturing_date: detail.manufacturing_date,
+              manufacturing_date: detail.manufacturing_date || null,
               receiving_id: receiving.id,
               status: 'available',
               location: null,
-              notes: detail.notes
+              notes: detail.notes || null
             });
 
           if (insertError) throw insertError;
@@ -585,7 +624,7 @@ export function ClinicReceiving() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>

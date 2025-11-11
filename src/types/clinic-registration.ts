@@ -481,12 +481,15 @@ export interface MedicineReceivingDetail {
   medicine_id: string;
   batch_number: string;
   quantity: number;
-  unit_price: number;
+  unit_price: number | null; // Can be null if not set during receiving
   total_price: number;
   expiry_date: string; // ISO date
   manufacturing_date?: string; // ISO date
   notes?: string;
   created_at: string;
+  clinic_medicines?: {
+    price_per_unit: number;
+  };
 }
 
 export interface MedicineReceivingInsert {
@@ -502,7 +505,7 @@ export interface MedicineReceivingDetailInsert {
   medicine_id: string;
   batch_number: string;
   quantity: number;
-  unit_price: number;
+  unit_price?: number; // Optional, will use medicine's price_per_unit if not provided
   expiry_date: string;
   manufacturing_date?: string;
   notes?: string;
@@ -543,4 +546,72 @@ export interface MedicineOption {
   generic_name?: string;
   unit: string;
   price_per_unit: number;
+}
+
+// ============================================================================
+// MEDICINE STOCK MANAGEMENT
+// ============================================================================
+
+export type StockStatus = 'available' | 'expired' | 'damaged' | 'recalled';
+
+export interface MedicineStock {
+  id: string;
+  medicine_id: string;
+  batch_number: string;
+  quantity: number;
+  reserved_quantity: number;
+  available_quantity: number; // Generated column
+  unit_price: number;
+  expiry_date: string; // ISO date
+  manufacturing_date?: string; // ISO date
+  receiving_id?: string;
+  location?: string;
+  status: StockStatus;
+  last_stock_check?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicineStockWithDetails extends MedicineStock {
+  clinic_medicines?: {
+    name: string;
+    medicine_code: string;
+    unit: string;
+    min_stock: number;
+    category_id: string;
+  };
+  clinic_medicine_categories?: {
+    name: string;
+  };
+  clinic_medicine_receiving?: {
+    receiving_number: string;
+    supplier_id: string;
+  };
+}
+
+export interface StockStats {
+  totalItems: number; // Unique medicines
+  totalQuantity: number; // Sum of all quantities
+  totalValue: number; // Sum of (quantity * unit_price)
+  expiringSoon: number; // Expiring in 90 days
+  lowStock: number; // Below min_stock
+  expired: number; // Already expired
+}
+
+export interface StockAggregation {
+  medicine_id: string;
+  medicine_code: string;
+  medicine_name: string;
+  category_name: string;
+  unit: string;
+  total_quantity: number;
+  total_reserved: number;
+  total_available: number;
+  total_value: number;
+  min_stock: number;
+  batch_count: number;
+  oldest_expiry: string;
+  is_low_stock: boolean;
+  is_expiring_soon: boolean;
 }

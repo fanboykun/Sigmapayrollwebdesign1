@@ -51,14 +51,12 @@ import {
   SelectValue,
 } from '../ui/select'
 import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '../ui/command'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { supabase } from '../../lib/supabaseClient'
 import { toast } from 'sonner'
@@ -166,6 +164,7 @@ export function MedicalExamination() {
   const [selectingPrimaryDiagnosis, setSelectingPrimaryDiagnosis] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [savedRecordId, setSavedRecordId] = useState<string | null>(null)
 
   // Check if user is superadmin
   useEffect(() => {
@@ -313,6 +312,7 @@ export function MedicalExamination() {
     setSelectedVisit(visit)
     setError('')
     setSuccess(false)
+    setSavedRecordId(null)
 
     // Check if medical record already exists for this visit
     const { data: existingRecord } = await supabase
@@ -340,6 +340,7 @@ export function MedicalExamination() {
         treatment_plan: existingRecord.treatment_plan || '',
         follow_up_date: existingRecord.follow_up_date || '',
       })
+      setSavedRecordId(existingRecord.id)
       toast.info('Data pemeriksaan sebelumnya berhasil dimuat')
     } else {
       // Reset form for new examination
@@ -374,10 +375,12 @@ export function MedicalExamination() {
       setFormData(prev => ({ ...prev, diagnosis_secondary: diseaseId }))
     }
     setShowDiseaseDialog(false)
+    setDiseaseSearch('') // Clear search
   }
 
   const handleOpenDiseaseDialog = (isPrimary: boolean) => {
     setSelectingPrimaryDiagnosis(isPrimary)
+    setDiseaseSearch('') // Clear search when opening
     setShowDiseaseDialog(true)
   }
 
@@ -448,6 +451,8 @@ export function MedicalExamination() {
         status: 'completed',
       }
 
+      let recordId = existingRecord?.id
+
       if (existingRecord) {
         // Update existing record
         const { error: updateError } = await supabase
@@ -457,13 +462,19 @@ export function MedicalExamination() {
 
         if (updateError) throw updateError
       } else {
-        // Insert new record
-        const { error: insertError } = await supabase
+        // Insert new record and get the ID
+        const { data: newRecord, error: insertError } = await supabase
           .from('clinic_medical_records')
           .insert(recordData)
+          .select('id')
+          .single()
 
         if (insertError) throw insertError
+        recordId = newRecord.id
       }
+
+      // Set saved record ID for enabling action buttons
+      setSavedRecordId(recordId!)
 
       // Update visit status to completed
       await supabase
@@ -471,17 +482,14 @@ export function MedicalExamination() {
         .update({ status: 'completed' })
         .eq('id', selectedVisit!.id)
 
+      // Auto-create attendance for employee if treatment plan indicates hospitalization
+      await handleAutoAttendance()
+
       setSuccess(true)
-      toast.success('Rekam medis berhasil disimpan')
+      toast.success('Rekam medis berhasil disimpan. Silakan pilih tindakan lanjutan.')
 
-      // Refresh visits list
+      // Refresh visits list (but don't clear selection!)
       await fetchTodayVisits()
-
-      // Clear selection after a delay
-      setTimeout(() => {
-        setSelectedVisit(null)
-        setSuccess(false)
-      }, 2000)
 
     } catch (err: any) {
       setError('Gagal menyimpan rekam medis: ' + err.message)
@@ -489,6 +497,105 @@ export function MedicalExamination() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleAutoAttendance = async () => {
+    try {
+      // Check if patient is an employee and treatment plan mentions hospitalization/rawat inap
+      if (!selectedVisit) return
+
+      const patient = selectedVisit.patient
+      const treatmentPlan = formData.treatment_plan.toLowerCase()
+      const diagnosisNotes = formData.diagnosis_notes.toLowerCase()
+
+      // Check if mentions hospitalization
+      const needsHospitalization =
+        treatmentPlan.includes('rawat inap') ||
+        treatmentPlan.includes('hospitalization') ||
+        treatmentPlan.includes('dirawat') ||
+        diagnosisNotes.includes('rawat inap')
+
+      if (!needsHospitalization) return
+
+      // Check if patient has employee_id (is an employee or employee family)
+      if (!patient.employee_id) return
+
+      // Create attendance record for today with status S-Sakit
+      const today = new Date().toISOString().split('T')[0]
+
+      // Check if attendance already exists for today
+      const { data: existingAttendance } = await supabase
+        .from('attendance')
+        .select('id')
+        .eq('employee_id', patient.employee_id)
+        .eq('date', today)
+        .single()
+
+      if (existingAttendance) {
+        // Update existing attendance
+        await supabase
+          .from('attendance')
+          .update({
+            status: 'sakit',
+            notes: `Rawat inap - Diagnosa: ${getDiseaseName(formData.diagnosis_primary)}`
+          })
+          .eq('id', existingAttendance.id)
+      } else {
+        // Insert new attendance
+        await supabase
+          .from('attendance')
+          .insert({
+            employee_id: patient.employee_id,
+            date: today,
+            status: 'sakit',
+            notes: `Rawat inap - Diagnosa: ${getDiseaseName(formData.diagnosis_primary)}`
+          })
+      }
+
+      toast.info('Status presensi karyawan telah diupdate: Sakit (Rawat Inap)')
+    } catch (error: any) {
+      console.error('Error creating auto attendance:', error)
+      // Don't throw error, just log it
+    }
+  }
+
+  const handleCreateSickLeave = () => {
+    if (!savedRecordId) {
+      toast.error('Simpan rekam medis terlebih dahulu')
+      return
+    }
+
+    toast.info('Fitur Buat Surat Sakit akan segera tersedia')
+    // TODO: Implement sick leave creation
+    // Will navigate to sick leave form with pre-filled data from this medical record
+  }
+
+  const handleCreatePrescription = () => {
+    if (!savedRecordId) {
+      toast.error('Simpan rekam medis terlebih dahulu')
+      return
+    }
+
+    toast.info('Fitur Buat Resep Obat akan segera tersedia')
+    // TODO: Implement prescription creation
+    // Will navigate to prescription form with medical record context
+  }
+
+  const handleCreateReferral = () => {
+    if (!savedRecordId) {
+      toast.error('Simpan rekam medis terlebih dahulu')
+      return
+    }
+
+    toast.info('Fitur Buat Rujukan akan segera tersedia')
+    // TODO: Implement referral creation
+    // Will navigate to referral form with medical record data
+  }
+
+  const handleCloseExamination = () => {
+    setSelectedVisit(null)
+    setSuccess(false)
+    setSavedRecordId(null)
   }
 
   const getDiseaseName = (diseaseId: string) => {
@@ -974,50 +1081,83 @@ export function MedicalExamination() {
                         )}
 
                         <div className="flex flex-wrap gap-3">
-                          <Button
-                            onClick={handleSaveMedicalRecord}
-                            disabled={loading || success}
-                            className="flex-1 min-w-[200px]"
-                          >
-                            {loading ? (
-                              <>Menyimpan...</>
-                            ) : (
-                              <>
-                                <Save className="w-4 h-4 mr-2" />
-                                Simpan Rekam Medis
-                              </>
-                            )}
-                          </Button>
+                          {!savedRecordId ? (
+                            <>
+                              <Button
+                                onClick={handleSaveMedicalRecord}
+                                disabled={loading}
+                                className="flex-1 min-w-[200px]"
+                              >
+                                {loading ? (
+                                  <>Menyimpan...</>
+                                ) : (
+                                  <>
+                                    <Save className="w-4 h-4 mr-2" />
+                                    Simpan Rekam Medis
+                                  </>
+                                )}
+                              </Button>
 
-                          <Button
-                            variant="outline"
-                            onClick={() => setSelectedVisit(null)}
-                            disabled={loading}
-                          >
-                            Batal
-                          </Button>
+                              <Button
+                                variant="outline"
+                                onClick={handleCloseExamination}
+                                disabled={loading}
+                              >
+                                Batal
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              onClick={handleCloseExamination}
+                              className="flex-1 min-w-[200px]"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Tutup & Selesai
+                            </Button>
+                          )}
                         </div>
 
-                        <div className="mt-4 pt-4 border-t">
-                          <p className="text-sm text-gray-500 mb-3">Tindakan Lanjutan:</p>
-                          <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" size="sm" disabled>
-                              <FileText className="w-4 h-4 mr-2" />
-                              Buat Surat Sakit
-                            </Button>
-                            <Button variant="outline" size="sm" disabled>
-                              <Pill className="w-4 h-4 mr-2" />
-                              Buat Resep
-                            </Button>
-                            <Button variant="outline" size="sm" disabled>
-                              <FileCheck className="w-4 h-4 mr-2" />
-                              Buat Rujukan
-                            </Button>
+                        {savedRecordId && (
+                          <div className="mt-4 pt-4 border-t">
+                            <p className="text-sm font-medium text-gray-700 mb-3">
+                              Tindakan Lanjutan:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCreateSickLeave}
+                                className="hover:bg-blue-50 hover:border-blue-300"
+                              >
+                                <FileText className="w-4 h-4 mr-2" />
+                                Buat Surat Sakit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCreatePrescription}
+                                className="hover:bg-green-50 hover:border-green-300"
+                              >
+                                <Pill className="w-4 h-4 mr-2" />
+                                Buat Resep
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCreateReferral}
+                                className="hover:bg-orange-50 hover:border-orange-300"
+                              >
+                                <FileCheck className="w-4 h-4 mr-2" />
+                                Buat Rujukan
+                              </Button>
+                            </div>
+                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Rekam medis telah disimpan. Pilih tindakan lanjutan yang diperlukan.
+                            </p>
                           </div>
-                          <p className="text-xs text-gray-400 mt-2">
-                            * Fitur ini akan tersedia setelah rekam medis disimpan
-                          </p>
-                        </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
@@ -1028,65 +1168,122 @@ export function MedicalExamination() {
         </div>
       </div>
 
-      {/* Disease Selection Command Dialog */}
-      <CommandDialog
-        open={showDiseaseDialog}
-        onOpenChange={setShowDiseaseDialog}
-        title={`Pilih Diagnosa ${selectingPrimaryDiagnosis ? 'Utama' : 'Sekunder'}`}
-        description="Cari berdasarkan kode ICD-10 atau nama penyakit"
-      >
-        <CommandInput placeholder="Ketik untuk mencari penyakit (ICD-10 atau nama)..." />
-        <CommandList className="max-h-[400px]">
-          <CommandEmpty>Tidak ditemukan penyakit yang sesuai.</CommandEmpty>
+      {/* Disease Selection Dialog */}
+      <Dialog open={showDiseaseDialog} onOpenChange={setShowDiseaseDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle>
+              Pilih Diagnosa {selectingPrimaryDiagnosis ? 'Utama' : 'Sekunder'}
+            </DialogTitle>
+            <DialogDescription>
+              Cari berdasarkan kode ICD-10 atau nama penyakit
+            </DialogDescription>
+          </DialogHeader>
 
-          {/* Common Diseases Group */}
-          {commonDiseases.length > 0 && (
-            <CommandGroup heading="Penyakit Umum">
-              {commonDiseases.map((disease) => (
-                <CommandItem
-                  key={disease.id}
-                  value={`${disease.icd10_code} ${disease.name}`}
-                  onSelect={() => handleSelectDisease(disease.id)}
-                  className="cursor-pointer"
-                >
-                  <div className="flex items-center gap-3 w-full">
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {disease.icd10_code}
-                    </Badge>
-                    <span className="flex-1">{disease.name}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {disease.category}
-                    </Badge>
+          {/* Search Input */}
+          <div className="px-6 pt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Ketik untuk mencari penyakit (ICD-10 atau nama)..."
+                value={diseaseSearch}
+                onChange={(e) => setDiseaseSearch(e.target.value)}
+                className="pl-10"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Scrollable Disease List */}
+          <div className="flex-1 overflow-y-auto px-6 py-4" style={{ maxHeight: '400px' }}>
+            {(() => {
+              // Filter diseases based on search
+              const searchLower = diseaseSearch.toLowerCase()
+              const filteredDiseases = diseases.filter(d =>
+                d.icd10_code.toLowerCase().includes(searchLower) ||
+                d.name.toLowerCase().includes(searchLower)
+              )
+
+              if (filteredDiseases.length === 0) {
+                return (
+                  <div className="text-center py-8 text-gray-500">
+                    Tidak ditemukan penyakit yang sesuai
                   </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
+                )
+              }
 
-          {/* All Diseases Grouped by Category */}
-          {Object.entries(diseasesByCategory)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([category, categoryDiseases]) => (
-              <CommandGroup key={category} heading={category}>
-                {categoryDiseases.map((disease) => (
-                  <CommandItem
-                    key={disease.id}
-                    value={`${disease.icd10_code} ${disease.name}`}
-                    onSelect={() => handleSelectDisease(disease.id)}
-                    className="cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 w-full">
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {disease.icd10_code}
-                      </Badge>
-                      <span className="flex-1">{disease.name}</span>
+              // Group filtered diseases by category
+              const grouped = filteredDiseases.reduce((acc, disease) => {
+                const category = disease.category || 'Lainnya'
+                if (!acc[category]) {
+                  acc[category] = []
+                }
+                acc[category].push(disease)
+                return acc
+              }, {} as Record<string, Disease[]>)
+
+              return (
+                <div className="space-y-4">
+                  {/* Common Diseases First */}
+                  {!diseaseSearch && commonDiseases.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                        Penyakit Umum
+                      </h3>
+                      <div className="space-y-1">
+                        {commonDiseases.map((disease) => (
+                          <button
+                            key={disease.id}
+                            onClick={() => handleSelectDisease(disease.id)}
+                            className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Badge variant="outline" className="font-mono text-xs">
+                                {disease.icd10_code}
+                              </Badge>
+                              <span className="flex-1 text-sm">{disease.name}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {disease.category}
+                              </Badge>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ))}
-        </CommandList>
-      </CommandDialog>
+                  )}
+
+                  {/* All Diseases Grouped by Category */}
+                  {Object.entries(grouped)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([category, categoryDiseases]) => (
+                      <div key={category}>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                          {category}
+                        </h3>
+                        <div className="space-y-1">
+                          {categoryDiseases.map((disease) => (
+                            <button
+                              key={disease.id}
+                              onClick={() => handleSelectDisease(disease.id)}
+                              className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Badge variant="outline" className="font-mono text-xs">
+                                  {disease.icd10_code}
+                                </Badge>
+                                <span className="flex-1 text-sm">{disease.name}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

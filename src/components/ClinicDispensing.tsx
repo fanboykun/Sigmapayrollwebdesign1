@@ -815,39 +815,67 @@ export function ClinicDispensing() {
 
                   return (
                     <div key={detail.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <p className="font-medium">{detail.medicine.name}</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" className="font-mono text-xs">
+                              {detail.medicine.medicine_code}
+                            </Badge>
+                            <p className="font-medium text-lg">{detail.medicine.name}</p>
+                          </div>
                           <p className="text-sm text-gray-500">
                             {detail.medicine.generic_name} • {detail.medicine.dosage_form}{' '}
                             {detail.medicine.strength}
                           </p>
-                          <div className="mt-2 space-y-1 text-sm">
-                            <p>
-                              <span className="text-gray-600">Dosis:</span>{' '}
-                              <span className="font-medium">{detail.dosage}</span>
-                            </p>
-                            <p>
-                              <span className="text-gray-600">Jumlah Resep:</span>{' '}
-                              <span className="font-medium">
+                          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                            <div className="bg-gray-50 p-2 rounded">
+                              <p className="text-gray-600">Dosis</p>
+                              <p className="font-medium">{detail.dosage}</p>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <p className="text-gray-600">Jumlah Resep</p>
+                              <p className="font-medium">
                                 {detail.quantity} {detail.medicine.unit}
-                              </span>
-                            </p>
-                            {detail.instructions && (
-                              <p>
-                                <span className="text-gray-600">Instruksi:</span>{' '}
-                                <span className="font-medium">{detail.instructions}</span>
                               </p>
+                            </div>
+                            {detail.instructions && (
+                              <div className="col-span-2 bg-blue-50 p-2 rounded">
+                                <p className="text-gray-600">Instruksi</p>
+                                <p className="font-medium text-blue-900">{detail.instructions}</p>
+                              </div>
                             )}
                           </div>
                         </div>
 
-                        {!isStockSufficient && (
-                          <Badge variant="destructive" className="ml-2">
-                            <AlertCircle className="w-3 h-3 mr-1" />
-                            Stok Kurang
-                          </Badge>
-                        )}
+                        {/* Stock Info Badge */}
+                        <div className="flex flex-col gap-2 items-end">
+                          <div className={`px-4 py-2 rounded-lg border-2 ${
+                            isStockSufficient
+                              ? 'bg-green-50 border-green-200'
+                              : 'bg-red-50 border-red-200'
+                          }`}>
+                            <p className="text-xs text-gray-600 mb-1">Stok Saat Ini</p>
+                            <p className={`text-2xl font-bold ${
+                              isStockSufficient ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {totalAvailable}
+                            </p>
+                            <p className="text-xs text-gray-600">{detail.medicine.unit}</p>
+                          </div>
+
+                          {!isStockSufficient && (
+                            <Badge variant="destructive" className="ml-2">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              Stok Kurang
+                            </Badge>
+                          )}
+
+                          {isStockSufficient && detail.available_stock && detail.available_stock.length > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              {detail.available_stock.length} Batch tersedia
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       {/* Stock Selection */}
@@ -867,17 +895,30 @@ export function ClinicDispensing() {
                               <SelectContent>
                                 {detail.available_stock.map((batch) => (
                                   <SelectItem key={batch.id} value={batch.batch_number}>
-                                    <div className="flex items-center justify-between w-full">
-                                      <span>
-                                        Batch {batch.batch_number} - Stok: {batch.available_quantity}{' '}
-                                        {detail.medicine.unit}
-                                      </span>
-                                      {isExpiringSoon(batch.expiry_date) && (
-                                        <Badge variant="outline" className="ml-2 text-xs">
-                                          <AlertTriangle className="w-3 h-3 mr-1" />
-                                          ED: {formatDate(batch.expiry_date)}
-                                        </Badge>
-                                      )}
+                                    <div className="flex flex-col py-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Batch {batch.batch_number}</span>
+                                        {isExpiringSoon(batch.expiry_date) && (
+                                          <Badge variant="outline" className="text-xs bg-orange-50">
+                                            <AlertTriangle className="w-3 h-3 mr-1" />
+                                            Segera ED
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
+                                        <span className="flex items-center gap-1">
+                                          <Package className="w-3 h-3" />
+                                          Stok: <strong>{batch.available_quantity} {detail.medicine.unit}</strong>
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                          <Calendar className="w-3 h-3" />
+                                          ED: {new Date(batch.expiry_date).toLocaleDateString('id-ID', {
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric'
+                                          })}
+                                        </span>
+                                      </div>
                                     </div>
                                   </SelectItem>
                                 ))}
@@ -907,10 +948,30 @@ export function ClinicDispensing() {
                                 parseInt(e.target.value) || 0
                               )
                             }
+                            className={`${
+                              detail.quantity_to_dispense && detail.quantity_to_dispense > totalAvailable
+                                ? 'border-red-300'
+                                : ''
+                            }`}
                           />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Total stok tersedia: {totalAvailable} {detail.medicine.unit}
-                          </p>
+                          <div className="flex items-center justify-between text-xs mt-1">
+                            <span className="text-gray-500">
+                              Total stok: <strong className={totalAvailable < detail.quantity ? 'text-red-600' : 'text-green-600'}>
+                                {totalAvailable} {detail.medicine.unit}
+                              </strong>
+                            </span>
+                            <span className="text-gray-500">
+                              Max resep: <strong>{detail.quantity} {detail.medicine.unit}</strong>
+                            </span>
+                          </div>
+                          {detail.quantity_to_dispense && detail.quantity_to_dispense > totalAvailable && (
+                            <Alert className="mt-2">
+                              <AlertCircle className="h-3 w-3" />
+                              <AlertDescription className="text-xs">
+                                Jumlah melebihi stok tersedia
+                              </AlertDescription>
+                            </Alert>
+                          )}
                         </div>
                       </div>
 
@@ -924,24 +985,68 @@ export function ClinicDispensing() {
                             if (!batch) return null
 
                             return (
-                              <div className="grid grid-cols-3 gap-4 text-sm">
-                                <div>
-                                  <p className="text-gray-500">Batch Number</p>
-                                  <p className="font-medium">{batch.batch_number}</p>
+                              <div className="bg-blue-50 p-3 rounded-lg">
+                                <p className="text-sm font-medium text-blue-900 mb-2">Detail Batch Terpilih:</p>
+                                <div className="grid grid-cols-3 gap-4 text-sm">
+                                  <div>
+                                    <p className="text-blue-600 text-xs">Batch Number</p>
+                                    <p className="font-semibold text-blue-900">{batch.batch_number}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-blue-600 text-xs">Tanggal Kadaluarsa</p>
+                                    <p className={`font-semibold ${
+                                      isExpiringSoon(batch.expiry_date)
+                                        ? 'text-orange-600'
+                                        : 'text-blue-900'
+                                    }`}>
+                                      {formatDate(batch.expiry_date)}
+                                      {isExpiringSoon(batch.expiry_date) && ' ⚠️'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-blue-600 text-xs">Stok Batch Ini</p>
+                                    <p className="font-semibold text-blue-900">
+                                      {batch.available_quantity} {detail.medicine.unit}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="text-gray-500">Tanggal Kadaluarsa</p>
-                                  <p className={`font-medium ${isExpiringSoon(batch.expiry_date) ? 'text-orange-600' : ''}`}>
-                                    {formatDate(batch.expiry_date)}
-                                    {isExpiringSoon(batch.expiry_date) && ' ⚠️'}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-500">Stok Tersedia</p>
-                                  <p className="font-medium">
-                                    {batch.available_quantity} {detail.medicine.unit}
-                                  </p>
-                                </div>
+
+                                {/* Show all available batches info */}
+                                {detail.available_stock && detail.available_stock.length > 1 && (
+                                  <div className="mt-3 pt-3 border-t border-blue-200">
+                                    <p className="text-xs font-medium text-blue-700 mb-2">
+                                      Semua Batch Tersedia ({detail.available_stock.length} batch):
+                                    </p>
+                                    <div className="space-y-1">
+                                      {detail.available_stock.map((b, idx) => (
+                                        <div
+                                          key={b.id}
+                                          className={`flex justify-between items-center text-xs p-2 rounded ${
+                                            b.batch_number === batch.batch_number
+                                              ? 'bg-blue-100'
+                                              : 'bg-white'
+                                          }`}
+                                        >
+                                          <span className="font-medium">
+                                            Batch {b.batch_number}
+                                          </span>
+                                          <span className="text-gray-600">
+                                            Stok: {b.available_quantity} {detail.medicine.unit}
+                                          </span>
+                                          <span className={`${
+                                            isExpiringSoon(b.expiry_date) ? 'text-orange-600 font-medium' : 'text-gray-500'
+                                          }`}>
+                                            ED: {new Date(b.expiry_date).toLocaleDateString('id-ID', {
+                                              day: '2-digit',
+                                              month: 'short',
+                                              year: 'numeric'
+                                            })}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )
                           })()}
