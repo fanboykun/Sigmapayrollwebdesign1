@@ -52,7 +52,8 @@ import {
   Clock,
   Archive,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  ClipboardCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
@@ -331,69 +332,83 @@ export function ClinicStock() {
         </div>
       </div>
 
+      {/* Info Banner for Stock Opname */}
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <ClipboardCheck className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-purple-900 text-sm">Stock Opname Periodik</h3>
+            <p className="text-sm text-purple-700 mt-1">
+              Untuk melakukan stock taking dan penyesuaian stok, silakan gunakan menu <strong>Stock Opname</strong> di sidebar.
+              Stock opname akan membandingkan stok sistem dengan stok fisik dan otomatis menyesuaikan data.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4">
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Item Obat</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalItems}</p>
+        <Card className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500 mb-1">Total Item Obat</p>
+              <p className="text-xl font-bold text-gray-900 truncate">{stats.totalItems}</p>
             </div>
-            <Package className="w-8 h-8 text-blue-500" />
+            <Package className="w-7 h-7 text-blue-500 flex-shrink-0" />
           </div>
         </Card>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Kuantitas</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalQuantity.toLocaleString('id-ID')}</p>
+        <Card className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500 mb-1">Total Kuantitas</p>
+              <p className="text-xl font-bold text-gray-900 truncate">{stats.totalQuantity.toLocaleString('id-ID')}</p>
             </div>
-            <Archive className="w-8 h-8 text-green-500" />
+            <Archive className="w-7 h-7 text-green-500 flex-shrink-0" />
           </div>
         </Card>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Nilai Stok</p>
-              <p className="text-lg font-bold text-gray-900">
-                {formatCurrency(stats.totalValue)}
+        <Card className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500 mb-1">Nilai Stok</p>
+              <p className="text-base font-bold text-gray-900 truncate" title={formatCurrency(stats.totalValue)}>
+                Rp {(stats.totalValue / 1000).toLocaleString('id-ID', { maximumFractionDigits: 0 })}.000
               </p>
             </div>
-            <DollarSign className="w-8 h-8 text-purple-500" />
+            <DollarSign className="w-7 h-7 text-purple-500 flex-shrink-0" />
           </div>
         </Card>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Akan Kadaluarsa</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.expiringSoon}</p>
+        <Card className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500 mb-1">Akan Kadaluarsa</p>
+              <p className="text-xl font-bold text-yellow-600 truncate">{stats.expiringSoon}</p>
               <p className="text-xs text-gray-500">90 hari</p>
             </div>
-            <Clock className="w-8 h-8 text-yellow-500" />
+            <Clock className="w-7 h-7 text-yellow-500 flex-shrink-0" />
           </div>
         </Card>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Stok Rendah</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.lowStock}</p>
+        <Card className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500 mb-1">Stok Rendah</p>
+              <p className="text-xl font-bold text-orange-600 truncate">{stats.lowStock}</p>
               <p className="text-xs text-gray-500">{'< min stock'}</p>
             </div>
-            <TrendingDown className="w-8 h-8 text-orange-500" />
+            <TrendingDown className="w-7 h-7 text-orange-500 flex-shrink-0" />
           </div>
         </Card>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Kadaluarsa</p>
-              <p className="text-2xl font-bold text-red-600">{stats.expired}</p>
+        <Card className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500 mb-1">Kadaluarsa</p>
+              <p className="text-xl font-bold text-red-600 truncate">{stats.expired}</p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-red-500" />
+            <AlertTriangle className="w-7 h-7 text-red-500 flex-shrink-0" />
           </div>
         </Card>
       </div>

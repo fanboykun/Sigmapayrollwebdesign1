@@ -77,8 +77,8 @@ import { ClinicPrescription } from "./components/ClinicPrescription";
 import { ClinicDispensing } from "./components/ClinicDispensing";
 import { ClinicReceiving } from "./components/ClinicReceiving";
 import { ClinicStock } from "./components/ClinicStock";
+import { ClinicOpname } from "./components/ClinicOpname";
 import {
-  ClinicOpname,
   ClinicReportVisits,
   ClinicReportDiseases,
   ClinicReportMedicines,

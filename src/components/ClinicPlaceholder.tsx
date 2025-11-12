@@ -213,14 +213,15 @@ export function ClinicReceiving() {
   );
 }
 
-export function ClinicOpname() {
-  return (
-    <ClinicPlaceholder
-      title="Opname Stok"
-      description="Stock opname periodik"
-    />
-  );
-}
+// ClinicOpname sudah diimplementasikan di ClinicOpname.tsx
+// export function ClinicOpname() {
+//   return (
+//     <ClinicPlaceholder
+//       title="Opname Stok"
+//       description="Stock opname periodik"
+//     />
+//   );
+// }
 
 export function ClinicReportVisits() {
   return (
