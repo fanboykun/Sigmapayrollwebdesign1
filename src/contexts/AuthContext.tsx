@@ -391,6 +391,28 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: true,
       canDelete: true,
     },
+    // ===== PREMI KEBUN MODULE PERMISSIONS =====
+    premi_master: {
+      module: "premi_master",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_penggajian: {
+      module: "premi_penggajian",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_laporan: {
+      module: "premi_laporan",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
     // ===== CLINIC MODULE PERMISSIONS =====
     clinic_dashboard: {
       module: "clinic_dashboard",
@@ -681,6 +703,28 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: false,
       canDelete: false,
     },
+    // ===== PREMI KEBUN MODULE PERMISSIONS =====
+    premi_master: {
+      module: "premi_master",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_penggajian: {
+      module: "premi_penggajian",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_laporan: {
+      module: "premi_laporan",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
   },
   manager: {
     dashboard: {
@@ -875,6 +919,28 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
     role_management: {
       module: "role_management",
       canView: false,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // ===== PREMI KEBUN MODULE PERMISSIONS =====
+    premi_master: {
+      module: "premi_master",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    premi_penggajian: {
+      module: "premi_penggajian",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    premi_laporan: {
+      module: "premi_laporan",
+      canView: true,
       canCreate: false,
       canEdit: false,
       canDelete: false,
@@ -1120,6 +1186,11 @@ const MENU_MODULE_MAP: Record<string, string> = {
   settings: "settings",
   "user-management": "user_management",
   "role-management": "role_management",
+
+  // ===== PREMI KEBUN MODULE MAPPINGS =====
+  "premi-master": "premi_master",
+  "premi-penggajian": "premi_penggajian",
+  "premi-laporan": "premi_laporan",
 
   // ===== CLINIC MODULE MAPPINGS =====
   "clinic-dashboard": "clinic_dashboard",

@@ -407,13 +407,13 @@ export function PremiumMaster() {
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4 md:mb-6">
-        <h1 className="mb-1">Master Premi & Tunjangan</h1>
-        <p className="text-muted-foreground">Kelola komponen premi, tunjangan, dan natura untuk karyawan perkebunan sawit</p>
+        <h1 className="mb-1">Tunjangan & Natura</h1>
+        <p className="text-muted-foreground">Kelola komponen tunjangan tetap, dan natura untuk karyawan perkebunan sawit</p>
       </div>
 
       <Tabs defaultValue="premium" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-          <TabsTrigger value="premium">Premi & Tunjangan</TabsTrigger>
+          <TabsTrigger value="premium">Tunjangan</TabsTrigger>
           <TabsTrigger value="natura">Natura</TabsTrigger>
         </TabsList>
 

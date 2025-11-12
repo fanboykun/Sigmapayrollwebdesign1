@@ -84,6 +84,10 @@ import {
   ClinicReportMedicines,
   ClinicReportCosts,
 } from "./components/ClinicPlaceholder";
+// Premi Kebun Module Components
+import PremiMaster from "./components/PremiMaster";
+import PremiPenggajian from "./components/PremiPenggajian";
+import PremiLaporan from "./components/PremiLaporan";
 
 /**
  * Type definition untuk semua view/halaman yang tersedia dalam aplikasi
@@ -135,7 +139,10 @@ type ViewType =
   | "clinic-report-visits"
   | "clinic-report-diseases"
   | "clinic-report-medicines"
-  | "clinic-report-costs";
+  | "clinic-report-costs"
+  | "premi-master"
+  | "premi-penggajian"
+  | "premi-laporan";
 
 /**
  * ==========================================================================
@@ -456,6 +463,23 @@ function MainApp() {
           {activeView === "clinic-report-costs" && (
             <PermissionGuard module="clinic_reports">
               <ClinicReportCosts />
+            </PermissionGuard>
+          )}
+
+          {/* Premi Kebun Module Views */}
+          {activeView === "premi-master" && (
+            <PermissionGuard module="premi_master">
+              <PremiMaster />
+            </PermissionGuard>
+          )}
+          {activeView === "premi-penggajian" && (
+            <PermissionGuard module="premi_penggajian">
+              <PremiPenggajian />
+            </PermissionGuard>
+          )}
+          {activeView === "premi-laporan" && (
+            <PermissionGuard module="premi_laporan">
+              <PremiLaporan />
             </PermissionGuard>
           )}
 

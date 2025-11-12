@@ -10,7 +10,8 @@
       "Bash(dir /b *.md *.sql 2)",
       "Bash(findstr /i \"SETUP ADD FIX PERMISSION COMPLETE CLINIC BEFORE\")",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []
@@ -18,5 +19,6 @@
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase"
-  ]
+  ],
+  "outputStyle": "default"
 }
