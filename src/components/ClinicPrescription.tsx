@@ -198,6 +198,46 @@ export function ClinicPrescription() {
     }
   }, [activeTab])
 
+  // Check if there's a medical record ID from examination page and auto-open create tab
+  useEffect(() => {
+    const prescriptionData = sessionStorage.getItem('createPrescriptionFrom')
+    if (prescriptionData) {
+      // Auto-switch to create tab if coming from examination
+      if (activeTab !== 'create') {
+        setActiveTab('create')
+      }
+    }
+  }, [])
+
+  // Auto-select medical record when coming from examination page
+  useEffect(() => {
+    if (activeTab === 'create' && medicalRecords.length > 0) {
+      const prescriptionData = sessionStorage.getItem('createPrescriptionFrom')
+      if (prescriptionData) {
+        try {
+          const data = JSON.parse(prescriptionData)
+          const medicalRecordId = data.medical_record_id
+
+          // Find and auto-select the medical record
+          const record = medicalRecords.find(r => r.id === medicalRecordId)
+          if (record) {
+            setSelectedMedicalRecord(record)
+            toast.success(`Rekam medis pasien ${data.patient_name} dipilih untuk membuat resep`)
+            console.log('=== AUTO-SELECTED MEDICAL RECORD ===')
+            console.log('Record:', record)
+          } else {
+            toast.info('Rekam medis tidak ditemukan. Silakan pilih rekam medis secara manual.')
+          }
+
+          // Clear the sessionStorage after using it
+          sessionStorage.removeItem('createPrescriptionFrom')
+        } catch (error) {
+          console.error('Error parsing prescription data from sessionStorage:', error)
+        }
+      }
+    }
+  }, [activeTab, medicalRecords])
+
   const loadPrescriptions = async () => {
     try {
       setLoading(true)
@@ -276,7 +316,7 @@ export function ClinicPrescription() {
 
   const loadMedicalRecordsWithoutPrescription = async () => {
     try {
-      // Get medical records that are completed and don't have prescriptions yet
+      // Get medical records that are saved or completed and don't have prescriptions yet
       const { data: records, error: recordsError } = await supabase
         .from('clinic_medical_records')
         .select(`
@@ -301,7 +341,7 @@ export function ClinicPrescription() {
             chief_complaint
           )
         `)
-        .eq('status', 'completed')
+        .in('status', ['saved', 'completed'])
         .order('examination_date', { ascending: false })
         .limit(50)
 

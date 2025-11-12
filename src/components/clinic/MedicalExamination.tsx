@@ -262,6 +262,12 @@ export function MedicalExamination() {
         .order('queue_number', { ascending: true })
 
       if (error) throw error
+
+      console.log('=== FETCH TODAY VISITS ===')
+      console.log('Today:', today)
+      console.log('Visits found:', data?.length || 0)
+      console.log('Visits:', data)
+
       setTodayVisits(data || [])
     } catch (err: any) {
       toast.error('Gagal memuat data kunjungan: ' + err.message)
@@ -312,14 +318,38 @@ export function MedicalExamination() {
     setSelectedVisit(visit)
     setError('')
     setSuccess(false)
-    setSavedRecordId(null)
+
+    // Update status to in_progress when doctor starts examination (if not already)
+    if (visit.status === 'waiting') {
+      console.log('=== UPDATING STATUS TO IN_PROGRESS ===')
+      console.log('Visit ID:', visit.id)
+
+      const { error } = await supabase
+        .from('clinic_visits')
+        .update({ status: 'in_progress' })
+        .eq('id', visit.id)
+
+      if (error) {
+        console.error('Error updating status:', error)
+      } else {
+        console.log('Status updated successfully')
+      }
+
+      // Update local state to reflect the change
+      setTodayVisits(prev =>
+        prev.map(v => v.id === visit.id ? { ...v, status: 'in_progress' } : v)
+      )
+    } else {
+      console.log('=== VISIT ALREADY IN_PROGRESS ===')
+      console.log('Current status:', visit.status)
+    }
 
     // Check if medical record already exists for this visit
     const { data: existingRecord } = await supabase
       .from('clinic_medical_records')
       .select('*')
       .eq('visit_id', visit.id)
-      .single()
+      .maybeSingle()
 
     if (existingRecord) {
       // Load existing data
@@ -341,9 +371,11 @@ export function MedicalExamination() {
         follow_up_date: existingRecord.follow_up_date || '',
       })
       setSavedRecordId(existingRecord.id)
+      setSuccess(true) // Show success state if medical record exists
       toast.info('Data pemeriksaan sebelumnya berhasil dimuat')
     } else {
       // Reset form for new examination
+      setSavedRecordId(null)
       setFormData({
         blood_pressure_systolic: null,
         blood_pressure_diastolic: null,
@@ -448,7 +480,7 @@ export function MedicalExamination() {
         diagnosis_notes: formData.diagnosis_notes,
         treatment_plan: formData.treatment_plan,
         follow_up_date: formData.follow_up_date || null,
-        status: 'completed',
+        status: 'saved', // Change to 'saved' instead of 'completed' to avoid triggering visit status update
       }
 
       let recordId = existingRecord?.id
@@ -476,20 +508,25 @@ export function MedicalExamination() {
       // Set saved record ID for enabling action buttons
       setSavedRecordId(recordId!)
 
-      // Update visit status to completed
-      await supabase
-        .from('clinic_visits')
-        .update({ status: 'completed' })
-        .eq('id', selectedVisit!.id)
+      console.log('=== MEDICAL RECORD SAVED ===')
+      console.log('Visit ID:', selectedVisit!.id)
+      console.log('Record ID:', recordId)
+      console.log('Current visit status should remain: in_progress')
+
+      // DO NOT update visit status to completed here
+      // Status remains 'in_progress' so patient stays in queue
+      // Status will only change to 'completed' when doctor clicks "Tutup & Selesai"
 
       // Auto-create attendance for employee if treatment plan indicates hospitalization
       await handleAutoAttendance()
 
       setSuccess(true)
-      toast.success('Rekam medis berhasil disimpan. Silakan pilih tindakan lanjutan.')
+      toast.success('Rekam medis berhasil disimpan. Pasien masih dalam antrian untuk tindakan lanjutan.')
 
+      console.log('=== REFRESHING VISITS LIST ===')
       // Refresh visits list (but don't clear selection!)
       await fetchTodayVisits()
+      console.log('=== REFRESH COMPLETE ===')
 
     } catch (err: any) {
       setError('Gagal menyimpan rekam medis: ' + err.message)
@@ -576,9 +613,24 @@ export function MedicalExamination() {
       return
     }
 
-    toast.info('Fitur Buat Resep Obat akan segera tersedia')
-    // TODO: Implement prescription creation
-    // Will navigate to prescription form with medical record context
+    // Store medical record ID and patient info in sessionStorage for prescription form
+    const prescriptionData = {
+      medical_record_id: savedRecordId,
+      patient_name: selectedVisit?.patient.full_name,
+      patient_number: selectedVisit?.patient.patient_number,
+      visit_date: selectedVisit?.visit_date,
+    }
+
+    sessionStorage.setItem('createPrescriptionFrom', JSON.stringify(prescriptionData))
+
+    toast.success(
+      'Data rekam medis tersimpan. Silakan buka menu "Resep Obat" untuk membuat resep.',
+      { duration: 5000 }
+    )
+
+    console.log('=== CREATE PRESCRIPTION ===')
+    console.log('Medical Record ID:', savedRecordId)
+    console.log('Prescription data stored in sessionStorage')
   }
 
   const handleCreateReferral = () => {
@@ -592,7 +644,31 @@ export function MedicalExamination() {
     // Will navigate to referral form with medical record data
   }
 
-  const handleCloseExamination = () => {
+  const handleCloseExamination = async () => {
+    if (!selectedVisit) return
+
+    // Update visit status to completed when doctor closes examination
+    // This removes the patient from the queue
+    if (savedRecordId) {
+      try {
+        await supabase
+          .from('clinic_visits')
+          .update({ status: 'completed' })
+          .eq('id', selectedVisit.id)
+
+        toast.success('Pemeriksaan selesai. Pasien telah keluar dari antrian.')
+
+        // Refresh visits list to remove from queue
+        await fetchTodayVisits()
+      } catch (error: any) {
+        console.error('Error updating visit status:', error)
+        toast.error('Gagal mengupdate status kunjungan')
+      }
+    } else {
+      toast.info('Pemeriksaan ditutup tanpa menyimpan rekam medis.')
+    }
+
+    // Clear selection
     setSelectedVisit(null)
     setSuccess(false)
     setSavedRecordId(null)
