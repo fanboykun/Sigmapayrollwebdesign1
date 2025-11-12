@@ -225,7 +225,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'premium', label: 'Tunjangan & Natura', icon: Award, module: 'premium' },
     { id: 'tax-master', label: 'Pajak & BPJS', icon: Receipt, module: 'tax-master' },
     { id: 'potongan', label: 'Potongan', icon: Wallet, module: 'potongan' },
-    { id: 'premi-master', label: 'Premi Kebun', icon: Sprout, module: 'premi_master' },
+    { id: 'premi-master', label: 'Premi Sawit', icon: Sprout, module: 'premi_master' },
   ];
 
   // Proses Penggajian
@@ -233,7 +233,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'annual-payroll', label: 'Proses Gaji Tahunan', icon: Gift, module: 'annual-payroll' },
     { id: 'processing', label: 'Proses Gaji Bulanan', icon: DollarSign, module: 'processing' },
     { id: 'employees', label: 'Gaji Karyawan', icon: Users, module: 'employees' },
-    { id: 'premi-penggajian', label: 'Transaksi Premi', icon: Sprout, module: 'premi_penggajian' },
+    { id: 'premi-penggajian', label: 'Premi Sawit', icon: Sprout, module: 'premi_penggajian' },
   ];
 
   // Laporan Payroll
@@ -242,7 +242,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'tax-worksheet', label: 'Tax Worksheet', icon: Calculator, module: 'tax-worksheet' },
     { id: 'presensi-report', label: 'Presensi', icon: ClipboardList, module: 'presensi-report' },
     { id: 'bpjs-report', label: 'BPJS', icon: Heart, module: 'bpjs-report' },
-    { id: 'premi-laporan', label: 'Premi Kebun', icon: Sprout, module: 'premi_laporan' },
+    { id: 'premi-laporan', label: 'Premi Sawit', icon: Sprout, module: 'premi_laporan' },
   ];
 
   /**

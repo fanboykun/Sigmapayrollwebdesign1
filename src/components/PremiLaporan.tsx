@@ -342,7 +342,7 @@ const PremiLaporan = () => {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Premi Kebun - Laporan</h1>
+        <h1 className="text-3xl font-bold">Laporan Premi Sawit</h1>
         <p className="text-muted-foreground">Analisis dan laporan premi panen TBS</p>
       </div>
 
