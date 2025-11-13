@@ -88,6 +88,9 @@ import {
 import PremiMaster from "./components/PremiMaster";
 import PremiPenggajian from "./components/PremiPenggajian";
 import PremiLaporan from "./components/PremiLaporan";
+import PremiDeresMaster from "./components/PremiDeresMaster";
+import PremiDeresPenggajian from "./components/PremiDeresPenggajian";
+import PremiDeresLaporan from "./components/PremiDeresLaporan";
 
 /**
  * Type definition untuk semua view/halaman yang tersedia dalam aplikasi
@@ -142,7 +145,10 @@ type ViewType =
   | "clinic-report-costs"
   | "premi-master"
   | "premi-penggajian"
-  | "premi-laporan";
+  | "premi-laporan"
+  | "premi-deres-master"
+  | "premi-deres-penggajian"
+  | "premi-deres-laporan";
 
 /**
  * ==========================================================================
@@ -165,9 +171,26 @@ type ViewType =
  */
 function MainApp() {
   const { isAuthenticated, canAccessMenu } = useAuth();
-  const [activeView, setActiveView] = useState<ViewType>("dashboard");
+
+  /**
+   * Initialize activeView from localStorage or default to dashboard
+   * #PersistentState #LocalStorage
+   */
+  const [activeView, setActiveView] = useState<ViewType>(() => {
+    const savedView = localStorage.getItem('activeView');
+    return (savedView as ViewType) || "dashboard";
+  });
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  /**
+   * Save activeView to localStorage whenever it changes
+   * #PersistentState #LocalStorage
+   */
+  useEffect(() => {
+    localStorage.setItem('activeView', activeView);
+  }, [activeView]);
 
   /**
    * Handler untuk navigasi halaman
@@ -480,6 +503,23 @@ function MainApp() {
           {activeView === "premi-laporan" && (
             <PermissionGuard module="premi_laporan">
               <PremiLaporan />
+            </PermissionGuard>
+          )}
+
+          {/* Premi Deres Module Views */}
+          {activeView === "premi-deres-master" && (
+            <PermissionGuard module="premi_deres_master">
+              <PremiDeresMaster />
+            </PermissionGuard>
+          )}
+          {activeView === "premi-deres-penggajian" && (
+            <PermissionGuard module="premi_deres_penggajian">
+              <PremiDeresPenggajian />
+            </PermissionGuard>
+          )}
+          {activeView === "premi-deres-laporan" && (
+            <PermissionGuard module="premi_deres_laporan">
+              <PremiDeresLaporan />
             </PermissionGuard>
           )}
 

@@ -39,7 +39,7 @@
  */
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign, ClipboardList, Heart, Pill, Stethoscope, Syringe, PackageSearch, FileBarChart, Wallet, Sprout } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings as SettingsIcon, X, UserCog, Award, Layers, Briefcase, Receipt, ChevronDown, ChevronRight, Database, Calculator, Shield, ShieldCheck, Calendar, CalendarDays, ClipboardCheck, Umbrella, Gift, ArrowRightLeft, TrendingUp, BarChart3, DollarSign, ClipboardList, Heart, Pill, Stethoscope, Syringe, PackageSearch, FileBarChart, Wallet, Sprout, Droplets } from 'lucide-react';
 import { SigmaLogo } from './SigmaLogo';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -51,7 +51,7 @@ import { useAuth } from '../contexts/AuthContext';
  */
 interface SidebarProps {
   activeView: string;
-  onViewChange: (view: 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'employees' | 'processing' | 'reports' | 'presensi-report' | 'engagement' | 'settings' | 'user-management' | 'role-management' | 'clinic-dashboard' | 'clinic-medicines' | 'clinic-suppliers' | 'clinic-doctors' | 'clinic-nurses' | 'clinic-diseases' | 'clinic-registration' | 'clinic-examination' | 'clinic-prescription' | 'clinic-dispensing' | 'clinic-stock' | 'clinic-receiving' | 'clinic-opname' | 'clinic-report-visits' | 'clinic-report-diseases' | 'clinic-report-medicines' | 'clinic-report-costs' | 'premi-master' | 'premi-penggajian' | 'premi-laporan') => void;
+  onViewChange: (view: 'dashboard' | 'payroll-view' | 'tax-worksheet' | 'annual-payroll' | 'hrm' | 'employee-transfer' | 'division' | 'position' | 'wage-master' | 'premium' | 'tax-master' | 'working-days' | 'holidays' | 'attendance' | 'leave' | 'employees' | 'processing' | 'reports' | 'presensi-report' | 'engagement' | 'settings' | 'user-management' | 'role-management' | 'clinic-dashboard' | 'clinic-medicines' | 'clinic-suppliers' | 'clinic-doctors' | 'clinic-nurses' | 'clinic-diseases' | 'clinic-registration' | 'clinic-examination' | 'clinic-prescription' | 'clinic-dispensing' | 'clinic-stock' | 'clinic-receiving' | 'clinic-opname' | 'clinic-report-visits' | 'clinic-report-diseases' | 'clinic-report-medicines' | 'clinic-report-costs' | 'premi-master' | 'premi-penggajian' | 'premi-laporan' | 'premi-deres-master' | 'premi-deres-penggajian' | 'premi-deres-laporan') => void;
   isOpen: boolean;
   onClose: () => void;
   collapsed: boolean;
@@ -226,6 +226,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'tax-master', label: 'Pajak & BPJS', icon: Receipt, module: 'tax-master' },
     { id: 'potongan', label: 'Potongan', icon: Wallet, module: 'potongan' },
     { id: 'premi-master', label: 'Premi Sawit', icon: Sprout, module: 'premi_master' },
+    { id: 'premi-deres-master', label: 'Premi Deres', icon: Droplets, module: 'premi_deres_master' },
   ];
 
   // Proses Penggajian
@@ -234,6 +235,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'processing', label: 'Proses Gaji Bulanan', icon: DollarSign, module: 'processing' },
     { id: 'employees', label: 'Gaji Karyawan', icon: Users, module: 'employees' },
     { id: 'premi-penggajian', label: 'Premi Sawit', icon: Sprout, module: 'premi_penggajian' },
+    { id: 'premi-deres-penggajian', label: 'Premi Deres', icon: Droplets, module: 'premi_deres_penggajian' },
   ];
 
   // Laporan Payroll
@@ -243,6 +245,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'presensi-report', label: 'Presensi', icon: ClipboardList, module: 'presensi-report' },
     { id: 'bpjs-report', label: 'BPJS', icon: Heart, module: 'bpjs-report' },
     { id: 'premi-laporan', label: 'Premi Sawit', icon: Sprout, module: 'premi_laporan' },
+    { id: 'premi-deres-laporan', label: 'Premi Deres', icon: Droplets, module: 'premi_deres_laporan' },
   ];
 
   /**

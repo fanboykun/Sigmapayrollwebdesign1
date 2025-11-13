@@ -413,6 +413,28 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: true,
       canDelete: true,
     },
+    // ===== PREMI DERES MODULE PERMISSIONS =====
+    premi_deres_master: {
+      module: "premi_deres_master",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_deres_penggajian: {
+      module: "premi_deres_penggajian",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_deres_laporan: {
+      module: "premi_deres_laporan",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
     // ===== CLINIC MODULE PERMISSIONS =====
     clinic_dashboard: {
       module: "clinic_dashboard",
@@ -725,6 +747,28 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canEdit: false,
       canDelete: false,
     },
+    // ===== PREMI DERES MODULE PERMISSIONS =====
+    premi_deres_master: {
+      module: "premi_deres_master",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_deres_penggajian: {
+      module: "premi_deres_penggajian",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    premi_deres_laporan: {
+      module: "premi_deres_laporan",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
   },
   manager: {
     dashboard: {
@@ -940,6 +984,28 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
     },
     premi_laporan: {
       module: "premi_laporan",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // ===== PREMI DERES MODULE PERMISSIONS =====
+    premi_deres_master: {
+      module: "premi_deres_master",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    premi_deres_penggajian: {
+      module: "premi_deres_penggajian",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    premi_deres_laporan: {
+      module: "premi_deres_laporan",
       canView: true,
       canCreate: false,
       canEdit: false,
@@ -1191,6 +1257,11 @@ const MENU_MODULE_MAP: Record<string, string> = {
   "premi-master": "premi_master",
   "premi-penggajian": "premi_penggajian",
   "premi-laporan": "premi_laporan",
+
+  // ===== PREMI DERES MODULE MAPPINGS =====
+  "premi-deres-master": "premi_deres_master",
+  "premi-deres-penggajian": "premi_deres_penggajian",
+  "premi-deres-laporan": "premi_deres_laporan",
 
   // ===== CLINIC MODULE MAPPINGS =====
   "clinic-dashboard": "clinic_dashboard",
