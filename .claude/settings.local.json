@@ -11,7 +11,8 @@
       "Bash(findstr /i \"SETUP ADD FIX PERMISSION COMPLETE CLINIC BEFORE\")",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

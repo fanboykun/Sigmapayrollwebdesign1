@@ -34,16 +34,42 @@ INSERT INTO public.premi_deres_konfigurasi (
 -- 2. INSERT PREMI PRODUKSI NORMAL RATES
 -- =====================================================
 INSERT INTO public.premi_deres_produksi_normal (konfigurasi_id, divisi, jenis_lateks, satuan, tarif_per_kg) VALUES
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lateks_normal', 'kg_kk', 337),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lateks_deres_ekstra', 'kg_kk', 397),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lower_grades', 'kg_basah', 201),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lump_cuka', 'kg_basah', 704),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'scraps', 'kg_basah', 704),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lateks_normal', 'kg_kk', 357),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lateks_deres_ekstra', 'kg_kk', 427),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lower_grades', 'kg_basah', 211),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lump_cuka', 'kg_basah', 734),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'scraps', 'kg_basah', 734)
+-- AP Div I
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lateks_normal', 'kg_kk', 337),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lateks_deres_ekstra', 'kg_kk', 397),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lower_grades', 'kg_basah', 201),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lump_cuka', 'kg_basah', 704),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'scraps', 'kg_basah', 704),
+-- AP Div II
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lateks_normal', 'kg_kk', 337),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lateks_deres_ekstra', 'kg_kk', 397),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lower_grades', 'kg_basah', 201),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lump_cuka', 'kg_basah', 704),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'scraps', 'kg_basah', 704),
+-- AP Div III
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lateks_normal', 'kg_kk', 337),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lateks_deres_ekstra', 'kg_kk', 397),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lower_grades', 'kg_basah', 201),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lump_cuka', 'kg_basah', 704),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'scraps', 'kg_basah', 704),
+-- AP Div IV
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lateks_normal', 'kg_kk', 357),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lateks_deres_ekstra', 'kg_kk', 427),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lower_grades', 'kg_basah', 211),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lump_cuka', 'kg_basah', 734),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'scraps', 'kg_basah', 734),
+-- AP Div V
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lateks_normal', 'kg_kk', 357),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lateks_deres_ekstra', 'kg_kk', 427),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lower_grades', 'kg_basah', 211),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lump_cuka', 'kg_basah', 734),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'scraps', 'kg_basah', 734),
+-- AP Div VI
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lateks_normal', 'kg_kk', 357),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lateks_deres_ekstra', 'kg_kk', 427),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lower_grades', 'kg_basah', 211),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lump_cuka', 'kg_basah', 734),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'scraps', 'kg_basah', 734)
 ON CONFLICT (konfigurasi_id, divisi, jenis_lateks) DO NOTHING;
 
 -- =====================================================
@@ -84,24 +110,54 @@ ON CONFLICT (konfigurasi_id) DO NOTHING;
 -- 6. INSERT PREMI DERES TETEL
 -- =====================================================
 INSERT INTO public.premi_deres_tetel (konfigurasi_id, divisi, jenis_lateks, satuan, tarif_per_kg) VALUES
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lateks_normal', 'kg_kk', 715),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lateks_deres_ekstra', 'kg_kk', 725),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lower_grades', 'kg_basah', 201),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'lump_cuka', 'kg_basah', 705),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 'scraps', 'kg_basah', 705),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lateks_normal', 'kg_kk', 715),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lateks_deres_ekstra', 'kg_kk', 725),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lower_grades', 'kg_basah', 211),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'lump_cuka', 'kg_basah', 735),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 'scraps', 'kg_basah', 735)
+-- AP Div I
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lateks_normal', 'kg_kk', 715),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lateks_deres_ekstra', 'kg_kk', 725),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lower_grades', 'kg_basah', 201),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'lump_cuka', 'kg_basah', 705),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 'scraps', 'kg_basah', 705),
+-- AP Div II
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lateks_normal', 'kg_kk', 715),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lateks_deres_ekstra', 'kg_kk', 725),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lower_grades', 'kg_basah', 201),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'lump_cuka', 'kg_basah', 705),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 'scraps', 'kg_basah', 705),
+-- AP Div III
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lateks_normal', 'kg_kk', 715),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lateks_deres_ekstra', 'kg_kk', 725),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lower_grades', 'kg_basah', 201),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'lump_cuka', 'kg_basah', 705),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 'scraps', 'kg_basah', 705),
+-- AP Div IV
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lateks_normal', 'kg_kk', 715),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lateks_deres_ekstra', 'kg_kk', 725),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lower_grades', 'kg_basah', 211),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'lump_cuka', 'kg_basah', 735),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 'scraps', 'kg_basah', 735),
+-- AP Div V
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lateks_normal', 'kg_kk', 715),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lateks_deres_ekstra', 'kg_kk', 725),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lower_grades', 'kg_basah', 211),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'lump_cuka', 'kg_basah', 735),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 'scraps', 'kg_basah', 735),
+-- AP Div VI
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lateks_normal', 'kg_kk', 715),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lateks_deres_ekstra', 'kg_kk', 725),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lower_grades', 'kg_basah', 211),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'lump_cuka', 'kg_basah', 735),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 'scraps', 'kg_basah', 735)
 ON CONFLICT (konfigurasi_id, divisi, jenis_lateks) DO NOTHING;
 
 -- =====================================================
 -- 7. INSERT BIAYA CUCI MANGKOK
 -- =====================================================
 INSERT INTO public.premi_deres_biaya_cuci_mangkok (konfigurasi_id, divisi, tarif_per_ancak) VALUES
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I_III', 90500),
-((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV_VI', 106500)
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_I', 90500),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_II', 90500),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_III', 90500),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_IV', 106500),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_V', 106500),
+((SELECT id FROM public.premi_deres_konfigurasi WHERE kode_konfigurasi = 'PD-2024-001'), 'AP_DIV_VI', 106500)
 ON CONFLICT (konfigurasi_id, divisi) DO NOTHING;
 
 -- =====================================================
@@ -176,11 +232,14 @@ ON CONFLICT (konfigurasi_id, kode_kesalahan) DO NOTHING;
 -- 15. INSERT SAMPLE ANCAK DATA
 -- =====================================================
 INSERT INTO public.premi_deres_ancak_master (kode_ancak, nama_ancak, estate_id, divisi, jumlah_pokok, status) VALUES
-('ANC-001', 'Ancak Blok A-001', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_I_III', 450, 'aktif'),
-('ANC-002', 'Ancak Blok A-002', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_I_III', 480, 'aktif'),
-('ANC-003', 'Ancak Blok B-001', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_IV_VI', 500, 'aktif'),
-('ANC-004', 'Ancak Blok B-002', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_IV_VI', 520, 'aktif'),
-('ANC-005', 'Ancak Blok C-001 (Tetel)', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_I_III', 400, 'tetel')
+('ANC-001', 'Ancak Blok A-001', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_I', 450, 'aktif'),
+('ANC-002', 'Ancak Blok A-002', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_II', 480, 'aktif'),
+('ANC-003', 'Ancak Blok A-003', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_III', 460, 'aktif'),
+('ANC-004', 'Ancak Blok B-001', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_IV', 500, 'aktif'),
+('ANC-005', 'Ancak Blok B-002', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_V', 520, 'aktif'),
+('ANC-006', 'Ancak Blok B-003', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_VI', 510, 'aktif'),
+('ANC-007', 'Ancak Blok C-001 (Tetel)', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_I', 400, 'tetel'),
+('ANC-008', 'Ancak Blok C-002 (Tetel)', (SELECT id FROM public.divisions LIMIT 1), 'AP_DIV_IV', 420, 'tetel')
 ON CONFLICT (kode_ancak) DO NOTHING;
 
 -- =====================================================

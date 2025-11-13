@@ -46,7 +46,7 @@ const PremiDeresMaster = () => {
   // =====================================================
   const tarifProduksi = [
     {
-      divisi: 'AP Div I-III',
+      divisi: 'AP Div I',
       lateks_normal: 337,
       lateks_ekstra: 397,
       lower_grades: 201,
@@ -54,7 +54,39 @@ const PremiDeresMaster = () => {
       scraps: 704
     },
     {
-      divisi: 'AP Div IV-VI',
+      divisi: 'AP Div II',
+      lateks_normal: 337,
+      lateks_ekstra: 397,
+      lower_grades: 201,
+      lump_cuka: 704,
+      scraps: 704
+    },
+    {
+      divisi: 'AP Div III',
+      lateks_normal: 337,
+      lateks_ekstra: 397,
+      lower_grades: 201,
+      lump_cuka: 704,
+      scraps: 704
+    },
+    {
+      divisi: 'AP Div IV',
+      lateks_normal: 357,
+      lateks_ekstra: 427,
+      lower_grades: 211,
+      lump_cuka: 734,
+      scraps: 734
+    },
+    {
+      divisi: 'AP Div V',
+      lateks_normal: 357,
+      lateks_ekstra: 427,
+      lower_grades: 211,
+      lump_cuka: 734,
+      scraps: 734
+    },
+    {
+      divisi: 'AP Div VI',
       lateks_normal: 357,
       lateks_ekstra: 427,
       lower_grades: 211,
@@ -65,7 +97,7 @@ const PremiDeresMaster = () => {
 
   const tarifTetel = [
     {
-      divisi: 'AP Div I-III',
+      divisi: 'AP Div I',
       lateks_normal: 715,
       lateks_ekstra: 725,
       lower_grades: 201,
@@ -73,7 +105,39 @@ const PremiDeresMaster = () => {
       scraps: 705
     },
     {
-      divisi: 'AP Div IV-VI',
+      divisi: 'AP Div II',
+      lateks_normal: 715,
+      lateks_ekstra: 725,
+      lower_grades: 201,
+      lump_cuka: 705,
+      scraps: 705
+    },
+    {
+      divisi: 'AP Div III',
+      lateks_normal: 715,
+      lateks_ekstra: 725,
+      lower_grades: 201,
+      lump_cuka: 705,
+      scraps: 705
+    },
+    {
+      divisi: 'AP Div IV',
+      lateks_normal: 715,
+      lateks_ekstra: 725,
+      lower_grades: 211,
+      lump_cuka: 735,
+      scraps: 735
+    },
+    {
+      divisi: 'AP Div V',
+      lateks_normal: 715,
+      lateks_ekstra: 725,
+      lower_grades: 211,
+      lump_cuka: 735,
+      scraps: 735
+    },
+    {
+      divisi: 'AP Div VI',
       lateks_normal: 715,
       lateks_ekstra: 725,
       lower_grades: 211,
@@ -83,8 +147,12 @@ const PremiDeresMaster = () => {
   ];
 
   const biayaCuciMangkok = [
-    { divisi: 'AP Div I-III', tarif_per_ancak: 90500 },
-    { divisi: 'AP Div IV-VI', tarif_per_ancak: 106500 }
+    { divisi: 'AP Div I', tarif_per_ancak: 90500 },
+    { divisi: 'AP Div II', tarif_per_ancak: 90500 },
+    { divisi: 'AP Div III', tarif_per_ancak: 90500 },
+    { divisi: 'AP Div IV', tarif_per_ancak: 106500 },
+    { divisi: 'AP Div V', tarif_per_ancak: 106500 },
+    { divisi: 'AP Div VI', tarif_per_ancak: 106500 }
   ];
 
   // =====================================================
