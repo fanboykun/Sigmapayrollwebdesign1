@@ -82,6 +82,7 @@ interface Visit {
     phone: string
     allergies: string
     chronic_diseases: string
+    employee_id: string | null
   }
 }
 
@@ -134,6 +135,8 @@ export function MedicalExamination() {
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
+  const [queueFilter, setQueueFilter] = useState<'active' | 'completed'>('active')
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
 
   // States for diseases
   const [diseases, setDiseases] = useState<Disease[]>([])
@@ -168,29 +171,24 @@ export function MedicalExamination() {
 
   // Check if user is superadmin
   useEffect(() => {
-    const checkSuperAdmin = async () => {
-      if (!user?.id) return
+    if (!user?.id) return
 
-      // Get user's role
-      const { data: userData } = await supabase
-        .from('users')
-        .select('role:roles(code)')
-        .eq('id', user.id)
-        .single()
+    // Get role directly from AuthContext user object
+    const isSuperAdmin = user.role === 'super_admin'
+    setIsSuperAdmin(isSuperAdmin)
 
-      const isSuperAdmin = userData?.role?.code === 'super_admin'
-      setIsSuperAdmin(isSuperAdmin)
+    console.log('=== CHECK SUPERADMIN ===')
+    console.log('User:', user.name)
+    console.log('User Role:', user.role)
+    console.log('Is SuperAdmin:', isSuperAdmin)
 
-      if (isSuperAdmin) {
-        // Fetch all active doctors for superadmin
-        fetchAllDoctors()
-      } else {
-        // Fetch current doctor info for regular doctor
-        fetchCurrentDoctor()
-      }
+    if (isSuperAdmin) {
+      // Fetch all active doctors for superadmin
+      fetchAllDoctors()
+    } else {
+      // Fetch current doctor info for regular doctor
+      fetchCurrentDoctor()
     }
-
-    checkSuperAdmin()
   }, [user])
 
   // Fetch current doctor info (for regular doctor users)
@@ -227,10 +225,10 @@ export function MedicalExamination() {
     }
   }
 
-  // Fetch today's visits
+  // Fetch visits when filter or date changes
   useEffect(() => {
     fetchTodayVisits()
-  }, [])
+  }, [queueFilter, selectedDate])
 
   // Fetch diseases
   useEffect(() => {
@@ -249,7 +247,10 @@ export function MedicalExamination() {
   const fetchTodayVisits = async () => {
     setLoading(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
+      // Determine which statuses to fetch based on filter
+      const statuses = queueFilter === 'active'
+        ? ['waiting', 'in_progress']
+        : ['completed']
 
       const { data, error } = await supabase
         .from('clinic_visits')
@@ -257,16 +258,17 @@ export function MedicalExamination() {
           *,
           patient:patients(*)
         `)
-        .eq('visit_date', today)
-        .in('status', ['waiting', 'in_progress'])
+        .eq('visit_date', selectedDate)
+        .in('status', statuses)
         .order('queue_number', { ascending: true })
 
       if (error) throw error
 
-      console.log('=== FETCH TODAY VISITS ===')
-      console.log('Today:', today)
+      console.log('=== FETCH VISITS ===')
+      console.log('Date:', selectedDate)
+      console.log('Filter:', queueFilter)
+      console.log('Statuses:', statuses)
       console.log('Visits found:', data?.length || 0)
-      console.log('Visits:', data)
 
       setTodayVisits(data || [])
     } catch (err: any) {
@@ -319,7 +321,8 @@ export function MedicalExamination() {
     setError('')
     setSuccess(false)
 
-    // Update status to in_progress when doctor starts examination (if not already)
+    // Only update status to in_progress for waiting visits
+    // Completed visits are view-only
     if (visit.status === 'waiting') {
       console.log('=== UPDATING STATUS TO IN_PROGRESS ===')
       console.log('Visit ID:', visit.id)
@@ -339,6 +342,9 @@ export function MedicalExamination() {
       setTodayVisits(prev =>
         prev.map(v => v.id === visit.id ? { ...v, status: 'in_progress' } : v)
       )
+    } else if (visit.status === 'completed') {
+      console.log('=== VIEWING COMPLETED VISIT (READ-ONLY) ===')
+      console.log('Visit ID:', visit.id)
     } else {
       console.log('=== VISIT ALREADY IN_PROGRESS ===')
       console.log('Current status:', visit.status)
@@ -372,7 +378,13 @@ export function MedicalExamination() {
       })
       setSavedRecordId(existingRecord.id)
       setSuccess(true) // Show success state if medical record exists
-      toast.info('Data pemeriksaan sebelumnya berhasil dimuat')
+
+      // Show different message for completed vs active visits
+      if (visit.status === 'completed') {
+        toast.info('Menampilkan rekam medis (Mode Tampilan)')
+      } else {
+        toast.info('Data pemeriksaan sebelumnya berhasil dimuat')
+      }
     } else {
       // Reset form for new examination
       setSavedRecordId(null)
@@ -750,13 +762,32 @@ export function MedicalExamination() {
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Clock className="w-5 h-5" />
-                      Antrian Hari Ini
+                      Daftar Kunjungan
                     </CardTitle>
                     <CardDescription>
-                      {todayVisits.length} pasien menunggu
+                      {todayVisits.length} kunjungan ditemukan
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
+                    {/* Filter Tanggal */}
+                    <div className="mb-4">
+                      <Label className="text-xs text-gray-500">Tanggal</Label>
+                      <Input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    {/* Tabs untuk filter status */}
+                    <Tabs value={queueFilter} onValueChange={(v) => setQueueFilter(v as 'active' | 'completed')} className="mb-4">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="active">Aktif</TabsTrigger>
+                        <TabsTrigger value="completed">Selesai</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+
                     <div className="space-y-2">
                       {loading ? (
                         <p className="text-sm text-gray-500 text-center py-4">Memuat...</p>
@@ -784,6 +815,21 @@ export function MedicalExamination() {
                                   {visit.patient.full_name}
                                 </span>
                               </div>
+                              {visit.status === 'completed' && (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  Selesai
+                                </Badge>
+                              )}
+                              {visit.status === 'waiting' && (
+                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                                  Menunggu
+                                </Badge>
+                              )}
+                              {visit.status === 'in_progress' && (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                  Sedang Diperiksa
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-gray-500 line-clamp-1">
                               {visit.chief_complaint}
@@ -852,6 +898,16 @@ export function MedicalExamination() {
                           </p>
                         </CardContent>
                       </Card>
+                    )}
+
+                    {/* Alert for completed visits */}
+                    {selectedVisit.status === 'completed' && (
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <AlertCircle className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-blue-800">
+                          <strong>Kunjungan Selesai:</strong> Anda dapat melihat dan mengedit rekam medis yang tersimpan atau membuat tindakan lanjutan.
+                        </AlertDescription>
+                      </Alert>
                     )}
 
                     {/* Patient Info */}
@@ -1183,14 +1239,42 @@ export function MedicalExamination() {
                               </Button>
                             </>
                           ) : (
-                            <Button
-                              variant="outline"
-                              onClick={handleCloseExamination}
-                              className="flex-1 min-w-[200px]"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Tutup & Selesai
-                            </Button>
+                            <>
+                              {selectedVisit.status === 'completed' ? (
+                                <>
+                                  <Button
+                                    onClick={handleSaveMedicalRecord}
+                                    disabled={loading}
+                                    className="flex-1 min-w-[200px]"
+                                  >
+                                    {loading ? (
+                                      <>Menyimpan...</>
+                                    ) : (
+                                      <>
+                                        <Save className="w-4 h-4 mr-2" />
+                                        Simpan Perubahan
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => setSelectedVisit(null)}
+                                  >
+                                    <X className="w-4 h-4 mr-2" />
+                                    Tutup
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  onClick={handleCloseExamination}
+                                  className="flex-1 min-w-[200px]"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Tutup & Selesai
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
 
