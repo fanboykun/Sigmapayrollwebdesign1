@@ -16,7 +16,8 @@
  * FITUR:
  * - Desktop: Collapsible sidebar dengan toggle button
  * - Mobile: Slide-in sidebar dengan overlay
- * - Nested menu: 2 menu utama (Payroll & HR) dengan sub-groups
+ * - Nested menu: 3 menu utama (Payroll, HR & Klinik) dengan sub-groups
+ * - Permission-based visibility: Menu utama hanya tampil jika user punya akses minimal 1 submenu
  * - Status indicator: Sistem status di bagian bawah
  *
  * MENU STRUCTURE:
@@ -32,9 +33,10 @@
  * 4. Bottom Menu (Analitik, Engagement Dashboard, Pengaturan)
  * 
  * @author Sistem Payroll Team
- * @version 2.0.0
+ * @version 2.1.0
  * @since 2024-10-26
  * @updated 2025-01-11 - Restructured menu into 2 main groups (Payroll & HR)
+ * @updated 2025-01-16 - Added conditional rendering for main menus based on user permissions
  * ==========================================================================
  */
 
@@ -364,6 +366,28 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const filteredBottomMenuItems = bottomMenuItems.filter(item => canAccessMenu(item.id));
 
   /**
+   * Check apakah menu utama memiliki setidaknya satu submenu yang bisa diakses
+   * Jika semua submenu kosong, menu utama tidak perlu ditampilkan
+   * #MenuVisibility #PermissionCheck
+   */
+  const hasPayrollAccess =
+    filteredPayrollMasterDataItems.length > 0 ||
+    filteredPayrollProcessItems.length > 0 ||
+    filteredPayrollReportsItems.length > 0;
+
+  const hasHrAccess =
+    filteredHrMasterDataItems.length > 0 ||
+    filteredPresenceMenuItems.length > 0 ||
+    filteredAdministrationMenuItems.length > 0;
+
+  const hasClinicAccess =
+    filteredClinicDashboardItems.length > 0 ||
+    filteredClinicMasterDataItems.length > 0 ||
+    filteredClinicServiceItems.length > 0 ||
+    filteredClinicInventoryItems.length > 0 ||
+    filteredClinicReportsItems.length > 0;
+
+  /**
    * Render individual menu item dengan handling untuk collapsed state
    * #MenuItemRenderer #TooltipSupport
    * 
@@ -435,6 +459,8 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     subGroups: Array<{ title: string; icon: any; items: any[]; isOpen: boolean; setIsOpen: (open: boolean) => void }>
   ) => {
     const Icon = icon;
+    // Filter sub-groups yang memiliki items (tidak kosong)
+    const filteredSubGroups = subGroups.filter(group => group.items.length > 0);
 
     // Mode collapsed: Tampil icon dengan tooltip yang menampilkan semua sub-groups
     if (collapsed) {
@@ -451,7 +477,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
             <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2 max-w-xs">
               <div className="space-y-2 min-w-[180px]">
                 <p className="font-semibold text-sm px-2 py-1 border-b border-[#1c3353]">{title}</p>
-                {subGroups.map((group, idx) => (
+                {filteredSubGroups.map((group, idx) => (
                   <div key={idx} className="space-y-0.5">
                     <p className="text-xs font-medium px-2 py-1 text-[#9fa6bc]">{group.title}</p>
                     <div className="space-y-0.5">
@@ -506,7 +532,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
           )}
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-1 mt-1 ml-2">
-          {subGroups.map((group, idx) => (
+          {filteredSubGroups.map((group, idx) => (
             <div key={idx}>
               {renderCollapsibleMenu(group.title, group.icon, group.items, group.isOpen, group.setIsOpen)}
             </div>
@@ -528,6 +554,8 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     subGroups: Array<{ title: string; icon: any; items: any[]; isOpen: boolean; setIsOpen: (open: boolean) => void }>
   ) => {
     const Icon = icon;
+    // Filter sub-groups yang memiliki items (tidak kosong)
+    const filteredSubGroups = subGroups.filter(group => group.items.length > 0);
 
     // Mode collapsed: Tampil icon dengan tooltip
     if (collapsed) {
@@ -576,7 +604,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                 )}
 
                 {/* Sub-groups */}
-                {subGroups.map((group, idx) => (
+                {filteredSubGroups.map((group, idx) => (
                   <div key={idx} className="space-y-0.5">
                     <p className="text-xs font-medium px-2 py-1 text-[#9fa6bc]">{group.title}</p>
                     <div className="space-y-0.5">
@@ -635,7 +663,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
           {directItems.map(item => renderMenuItem(item, true))}
 
           {/* Sub-groups as collapsible menus */}
-          {subGroups.map((group, idx) => (
+          {filteredSubGroups.map((group, idx) => (
             <div key={idx}>
               {renderCollapsibleMenu(group.title, group.icon, group.items, group.isOpen, group.setIsOpen)}
             </div>
@@ -829,112 +857,118 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
               <li key={item.id}>{renderMenuItem(item)}</li>
             ))}
 
-            {/* PAYROLL - Menu Utama */}
-            <li className="pt-2">
-              {renderNestedMenu(
-                'Payroll',
-                DollarSign,
-                payrollMainOpen,
-                setPayrollMainOpen,
-                [
-                  {
-                    title: 'Master Data',
-                    icon: Database,
-                    items: filteredPayrollMasterDataItems,
-                    isOpen: payrollMasterDataOpen,
-                    setIsOpen: setPayrollMasterDataOpen
-                  },
-                  {
-                    title: 'Penggajian',
-                    icon: Calculator,
-                    items: filteredPayrollProcessItems,
-                    isOpen: payrollProcessOpen,
-                    setIsOpen: setPayrollProcessOpen
-                  },
-                  {
-                    title: 'Laporan',
-                    icon: FileText,
-                    items: filteredPayrollReportsItems,
-                    isOpen: payrollReportsOpen,
-                    setIsOpen: setPayrollReportsOpen
-                  }
-                ]
-              )}
-            </li>
+            {/* PAYROLL - Menu Utama (hanya tampil jika user punya akses ke minimal 1 submenu) */}
+            {hasPayrollAccess && (
+              <li className="pt-2">
+                {renderNestedMenu(
+                  'Payroll',
+                  DollarSign,
+                  payrollMainOpen,
+                  setPayrollMainOpen,
+                  [
+                    {
+                      title: 'Master Data',
+                      icon: Database,
+                      items: filteredPayrollMasterDataItems,
+                      isOpen: payrollMasterDataOpen,
+                      setIsOpen: setPayrollMasterDataOpen
+                    },
+                    {
+                      title: 'Penggajian',
+                      icon: Calculator,
+                      items: filteredPayrollProcessItems,
+                      isOpen: payrollProcessOpen,
+                      setIsOpen: setPayrollProcessOpen
+                    },
+                    {
+                      title: 'Laporan',
+                      icon: FileText,
+                      items: filteredPayrollReportsItems,
+                      isOpen: payrollReportsOpen,
+                      setIsOpen: setPayrollReportsOpen
+                    }
+                  ]
+                )}
+              </li>
+            )}
 
-            {/* HR - Menu Utama */}
-            <li className="pt-2">
-              {renderNestedMenu(
-                'HR',
-                Users,
-                hrMainOpen,
-                setHrMainOpen,
-                [
-                  {
-                    title: 'Master Data',
-                    icon: Database,
-                    items: filteredHrMasterDataItems,
-                    isOpen: hrMasterDataOpen,
-                    setIsOpen: setHrMasterDataOpen
-                  },
-                  {
-                    title: 'Presensi',
-                    icon: ClipboardCheck,
-                    items: filteredPresenceMenuItems,
-                    isOpen: presenceOpen,
-                    setIsOpen: setPresenceOpen
-                  },
-                  {
-                    title: 'Administrasi',
-                    icon: ShieldCheck,
-                    items: filteredAdministrationMenuItems,
-                    isOpen: administrationOpen,
-                    setIsOpen: setAdministrationOpen
-                  }
-                ]
-              )}
-            </li>
+            {/* HR - Menu Utama (hanya tampil jika user punya akses ke minimal 1 submenu) */}
+            {hasHrAccess && (
+              <li className="pt-2">
+                {renderNestedMenu(
+                  'HR',
+                  Users,
+                  hrMainOpen,
+                  setHrMainOpen,
+                  [
+                    {
+                      title: 'Master Data',
+                      icon: Database,
+                      items: filteredHrMasterDataItems,
+                      isOpen: hrMasterDataOpen,
+                      setIsOpen: setHrMasterDataOpen
+                    },
+                    {
+                      title: 'Presensi',
+                      icon: ClipboardCheck,
+                      items: filteredPresenceMenuItems,
+                      isOpen: presenceOpen,
+                      setIsOpen: setPresenceOpen
+                    },
+                    {
+                      title: 'Administrasi',
+                      icon: ShieldCheck,
+                      items: filteredAdministrationMenuItems,
+                      isOpen: administrationOpen,
+                      setIsOpen: setAdministrationOpen
+                    }
+                  ]
+                )}
+              </li>
+            )}
 
-            {/* CLINIC - Menu Utama */}
-            <li className="pt-2">
-              {renderClinicMenu(
-                'Klinik',
-                Heart,
-                clinicMainOpen,
-                setClinicMainOpen,
-                filteredClinicDashboardItems,
-                [
-                  {
-                    title: 'Master Data',
-                    icon: Database,
-                    items: filteredClinicMasterDataItems,
-                    isOpen: clinicMasterDataOpen,
-                    setIsOpen: setClinicMasterDataOpen
-                  },
-                  {
-                    title: 'Pelayanan',
-                    icon: Stethoscope,
-                    items: filteredClinicServiceItems,
-                    isOpen: clinicServiceOpen,
-                    setIsOpen: setClinicServiceOpen
-                  },
-                  {
-                    title: 'Manajemen Stok',
-                    icon: PackageSearch,
-                    items: filteredClinicInventoryItems,
-                    isOpen: clinicInventoryOpen,
-                    setIsOpen: setClinicInventoryOpen
-                  },
-                  {
-                    title: 'Laporan',
-                    icon: FileBarChart,
-                    items: filteredClinicReportsItems,
-                    isOpen: clinicReportsOpen,
-                    setIsOpen: setClinicReportsOpen
-                  }
-                ]
-              )}
-            </li>
+            {/* CLINIC - Menu Utama (hanya tampil jika user punya akses ke minimal 1 submenu) */}
+            {hasClinicAccess && (
+              <li className="pt-2">
+                {renderClinicMenu(
+                  'Klinik',
+                  Heart,
+                  clinicMainOpen,
+                  setClinicMainOpen,
+                  filteredClinicDashboardItems,
+                  [
+                    {
+                      title: 'Master Data',
+                      icon: Database,
+                      items: filteredClinicMasterDataItems,
+                      isOpen: clinicMasterDataOpen,
+                      setIsOpen: setClinicMasterDataOpen
+                    },
+                    {
+                      title: 'Pelayanan',
+                      icon: Stethoscope,
+                      items: filteredClinicServiceItems,
+                      isOpen: clinicServiceOpen,
+                      setIsOpen: setClinicServiceOpen
+                    },
+                    {
+                      title: 'Manajemen Stok',
+                      icon: PackageSearch,
+                      items: filteredClinicInventoryItems,
+                      isOpen: clinicInventoryOpen,
+                      setIsOpen: setClinicInventoryOpen
+                    },
+                    {
+                      title: 'Laporan',
+                      icon: FileBarChart,
+                      items: filteredClinicReportsItems,
+                      isOpen: clinicReportsOpen,
+                      setIsOpen: setClinicReportsOpen
+                    }
+                  ]
+                )}
+              </li>
+            )}
 
             {/* Bottom Menu Items - Analitik, Engagement & Pengaturan */}
             {filteredBottomMenuItems.length > 0 && (
@@ -1049,112 +1083,118 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
             <li key={item.id}>{renderMenuItem(item)}</li>
           ))}
 
-          {/* PAYROLL - Menu Utama */}
-          <li className="pt-2">
-            {renderNestedMenu(
-              'Payroll',
-              DollarSign,
-              payrollMainOpen,
-              setPayrollMainOpen,
-              [
-                {
-                  title: 'Master Data',
-                  icon: Database,
-                  items: filteredPayrollMasterDataItems,
-                  isOpen: payrollMasterDataOpen,
-                  setIsOpen: setPayrollMasterDataOpen
-                },
-                {
-                  title: 'Penggajian',
-                  icon: Calculator,
-                  items: filteredPayrollProcessItems,
-                  isOpen: payrollProcessOpen,
-                  setIsOpen: setPayrollProcessOpen
-                },
-                {
-                  title: 'Laporan',
-                  icon: FileText,
-                  items: filteredPayrollReportsItems,
-                  isOpen: payrollReportsOpen,
-                  setIsOpen: setPayrollReportsOpen
-                }
-              ]
-            )}
-          </li>
+          {/* PAYROLL - Menu Utama (hanya tampil jika user punya akses ke minimal 1 submenu) */}
+          {hasPayrollAccess && (
+            <li className="pt-2">
+              {renderNestedMenu(
+                'Payroll',
+                DollarSign,
+                payrollMainOpen,
+                setPayrollMainOpen,
+                [
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredPayrollMasterDataItems,
+                    isOpen: payrollMasterDataOpen,
+                    setIsOpen: setPayrollMasterDataOpen
+                  },
+                  {
+                    title: 'Penggajian',
+                    icon: Calculator,
+                    items: filteredPayrollProcessItems,
+                    isOpen: payrollProcessOpen,
+                    setIsOpen: setPayrollProcessOpen
+                  },
+                  {
+                    title: 'Laporan',
+                    icon: FileText,
+                    items: filteredPayrollReportsItems,
+                    isOpen: payrollReportsOpen,
+                    setIsOpen: setPayrollReportsOpen
+                  }
+                ]
+              )}
+            </li>
+          )}
 
-          {/* HR - Menu Utama */}
-          <li className="pt-2">
-            {renderNestedMenu(
-              'HR',
-              Users,
-              hrMainOpen,
-              setHrMainOpen,
-              [
-                {
-                  title: 'Master Data',
-                  icon: Database,
-                  items: filteredHrMasterDataItems,
-                  isOpen: hrMasterDataOpen,
-                  setIsOpen: setHrMasterDataOpen
-                },
-                {
-                  title: 'Presensi',
-                  icon: ClipboardCheck,
-                  items: filteredPresenceMenuItems,
-                  isOpen: presenceOpen,
-                  setIsOpen: setPresenceOpen
-                },
-                {
-                  title: 'Administrasi',
-                  icon: ShieldCheck,
-                  items: filteredAdministrationMenuItems,
-                  isOpen: administrationOpen,
-                  setIsOpen: setAdministrationOpen
-                }
-              ]
-            )}
-          </li>
+          {/* HR - Menu Utama (hanya tampil jika user punya akses ke minimal 1 submenu) */}
+          {hasHrAccess && (
+            <li className="pt-2">
+              {renderNestedMenu(
+                'HR',
+                Users,
+                hrMainOpen,
+                setHrMainOpen,
+                [
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredHrMasterDataItems,
+                    isOpen: hrMasterDataOpen,
+                    setIsOpen: setHrMasterDataOpen
+                  },
+                  {
+                    title: 'Presensi',
+                    icon: ClipboardCheck,
+                    items: filteredPresenceMenuItems,
+                    isOpen: presenceOpen,
+                    setIsOpen: setPresenceOpen
+                  },
+                  {
+                    title: 'Administrasi',
+                    icon: ShieldCheck,
+                    items: filteredAdministrationMenuItems,
+                    isOpen: administrationOpen,
+                    setIsOpen: setAdministrationOpen
+                  }
+                ]
+              )}
+            </li>
+          )}
 
-          {/* CLINIC - Menu Utama */}
-          <li className="pt-2">
-            {renderClinicMenu(
-              'Klinik',
-              Heart,
-              clinicMainOpen,
-              setClinicMainOpen,
-              filteredClinicDashboardItems,
-              [
-                {
-                  title: 'Master Data',
-                  icon: Database,
-                  items: filteredClinicMasterDataItems,
-                  isOpen: clinicMasterDataOpen,
-                  setIsOpen: setClinicMasterDataOpen
-                },
-                {
-                  title: 'Pelayanan',
-                  icon: Stethoscope,
-                  items: filteredClinicServiceItems,
-                  isOpen: clinicServiceOpen,
-                  setIsOpen: setClinicServiceOpen
-                },
-                {
-                  title: 'Manajemen Stok',
-                  icon: PackageSearch,
-                  items: filteredClinicInventoryItems,
-                  isOpen: clinicInventoryOpen,
-                  setIsOpen: setClinicInventoryOpen
-                },
-                {
-                  title: 'Laporan',
-                  icon: FileBarChart,
-                  items: filteredClinicReportsItems,
-                  isOpen: clinicReportsOpen,
-                  setIsOpen: setClinicReportsOpen
-                }
-              ]
-            )}
-          </li>
+          {/* CLINIC - Menu Utama (hanya tampil jika user punya akses ke minimal 1 submenu) */}
+          {hasClinicAccess && (
+            <li className="pt-2">
+              {renderClinicMenu(
+                'Klinik',
+                Heart,
+                clinicMainOpen,
+                setClinicMainOpen,
+                filteredClinicDashboardItems,
+                [
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredClinicMasterDataItems,
+                    isOpen: clinicMasterDataOpen,
+                    setIsOpen: setClinicMasterDataOpen
+                  },
+                  {
+                    title: 'Pelayanan',
+                    icon: Stethoscope,
+                    items: filteredClinicServiceItems,
+                    isOpen: clinicServiceOpen,
+                    setIsOpen: setClinicServiceOpen
+                  },
+                  {
+                    title: 'Manajemen Stok',
+                    icon: PackageSearch,
+                    items: filteredClinicInventoryItems,
+                    isOpen: clinicInventoryOpen,
+                    setIsOpen: setClinicInventoryOpen
+                  },
+                  {
+                    title: 'Laporan',
+                    icon: FileBarChart,
+                    items: filteredClinicReportsItems,
+                    isOpen: clinicReportsOpen,
+                    setIsOpen: setClinicReportsOpen
+                  }
+                ]
+              )}
+            </li>
+          )}
 
           {/* Bottom Menu Items - Analitik, Engagement & Pengaturan */}
           {filteredBottomMenuItems.length > 0 && (
