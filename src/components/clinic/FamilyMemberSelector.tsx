@@ -140,9 +140,17 @@ export function FamilyMemberSelector({
 
                     {/* Details */}
                     <div className="text-sm space-y-1">
-                      {member.nik && (
+                      {/* NIK KTP (National ID) */}
+                      {member.nationalId && (
                         <div className="text-muted-foreground">
-                          <span className="font-medium">NIK:</span> {member.nik}
+                          <span className="font-medium">NIK KTP:</span> {member.nationalId}
+                        </div>
+                      )}
+
+                      {/* Employee ID (for employees only) */}
+                      {member.relation === 'self' && member.nik && member.nik !== member.nationalId && (
+                        <div className="text-muted-foreground">
+                          <span className="font-medium">Kode Karyawan:</span> {member.nik}
                         </div>
                       )}
 

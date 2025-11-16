@@ -32,6 +32,11 @@ import {
   ChevronLeft,
   Building2,
   User as UserIcon,
+  List,
+  Plus,
+  Edit,
+  Clock,
+  Calendar,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
@@ -47,6 +52,17 @@ import {
 } from '../ui/select'
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import { Alert, AlertDescription } from '../ui/alert'
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
+import { Badge } from '../ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
+import { toast } from 'sonner'
 import { EmployeeSearchSelector } from './EmployeeSearchSelector'
 import { FamilyMemberSelector } from './FamilyMemberSelector'
 import { PatientFormFields } from './PatientFormFields'
@@ -81,6 +97,23 @@ const steps: StepConfig[] = [
   { number: 6, title: 'Selesai', icon: Printer, description: 'Cetak slip antrian' },
 ]
 
+interface Visit {
+  id: string
+  visit_number: string
+  visit_date: string
+  visit_time: string
+  queue_number: number
+  chief_complaint: string
+  visit_type: string
+  status: string
+  patients: {
+    patient_number: string
+    full_name: string
+    gender: string
+    phone: string
+  }
+}
+
 export function ClinicRegistration() {
   const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState<Step>(1)
@@ -102,6 +135,21 @@ export function ClinicRegistration() {
   const [createdRegistration, setCreatedRegistration] = useState<ClinicRegistration>()
   const [createdPatient, setCreatedPatient] = useState<Patient>()
 
+  // States for queue list view
+  const [viewMode, setViewMode] = useState<'new' | 'list'>('new')
+  const [visits, setVisits] = useState<Visit[]>([])
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null)
+  const [editFormData, setEditFormData] = useState<{
+    chief_complaint: string
+    visit_type: string
+    status: string
+  }>({
+    chief_complaint: '',
+    visit_type: '',
+    status: '',
+  })
+
   const { findOrCreateFromEmployee, addPatient } = usePatients()
   const { addRegistration } = useClinicRegistrations()
   const { plantations, fetchPlantations } = usePartnerPlantations()
@@ -109,6 +157,83 @@ export function ClinicRegistration() {
   useEffect(() => {
     fetchPlantations()
   }, [])
+
+  // Fetch visits for queue list view
+  const fetchVisits = async () => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('clinic_visits')
+        .select(`
+          *,
+          patients(patient_number, full_name, gender, phone)
+        `)
+        .eq('visit_date', selectedDate)
+        .order('queue_number', { ascending: true })
+
+      if (error) throw error
+      setVisits(data || [])
+    } catch (err: any) {
+      toast.error('Gagal memuat data kunjungan: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch visits when date changes or view mode changes to list
+  useEffect(() => {
+    if (viewMode === 'list') {
+      fetchVisits()
+    }
+  }, [viewMode, selectedDate])
+
+  // Pre-fill edit form when visit is selected
+  useEffect(() => {
+    if (selectedVisit) {
+      setEditFormData({
+        chief_complaint: selectedVisit.chief_complaint,
+        visit_type: selectedVisit.visit_type,
+        status: selectedVisit.status,
+      })
+    }
+  }, [selectedVisit])
+
+  // Handle visit update
+  const handleUpdateVisit = async () => {
+    if (!selectedVisit) return
+
+    try {
+      setLoading(true)
+      const { error } = await supabase
+        .from('clinic_visits')
+        .update({
+          chief_complaint: editFormData.chief_complaint,
+          visit_type: editFormData.visit_type,
+          status: editFormData.status,
+        })
+        .eq('id', selectedVisit.id)
+
+      if (error) throw error
+
+      toast.success('Data kunjungan berhasil diperbarui')
+      setSelectedVisit(null)
+      fetchVisits() // Refresh the list
+    } catch (err: any) {
+      toast.error('Gagal memperbarui data: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle close edit dialog
+  const handleCloseEditDialog = () => {
+    setSelectedVisit(null)
+    setEditFormData({
+      chief_complaint: '',
+      visit_type: '',
+      status: '',
+    })
+  }
 
   // Reset form
   const resetForm = () => {
@@ -133,6 +258,13 @@ export function ClinicRegistration() {
   const handlePatientTypeSelect = (type: PatientType) => {
     setPatientType(type)
     setError(undefined)
+
+    // Clear previous patient data when switching types
+    setPatientFormData({})
+    setSelectedFamilyMember(undefined)
+    setSelectedEmployeeId(undefined)
+    setSelectedEmployeeName(undefined)
+    setSelectedPartnerPlantationId(undefined)
 
     // Set default payment method based on type
     if (type === 'employee' || type === 'employee_family') {
@@ -160,7 +292,8 @@ export function ClinicRegistration() {
       const selfMember: FamilyMember = {
         relation: 'self',
         fullName: result.memberName,
-        nik: result.memberNik,
+        nik: result.employeeNik, // Employee ID (e.g., EMP-AP-0001)
+        nationalId: result.memberNik, // NIK KTP (National ID)
         birthDate: result.memberBirthDate || '',
         age: result.memberAge || 0,
         gender: result.memberGender || 'male',
@@ -173,7 +306,8 @@ export function ClinicRegistration() {
       // Auto-fill form data for employee with complete information
       setPatientFormData({
         full_name: result.memberName,
-        nik: result.memberNik,
+        nik: result.memberNik, // NIK KTP (National ID)
+        employee_id: selectedEmployeeId, // Employee UUID for database reference
         birth_date: result.memberBirthDate,
         gender: result.memberGender,
         phone: result.memberPhone,
@@ -189,7 +323,8 @@ export function ClinicRegistration() {
       setSelectedFamilyMember({
         relation: result.memberRelation,
         fullName: result.memberName,
-        nik: result.memberNik,
+        nik: result.memberNik, // NIK for family members (could be NIK KTP or other identifier)
+        nationalId: result.memberNik, // NIK KTP (National ID) - same as nik for family members
         birthDate: result.memberBirthDate || '',
         age: result.memberAge,
         gender: result.memberGender,
@@ -354,7 +489,7 @@ export function ClinicRegistration() {
         const newPatient = {
           ...patientFormData,
           patient_type: patientType!,
-          employee_id: patientType === 'employee' || patientType === 'employee_family' ? selectedEmployeeId : undefined,
+          employee_id: undefined, // Partner/public patients don't have employee_id
           partner_plantation_id: patientType === 'partner' || patientType === 'partner_family' ? selectedPartnerPlantationId : undefined,
           family_relation: selectedFamilyMember?.relation,
         }
@@ -620,10 +755,12 @@ export function ClinicRegistration() {
             formData={patientFormData}
             onChange={handlePatientFieldChange}
             patientType={patientType!}
+            selectedMember={selectedFamilyMember}
             readOnlyFields={
-              selectedFamilyMember
+              // Only set fields as read-only for employees and their families
+              selectedFamilyMember && (patientType === 'employee' || patientType === 'employee_family')
                 ? ['full_name', 'nik', 'birth_date', 'gender', 'blood_type', 'bpjs_health_number', 'phone', 'email', 'address', 'height', 'weight']
-                : []
+                : [] // For partner and public patients, allow manual data entry
             }
             showVitalSigns={false}
           />
@@ -775,14 +912,35 @@ export function ClinicRegistration() {
       <Card className="p-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Pendaftaran Pasien Klinik</h1>
-          <p className="text-muted-foreground">
-            Formulir pendaftaran pasien untuk kunjungan klinik
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold">Pendaftaran Pasien Klinik</h1>
+              <p className="text-muted-foreground">
+                Formulir pendaftaran pasien untuk kunjungan klinik
+              </p>
+            </div>
+          </div>
+
+          {/* Tabs untuk switch antara Daftar Baru dan Lihat Antrian */}
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'new' | 'list')}>
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="new" className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Daftar Baru
+              </TabsTrigger>
+              <TabsTrigger value="list" className="flex items-center gap-2">
+                <List className="w-4 h-4" />
+                Lihat Antrian
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
+        {/* Wizard Mode - Daftar Baru */}
+        {viewMode === 'new' && (
+          <>
+            {/* Progress Steps */}
+            <div className="mb-8">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const Icon = step.icon
@@ -808,8 +966,8 @@ export function ClinicRegistration() {
                         <Icon className="h-5 w-5" />
                       )}
                     </div>
-                    <div className="text-center mt-2">
-                      <div className="text-xs font-medium">{step.title}</div>
+                    <div className="text-center mt-2 min-h-[40px] flex flex-col justify-start">
+                      <div className="text-xs font-medium whitespace-nowrap">{step.title}</div>
                       <div className="text-xs text-muted-foreground hidden md:block">
                         {step.description}
                       </div>
@@ -868,6 +1026,204 @@ export function ClinicRegistration() {
             </Button>
           )}
         </div>
+          </>
+        )}
+
+        {/* List View Mode - Lihat Antrian */}
+        {viewMode === 'list' && (
+          <div className="space-y-4">
+            {/* Filter Tanggal */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <Label>Tanggal:</Label>
+              </div>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-auto"
+              />
+              <Button onClick={fetchVisits} variant="outline" size="sm">
+                <Clock className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+              <div className="ml-auto">
+                <p className="text-sm text-muted-foreground">
+                  {visits.length} kunjungan ditemukan
+                </p>
+              </div>
+            </div>
+
+            {/* Daftar Kunjungan */}
+            {loading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Memuat...</p>
+              </div>
+            ) : visits.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Tidak ada kunjungan pada tanggal ini</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {visits.map((visit) => (
+                  <Card
+                    key={visit.id}
+                    className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => setSelectedVisit(visit)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Badge variant="outline" className="text-sm">
+                            #{visit.queue_number}
+                          </Badge>
+                          <h3 className="font-semibold">{visit.patients.full_name}</h3>
+                          <Badge
+                            variant={
+                              visit.status === 'completed'
+                                ? 'default'
+                                : visit.status === 'in_progress'
+                                ? 'secondary'
+                                : 'outline'
+                            }
+                          >
+                            {visit.status === 'completed'
+                              ? 'Selesai'
+                              : visit.status === 'in_progress'
+                              ? 'Sedang Diperiksa'
+                              : 'Menunggu'}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-muted-foreground">
+                          <div>
+                            <span className="font-medium">No. Kunjungan:</span> {visit.visit_number}
+                          </div>
+                          <div>
+                            <span className="font-medium">Waktu:</span> {visit.visit_time.substring(0, 5)}
+                          </div>
+                          <div>
+                            <span className="font-medium">Tipe:</span>{' '}
+                            {visit.visit_type === 'general' ? 'Umum' : visit.visit_type === 'emergency' ? 'Darurat' : 'MCU'}
+                          </div>
+                          <div>
+                            <span className="font-medium">No. Pasien:</span> {visit.patients.patient_number}
+                          </div>
+                        </div>
+                        <div className="mt-2 text-sm">
+                          <span className="font-medium">Keluhan:</span> {visit.chief_complaint}
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Edit Visit Dialog */}
+        <Dialog open={!!selectedVisit} onOpenChange={(open) => !open && handleCloseEditDialog()}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Data Kunjungan</DialogTitle>
+              <DialogDescription>
+                Ubah informasi kunjungan pasien - {selectedVisit?.patients.full_name}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedVisit && (
+              <div className="space-y-4 py-4">
+                {/* Visit Info */}
+                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Kunjungan</Label>
+                    <p className="font-medium">{selectedVisit.visit_number}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Antrian</Label>
+                    <p className="font-medium">#{selectedVisit.queue_number}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Tanggal</Label>
+                    <p className="font-medium">{selectedVisit.visit_date}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Waktu</Label>
+                    <p className="font-medium">{selectedVisit.visit_time.substring(0, 5)}</p>
+                  </div>
+                </div>
+
+                {/* Editable Fields */}
+                <div>
+                  <Label htmlFor="edit_complaint">
+                    Keluhan <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="edit_complaint"
+                    value={editFormData.chief_complaint}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, chief_complaint: e.target.value })
+                    }
+                    placeholder="Keluhan pasien..."
+                    className="min-h-24 mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_visit_type">
+                    Tipe Kunjungan <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={editFormData.visit_type}
+                    onValueChange={(v) => setEditFormData({ ...editFormData, visit_type: v })}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">Umum</SelectItem>
+                      <SelectItem value="emergency">Darurat</SelectItem>
+                      <SelectItem value="follow_up">Kontrol</SelectItem>
+                      <SelectItem value="mcu">Medical Check-up</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_status">
+                    Status <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={editFormData.status}
+                    onValueChange={(v) => setEditFormData({ ...editFormData, status: v })}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="waiting">Menunggu</SelectItem>
+                      <SelectItem value="in_progress">Sedang Diperiksa</SelectItem>
+                      <SelectItem value="completed">Selesai</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseEditDialog} disabled={loading}>
+                Batal
+              </Button>
+              <Button onClick={handleUpdateVisit} disabled={loading}>
+                {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Card>
     </div>
   )

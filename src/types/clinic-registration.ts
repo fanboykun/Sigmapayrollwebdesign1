@@ -127,7 +127,8 @@ export interface FamilyData {
 
 export interface FamilyMember {
   relation: FamilyRelation;
-  nik?: string;
+  nik?: string; // Employee ID or old NIK field
+  nationalId?: string; // NIK KTP (National ID card number)
   fullName: string;
   birthDate: string;
   age: number;

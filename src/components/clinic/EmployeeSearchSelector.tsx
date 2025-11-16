@@ -23,6 +23,7 @@ import { useEmployees } from '../../hooks'
 interface Employee {
   id: string
   employee_id: string
+  national_id?: string // NIK KTP
   full_name: string
   division_id: string
   position_id: string
@@ -113,7 +114,7 @@ export function EmployeeSearchSelector({ onSelect, placeholder, label }: Props) 
           employeeDivision: emp.division_id || '-',
           memberId: emp.id,
           memberName: emp.full_name,
-          memberNik: emp.employee_id,
+          memberNik: emp.national_id || emp.employee_id, // Use national_id (NIK KTP) if available, fallback to employee_id
           memberAge: age,
           memberGender: emp.gender,
           memberRelation: 'self',

@@ -24,12 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select'
-import type { PatientInsert, PatientType } from '../../types/clinic-registration'
+import type { PatientInsert, PatientType, FamilyMember } from '../../types/clinic-registration'
 
 interface Props {
   formData: Partial<PatientInsert>
   onChange: (field: keyof PatientInsert, value: any) => void
   patientType: PatientType
+  selectedMember?: FamilyMember
   readOnlyFields?: (keyof PatientInsert)[]
   showVitalSigns?: boolean
 }
@@ -44,6 +45,7 @@ export function PatientFormFields({
   formData,
   onChange,
   patientType,
+  selectedMember,
   readOnlyFields = [],
   showVitalSigns = false,
 }: Props) {
@@ -83,13 +85,29 @@ export function PatientFormFields({
             </Label>
             <Input
               id="nik"
-              value={formData.nik || ''}
+              value={selectedMember?.nationalId || formData.nik || ''}
               onChange={(e) => onChange('nik', e.target.value)}
               placeholder="Nomor Induk Kependudukan (16 digit)"
               maxLength={16}
               disabled={isReadOnly('nik')}
+              className={isReadOnly('nik') ? 'bg-muted' : ''}
             />
           </div>
+
+          {/* Kode Karyawan - Only show for employees */}
+          {selectedMember?.relation === 'self' && selectedMember?.nik && (
+            <div>
+              <Label htmlFor="employee_code">
+                Kode Karyawan
+              </Label>
+              <Input
+                id="employee_code"
+                value={selectedMember.nik}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+          )}
 
           {/* Full Name */}
           <div>
@@ -102,6 +120,7 @@ export function PatientFormFields({
               onChange={(e) => onChange('full_name', e.target.value)}
               placeholder="Nama lengkap pasien"
               disabled={isReadOnly('full_name')}
+              className={isReadOnly('full_name') ? 'bg-muted' : ''}
             />
           </div>
 
@@ -117,7 +136,7 @@ export function PatientFormFields({
                 type="date"
                 value={formData.birth_date || ''}
                 onChange={(e) => onChange('birth_date', e.target.value)}
-                className="pl-10"
+                className={`pl-10 ${isReadOnly('birth_date') ? 'bg-muted' : ''}`}
                 disabled={isReadOnly('birth_date')}
               />
             </div>
@@ -138,7 +157,7 @@ export function PatientFormFields({
               onValueChange={(value) => onChange('gender', value)}
               disabled={isReadOnly('gender')}
             >
-              <SelectTrigger>
+              <SelectTrigger className={isReadOnly('gender') ? 'bg-muted' : ''}>
                 <SelectValue placeholder="Pilih jenis kelamin" />
               </SelectTrigger>
               <SelectContent>
@@ -173,6 +192,7 @@ export function PatientFormFields({
               onChange={(e) => onChange('phone', e.target.value)}
               placeholder="08xxxxxxxxxx"
               disabled={isReadOnly('phone')}
+              className={isReadOnly('phone') ? 'bg-muted' : ''}
             />
           </div>
 
@@ -186,6 +206,7 @@ export function PatientFormFields({
               onChange={(e) => onChange('email', e.target.value)}
               placeholder="email@example.com"
               disabled={isReadOnly('email')}
+              className={isReadOnly('email') ? 'bg-muted' : ''}
             />
           </div>
         </div>
@@ -202,7 +223,7 @@ export function PatientFormFields({
               value={formData.address || ''}
               onChange={(e) => onChange('address', e.target.value)}
               placeholder="Alamat lengkap"
-              className="pl-10 min-h-20"
+              className={`pl-10 min-h-20 ${isReadOnly('address') ? 'bg-muted' : ''}`}
               disabled={isReadOnly('address')}
             />
           </div>
@@ -225,7 +246,7 @@ export function PatientFormFields({
               onValueChange={(value) => onChange('blood_type', value)}
               disabled={isReadOnly('blood_type')}
             >
-              <SelectTrigger>
+              <SelectTrigger className={isReadOnly('blood_type') ? 'bg-muted' : ''}>
                 <SelectValue placeholder="Pilih golongan darah" />
               </SelectTrigger>
               <SelectContent>
@@ -251,6 +272,7 @@ export function PatientFormFields({
               max="300"
               step="0.1"
               disabled={isReadOnly('height')}
+              className={isReadOnly('height') ? 'bg-muted' : ''}
             />
           </div>
 
@@ -267,6 +289,7 @@ export function PatientFormFields({
               max="500"
               step="0.1"
               disabled={isReadOnly('weight')}
+              className={isReadOnly('weight') ? 'bg-muted' : ''}
             />
           </div>
         </div>
@@ -281,6 +304,7 @@ export function PatientFormFields({
             placeholder="0001234567890"
             maxLength={13}
             disabled={isReadOnly('bpjs_health_number')}
+            className={isReadOnly('bpjs_health_number') ? 'bg-muted' : ''}
           />
         </div>
 
