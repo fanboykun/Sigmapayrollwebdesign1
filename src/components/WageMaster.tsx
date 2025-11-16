@@ -5,22 +5,13 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Edit2, Trash2, Plus, DollarSign, TrendingUp, Building } from 'lucide-react';
+import { Search, Edit2, Trash2, Plus, DollarSign, TrendingUp, Building, Loader2 } from 'lucide-react';
 import { Switch } from './ui/switch';
-import { MASTER_DIVISIONS } from '../shared/divisionData';
-
-interface WageScale {
-  id: string;
-  year: number;
-  divisionId: string;
-  grade: 'pegawai' | 'karyawan' | 'pkwt';
-  scale: string;
-  baseSalary: number;
-  description: string;
-  isActive: boolean;
-}
+import { useWageScales } from '../hooks/useWageScales';
+import { useDivisions } from '../hooks/useDivisions';
+import { toast } from 'sonner';
 
 interface WageFormData {
   year: string;
@@ -36,9 +27,10 @@ interface WageFormFieldsProps {
   formData: WageFormData;
   onInputChange: (field: string, value: string | boolean) => void;
   minimumWage: number;
+  divisions: any[];
 }
 
-const WageFormFields = ({ formData, onInputChange, minimumWage }: WageFormFieldsProps) => {
+const WageFormFields = ({ formData, onInputChange, minimumWage, divisions }: WageFormFieldsProps) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -83,9 +75,9 @@ const WageFormFields = ({ formData, onInputChange, minimumWage }: WageFormFields
               <SelectValue placeholder="Pilih divisi" />
             </SelectTrigger>
             <SelectContent>
-              {MASTER_DIVISIONS.filter(d => d.isActive).map((division) => (
+              {divisions.filter(d => d.kode_divisi).map((division) => (
                 <SelectItem key={division.id} value={division.id}>
-                  {division.shortname} - {division.name}
+                  {division.kode_divisi} - {division.nama_divisi}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -169,7 +161,11 @@ export function WageMaster() {
   const [yearFilter, setYearFilter] = useState(String(currentYear));
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedWage, setSelectedWage] = useState<WageScale | null>(null);
+  const [selectedWage, setSelectedWage] = useState<any>(null);
+
+  // Use Supabase hooks
+  const { wageScales, loading, error, addWageScale, updateWageScale, deleteWageScale } = useWageScales();
+  const { divisions, loading: divisionsLoading } = useDivisions();
 
   const [formData, setFormData] = useState({
     year: String(currentYear),
@@ -184,6 +180,19 @@ export function WageMaster() {
   // Upah Minimum dari divisi kebun (berdasarkan UMP Sumatera Utara)
   const MINIMUM_WAGE = 2900000;
 
+  // Filter wage scales based on search and filters
+  const filteredWageScales = wageScales.filter((wage) => {
+    const matchesSearch =
+      wage.skala.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      wage.deskripsi.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesGrade = gradeFilter === 'all' || wage.golongan === gradeFilter;
+    const matchesDivision = divisionFilter === 'all' || wage.divisi_id === divisionFilter;
+    const matchesYear = yearFilter === 'all' || String(wage.tahun) === yearFilter;
+    return matchesSearch && matchesGrade && matchesDivision && matchesYear;
+  });
+
+  /*
+  // Old hardcoded data - now fetched from Supabase
   const [wageScales, setWageScales] = useState<WageScale[]>([
     // TAHUN 2024
     // DIVISI BB - Bangun Bandar
@@ -407,16 +416,7 @@ export function WageMaster() {
       isActive: true,
     },
   ]);
-
-  const filteredWageScales = wageScales.filter((wage) => {
-    const matchesSearch = 
-      wage.scale.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      wage.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesGrade = gradeFilter === 'all' || wage.grade === gradeFilter;
-    const matchesDivision = divisionFilter === 'all' || wage.divisionId === divisionFilter;
-    const matchesYear = yearFilter === 'all' || String(wage.year) === yearFilter;
-    return matchesSearch && matchesGrade && matchesDivision && matchesYear;
-  });
+  */
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData({ ...formData, [field]: value });
@@ -434,101 +434,92 @@ export function WageMaster() {
     });
   };
 
-  const handleAddWage = () => {
+  const handleAddWage = async () => {
     if (!formData.year || !formData.divisionId || !formData.scale || !formData.baseSalary) {
-      alert('Mohon lengkapi semua field yang wajib diisi');
+      toast.error('Mohon lengkapi semua field yang wajib diisi');
       return;
     }
 
-    // Check for duplicates
-    const isDuplicate = wageScales.some(
-      w => w.year === parseInt(formData.year) && 
-           w.divisionId === formData.divisionId && 
-           w.grade === formData.grade && 
-           w.scale === formData.scale
-    );
+    const { error } = await addWageScale({
+      tahun: parseInt(formData.year),
+      divisi_id: formData.divisionId,
+      golongan: formData.grade as 'pegawai' | 'karyawan' | 'pkwt',
+      skala: formData.scale,
+      upah_pokok: parseInt(formData.baseSalary),
+      deskripsi: formData.description,
+      is_active: formData.isActive,
+    });
 
-    if (isDuplicate) {
-      alert('Skala upah dengan kombinasi tahun, divisi, golongan, dan skala yang sama sudah ada!');
-      return;
+    if (!error) {
+      toast.success('Skala upah berhasil ditambahkan');
+      setIsAddDialogOpen(false);
+      resetForm();
+    } else {
+      if (error.includes('duplicate') || error.includes('unique')) {
+        toast.error('Skala upah dengan kombinasi tahun, divisi, golongan, dan skala yang sama sudah ada!');
+      } else {
+        toast.error('Gagal menambahkan skala upah: ' + error);
+      }
     }
-
-    const newWage: WageScale = {
-      id: String(Math.max(...wageScales.map(w => parseInt(w.id))) + 1),
-      year: parseInt(formData.year),
-      divisionId: formData.divisionId,
-      grade: formData.grade as 'pegawai' | 'karyawan' | 'pkwt',
-      scale: formData.scale,
-      baseSalary: parseInt(formData.baseSalary),
-      description: formData.description,
-      isActive: formData.isActive,
-    };
-
-    setWageScales([...wageScales, newWage]);
-    setIsAddDialogOpen(false);
-    resetForm();
   };
 
-  const handleEditWage = (wage: WageScale) => {
+  const handleEditWage = (wage: any) => {
     setSelectedWage(wage);
     setFormData({
-      year: String(wage.year),
-      divisionId: wage.divisionId,
-      grade: wage.grade,
-      scale: wage.scale,
-      baseSalary: String(wage.baseSalary),
-      description: wage.description,
-      isActive: wage.isActive,
+      year: String(wage.tahun),
+      divisionId: wage.divisi_id,
+      grade: wage.golongan,
+      scale: wage.skala,
+      baseSalary: String(wage.upah_pokok),
+      description: wage.deskripsi,
+      isActive: wage.is_active,
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateWage = () => {
+  const handleUpdateWage = async () => {
     if (!selectedWage) return;
 
     if (!formData.year || !formData.divisionId || !formData.scale || !formData.baseSalary) {
-      alert('Mohon lengkapi semua field yang wajib diisi');
+      toast.error('Mohon lengkapi semua field yang wajib diisi');
       return;
     }
 
-    // Check for duplicates (excluding current wage)
-    const isDuplicate = wageScales.some(
-      w => w.id !== selectedWage.id &&
-           w.year === parseInt(formData.year) && 
-           w.divisionId === formData.divisionId && 
-           w.grade === formData.grade && 
-           w.scale === formData.scale
-    );
+    const { error } = await updateWageScale(selectedWage.id, {
+      tahun: parseInt(formData.year),
+      divisi_id: formData.divisionId,
+      golongan: formData.grade as 'pegawai' | 'karyawan' | 'pkwt',
+      skala: formData.scale,
+      upah_pokok: parseInt(formData.baseSalary),
+      deskripsi: formData.description,
+      is_active: formData.isActive,
+    });
 
-    if (isDuplicate) {
-      alert('Skala upah dengan kombinasi tahun, divisi, golongan, dan skala yang sama sudah ada!');
-      return;
+    if (!error) {
+      toast.success('Skala upah berhasil diupdate');
+      setIsEditDialogOpen(false);
+      resetForm();
+      setSelectedWage(null);
+    } else {
+      if (error.includes('duplicate') || error.includes('unique')) {
+        toast.error('Skala upah dengan kombinasi tahun, divisi, golongan, dan skala yang sama sudah ada!');
+      } else {
+        toast.error('Gagal mengupdate skala upah: ' + error);
+      }
     }
-
-    const updatedWages = wageScales.map(wage =>
-      wage.id === selectedWage.id
-        ? {
-            ...wage,
-            year: parseInt(formData.year),
-            divisionId: formData.divisionId,
-            grade: formData.grade as 'pegawai' | 'karyawan' | 'pkwt',
-            scale: formData.scale,
-            baseSalary: parseInt(formData.baseSalary),
-            description: formData.description,
-            isActive: formData.isActive,
-          }
-        : wage
-    );
-
-    setWageScales(updatedWages);
-    setIsEditDialogOpen(false);
-    resetForm();
-    setSelectedWage(null);
   };
 
-  const handleDeleteWage = (id: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus skala upah ini?')) {
-      setWageScales(wageScales.filter(wage => wage.id !== id));
+  const handleDeleteWage = async (id: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus skala upah ini?')) {
+      return;
+    }
+
+    const { error } = await deleteWageScale(id);
+
+    if (!error) {
+      toast.success('Skala upah berhasil dihapus');
+    } else {
+      toast.error('Gagal menghapus skala upah: ' + error);
     }
   };
 
@@ -568,38 +559,38 @@ export function WageMaster() {
   };
 
   const getDivisionName = (divisionId: string) => {
-    const division = MASTER_DIVISIONS.find(d => d.id === divisionId);
-    return division ? division.shortname : '-';
+    const division = divisions.find(d => d.id === divisionId);
+    return division ? division.kode_divisi : '-';
   };
 
   const getDivisionFullName = (divisionId: string) => {
-    const division = MASTER_DIVISIONS.find(d => d.id === divisionId);
-    return division ? division.name : '-';
+    const division = divisions.find(d => d.id === divisionId);
+    return division ? division.nama_divisi : '-';
   };
 
   const calculateStats = () => {
     // Filter by current year filter
-    const filteredByYear = yearFilter === 'all' 
-      ? wageScales 
-      : wageScales.filter(w => String(w.year) === yearFilter);
+    const filteredByYear = yearFilter === 'all'
+      ? wageScales
+      : wageScales.filter(w => String(w.tahun) === yearFilter);
 
-    const pegawaiScales = filteredByYear.filter(w => w.grade === 'pegawai');
-    const karyawanScales = filteredByYear.filter(w => w.grade === 'karyawan');
-    const pkwtScales = filteredByYear.filter(w => w.grade === 'pkwt');
+    const pegawaiScales = filteredByYear.filter(w => w.golongan === 'pegawai');
+    const karyawanScales = filteredByYear.filter(w => w.golongan === 'karyawan');
+    const pkwtScales = filteredByYear.filter(w => w.golongan === 'pkwt');
 
     const avgPegawai = pegawaiScales.length > 0
-      ? Math.round(pegawaiScales.reduce((sum, w) => sum + w.baseSalary, 0) / pegawaiScales.length)
+      ? Math.round(pegawaiScales.reduce((sum, w) => sum + w.upah_pokok, 0) / pegawaiScales.length)
       : 0;
 
     const avgKaryawan = karyawanScales.length > 0
-      ? Math.round(karyawanScales.reduce((sum, w) => sum + w.baseSalary, 0) / karyawanScales.length)
+      ? Math.round(karyawanScales.reduce((sum, w) => sum + w.upah_pokok, 0) / karyawanScales.length)
       : 0;
 
     // Hitung jumlah divisi unik yang memiliki skala upah (untuk tahun yang dipilih)
-    const divisionsWithWages = new Set(filteredByYear.map(w => w.divisionId)).size;
+    const divisionsWithWages = new Set(filteredByYear.map(w => w.divisi_id)).size;
 
     // Hitung jumlah tahun unik
-    const uniqueYears = new Set(wageScales.map(w => w.year)).size;
+    const uniqueYears = new Set(wageScales.map(w => w.tahun)).size;
 
     return { pegawaiScales, karyawanScales, pkwtScales, avgPegawai, avgKaryawan, divisionsWithWages, uniqueYears };
   };
@@ -690,7 +681,7 @@ export function WageMaster() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Tahun</SelectItem>
-                  {Array.from(new Set(wageScales.map(w => w.year)))
+                  {Array.from(new Set(wageScales.map(w => w.tahun)))
                     .sort((a, b) => b - a)
                     .map((year) => (
                       <SelectItem key={year} value={String(year)}>
@@ -705,9 +696,9 @@ export function WageMaster() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Divisi</SelectItem>
-                  {MASTER_DIVISIONS.filter(d => d.isActive).map((division) => (
+                  {divisions.filter(d => d.kode_divisi).map((division) => (
                     <SelectItem key={division.id} value={division.id}>
-                      {division.shortname}
+                      {division.kode_divisi}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -734,11 +725,15 @@ export function WageMaster() {
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Tambah Skala Upah Baru</DialogTitle>
+                  <DialogDescription>
+                    Lengkapi informasi skala upah baru
+                  </DialogDescription>
                 </DialogHeader>
-                <WageFormFields 
+                <WageFormFields
                   formData={formData}
                   onInputChange={handleInputChange}
                   minimumWage={MINIMUM_WAGE}
+                  divisions={divisions}
                 />
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Batal</Button>
@@ -749,46 +744,60 @@ export function WageMaster() {
           </div>
         </div>
 
-        <div className="overflow-x-auto -mx-4 md:mx-0">
-          <table className="w-full min-w-[1000px]">
-            <thead className="bg-muted/30 border-b border-border">
-              <tr>
-                <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Tahun</th>
-                <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Divisi</th>
-                <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Golongan</th>
-                <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Skala</th>
-                <th className="text-right px-4 md:px-6 py-3 text-sm text-muted-foreground">Upah Pokok</th>
-                <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Deskripsi</th>
-                <th className="text-center px-4 md:px-6 py-3 text-sm text-muted-foreground">Status</th>
-                <th className="text-center px-4 md:px-6 py-3 text-sm text-muted-foreground">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredWageScales.map((wage) => (
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-8 text-destructive">
+            Error: {error}
+          </div>
+        ) : filteredWageScales.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            Tidak ada data skala upah ditemukan
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto -mx-4 md:mx-0">
+              <table className="w-full min-w-[1000px]">
+                <thead className="bg-muted/30 border-b border-border">
+                  <tr>
+                    <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Tahun</th>
+                    <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Divisi</th>
+                    <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Golongan</th>
+                    <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Skala</th>
+                    <th className="text-right px-4 md:px-6 py-3 text-sm text-muted-foreground">Upah Pokok</th>
+                    <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Deskripsi</th>
+                    <th className="text-center px-4 md:px-6 py-3 text-sm text-muted-foreground">Status</th>
+                    <th className="text-center px-4 md:px-6 py-3 text-sm text-muted-foreground">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredWageScales.map((wage) => (
                 <tr key={wage.id} className="border-b border-border last:border-0 hover:bg-muted/20">
                   <td className="px-4 md:px-6 py-4">
-                    <span className="font-medium">{wage.year}</span>
+                    <span className="font-medium">{wage.tahun}</span>
                   </td>
                   <td className="px-4 md:px-6 py-4">
                     <div>
-                      <div className="font-medium">{getDivisionName(wage.divisionId)}</div>
-                      <div className="text-xs text-muted-foreground">{getDivisionFullName(wage.divisionId)}</div>
+                      <div className="font-medium">{getDivisionName(wage.divisi_id)}</div>
+                      <div className="text-xs text-muted-foreground">{getDivisionFullName(wage.divisi_id)}</div>
                     </div>
                   </td>
                   <td className="px-4 md:px-6 py-4">
-                    <Badge variant="secondary" className={getGradeBadgeColor(wage.grade)}>
-                      {getGradeLabel(wage.grade)}
+                    <Badge variant="secondary" className={getGradeBadgeColor(wage.golongan)}>
+                      {getGradeLabel(wage.golongan)}
                     </Badge>
                   </td>
                   <td className="px-4 md:px-6 py-4">
-                    <span className="font-medium">{wage.scale}</span>
+                    <span className="font-medium">{wage.skala}</span>
                   </td>
                   <td className="px-4 md:px-6 py-4 text-right">
-                    <span className="font-medium">{formatCurrency(wage.baseSalary)}</span>
+                    <span className="font-medium">{formatCurrency(wage.upah_pokok)}</span>
                   </td>
-                  <td className="px-4 md:px-6 py-4 text-muted-foreground">{wage.description}</td>
+                  <td className="px-4 md:px-6 py-4 text-muted-foreground">{wage.deskripsi}</td>
                   <td className="px-4 md:px-6 py-4 text-center">
-                    {wage.isActive ? (
+                    {wage.is_active ? (
                       <Badge variant="secondary" className="bg-[#00d27a]/10 text-[#00d27a]">Aktif</Badge>
                     ) : (
                       <Badge variant="secondary" className="bg-muted text-muted-foreground">Tidak Aktif</Badge>
@@ -814,27 +823,33 @@ export function WageMaster() {
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-        <div className="px-4 md:px-6 py-3 md:py-4 border-t border-border">
-          <p className="text-xs md:text-sm text-muted-foreground">
-            Menampilkan {filteredWageScales.length} dari {wageScales.length} skala upah
-          </p>
-        </div>
+            <div className="px-4 md:px-6 py-3 md:py-4 border-t border-border">
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Menampilkan {filteredWageScales.length} dari {wageScales.length} skala upah
+              </p>
+            </div>
+          </>
+        )}
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Skala Upah</DialogTitle>
+            <DialogDescription>
+              Update informasi skala upah
+            </DialogDescription>
           </DialogHeader>
-          <WageFormFields 
+          <WageFormFields
             formData={formData}
             onInputChange={handleInputChange}
             minimumWage={MINIMUM_WAGE}
+            divisions={divisions}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); resetForm(); }}>Batal</Button>

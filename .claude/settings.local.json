@@ -14,7 +14,8 @@
       "Bash(npx tsx:*)",
       "Bash(npm run dev:*)",
       "Bash(timeout /t 5)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(\"src\\hooks\\useWageScales.ts\")"
     ],
     "deny": [],
     "ask": []

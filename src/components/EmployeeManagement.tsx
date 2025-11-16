@@ -55,6 +55,7 @@ import { supabase } from "../utils/supabase/client";
 import { toast } from "sonner";
 import { usePositions } from "../hooks/usePositions";
 import { useDivisions } from "../hooks/useDivisions";
+import { useWageScales } from "../hooks/useWageScales";
 
 interface Asset {
   id?: string;
@@ -162,6 +163,8 @@ export function EmployeeManagement() {
     division: "",
     position: "",
     gradeLevel: "pegawai",
+    wageScaleId: "",
+    baseSalary: "",
     bankName: "",
     bankAccount: "",
     emergencyContact: "",
@@ -223,6 +226,7 @@ export function EmployeeManagement() {
   // Load positions and divisions from database
   const { positions } = usePositions();
   const { divisions } = useDivisions();
+  const { wageScales } = useWageScales();
 
   // Load statistics for cards - this gets total counts across all data
   const loadStatistics = async () => {
@@ -359,7 +363,10 @@ export function EmployeeManagement() {
           assets: [],
           workflowStatus: (emp.workflow_status || "none") as "none" | "recruitment" | "probation" | "termination",
           terminationReason: emp.termination_reason as "resignation" | "retirement" | "contract_end" | "layoff" | undefined,
-        };
+          // Add wage scale fields
+          wageScaleId: emp.wage_scale_id,
+          baseSalary: emp.base_salary,
+        } as any;
       });
 
       setEmployees(transformedData);
@@ -420,6 +427,8 @@ export function EmployeeManagement() {
       division: "",
       position: "",
       gradeLevel: "pegawai",
+      wageScaleId: "",
+      baseSalary: "",
       bankName: "",
       bankAccount: "",
       emergencyContact: "",
@@ -627,7 +636,8 @@ export function EmployeeManagement() {
         npwp: formData.npwp,
         tax_ptkp_status: formData.ptkpStatus,
         family_data: Object.keys(familyData).length > 0 ? familyData : null,
-        base_salary: 0, // Required field, set default
+        base_salary: formData.baseSalary ? parseFloat(formData.baseSalary) : 0,
+        wage_scale_id: formData.wageScaleId || null,
         workflow_status: formData.workflowStatus,
       };
 
@@ -672,6 +682,8 @@ export function EmployeeManagement() {
       division: employee.division,
       position: employee.position,
       gradeLevel: employee.gradeLevel,
+      wageScaleId: (employee as any).wageScaleId || "",
+      baseSalary: (employee as any).baseSalary?.toString() || "",
       bankName: employee.bankName,
       bankAccount: employee.bankAccount,
       emergencyContact: employee.emergencyContact,
@@ -802,6 +814,8 @@ export function EmployeeManagement() {
         npwp: formData.npwp,
         tax_ptkp_status: formData.ptkpStatus,
         family_data: Object.keys(familyData).length > 0 ? familyData : null,
+        base_salary: formData.baseSalary ? parseFloat(formData.baseSalary) : 0,
+        wage_scale_id: formData.wageScaleId || null,
         workflow_status: formData.workflowStatus,
       };
 
@@ -1295,7 +1309,12 @@ export function EmployeeManagement() {
                 <Label htmlFor="division">Divisi (Estate) *</Label>
                 <Select
                   value={formData.division}
-                  onValueChange={(value) => handleInputChange("division", value)}
+                  onValueChange={(value) => {
+                    handleInputChange("division", value);
+                    // Reset wage scale when division changes
+                    handleInputChange("wageScaleId", "");
+                    handleInputChange("baseSalary", "");
+                  }}
                 >
                   <SelectTrigger id="division">
                     <SelectValue placeholder="Pilih divisi (estate)" />
@@ -1346,9 +1365,12 @@ export function EmployeeManagement() {
                 <Label htmlFor="gradeLevel">Golongan *</Label>
                 <Select
                   value={formData.gradeLevel}
-                  onValueChange={(value) =>
-                    handleInputChange("gradeLevel", value)
-                  }
+                  onValueChange={(value) => {
+                    handleInputChange("gradeLevel", value);
+                    // Reset wage scale when grade level changes
+                    handleInputChange("wageScaleId", "");
+                    handleInputChange("baseSalary", "");
+                  }}
                 >
                   <SelectTrigger id="gradeLevel">
                     <SelectValue />
@@ -1369,6 +1391,61 @@ export function EmployeeManagement() {
                   fromYear={2000}
                   toYear={new Date().getFullYear() + 1}
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="wageScale">Skala Upah</Label>
+                <Select
+                  value={formData.wageScaleId}
+                  onValueChange={(value) => {
+                    handleInputChange("wageScaleId", value);
+                    // Auto-fill base salary when wage scale is selected
+                    const selectedWage = wageScales.find(w => w.id === value);
+                    if (selectedWage) {
+                      handleInputChange("baseSalary", selectedWage.upah_pokok.toString());
+                    }
+                  }}
+                  disabled={!formData.division || !formData.gradeLevel}
+                >
+                  <SelectTrigger id="wageScale">
+                    <SelectValue placeholder="Pilih skala upah" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wageScales
+                      .filter(w =>
+                        w.divisi_id === formData.division &&
+                        w.golongan === formData.gradeLevel &&
+                        w.tahun === new Date().getFullYear() &&
+                        w.is_active
+                      )
+                      .map((wage) => (
+                        <SelectItem key={wage.id} value={wage.id}>
+                          {wage.skala} - Rp {wage.upah_pokok.toLocaleString('id-ID')}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {(!formData.division || !formData.gradeLevel) && (
+                  <p className="text-xs text-muted-foreground">
+                    Pilih Divisi dan Golongan terlebih dahulu
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="baseSalary">Upah Pokok</Label>
+                <Input
+                  id="baseSalary"
+                  type="text"
+                  value={formData.baseSalary ? `Rp ${parseInt(formData.baseSalary).toLocaleString('id-ID')}` : ''}
+                  disabled
+                  placeholder="Akan terisi otomatis"
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Terisi otomatis dari skala upah
+                </p>
               </div>
             </div>
 

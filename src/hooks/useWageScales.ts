@@ -1,10 +1,38 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase/client'
-import type { Database } from '../utils/supabase/types'
 
-type WageScale = Database['public']['Tables']['wage_scales']['Row']
-type WageScaleInsert = Database['public']['Tables']['wage_scales']['Insert']
-type WageScaleUpdate = Database['public']['Tables']['wage_scales']['Update']
+export interface WageScale {
+  id: string
+  tahun: number
+  divisi_id: string
+  golongan: 'pegawai' | 'karyawan' | 'pkwt'
+  skala: string
+  upah_pokok: number
+  deskripsi: string
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface WageScaleInsert {
+  tahun: number
+  divisi_id: string
+  golongan: 'pegawai' | 'karyawan' | 'pkwt'
+  skala: string
+  upah_pokok: number
+  deskripsi: string
+  is_active: boolean
+}
+
+export interface WageScaleUpdate {
+  tahun?: number
+  divisi_id?: string
+  golongan?: 'pegawai' | 'karyawan' | 'pkwt'
+  skala?: string
+  upah_pokok?: number
+  deskripsi?: string
+  is_active?: boolean
+}
 
 export function useWageScales() {
   const [wageScales, setWageScales] = useState<WageScale[]>([])
@@ -17,11 +45,15 @@ export function useWageScales() {
       setError(null)
 
       const { data, error: fetchError } = await supabase
-        .from('wage_scales')
+        .from('master_upah')
         .select('*')
-        .order('code', { ascending: true })
+        .order('tahun', { ascending: false })
+        .order('divisi_id', { ascending: true })
+        .order('golongan', { ascending: true })
+        .order('skala', { ascending: true })
 
       if (fetchError) throw fetchError
+
       setWageScales(data || [])
     } catch (err: any) {
       setError(err.message)
@@ -37,14 +69,14 @@ export function useWageScales() {
       setError(null)
 
       const { data, error: insertError } = await supabase
-        .from('wage_scales')
+        .from('master_upah')
         .insert(wageScale)
         .select()
         .single()
 
       if (insertError) throw insertError
 
-      setWageScales(prev => [...prev, data])
+      await fetchWageScales()
       return { data, error: null }
     } catch (err: any) {
       setError(err.message)
@@ -61,7 +93,7 @@ export function useWageScales() {
       setError(null)
 
       const { data, error: updateError } = await supabase
-        .from('wage_scales')
+        .from('master_upah')
         .update(updates)
         .eq('id', id)
         .select()
@@ -69,7 +101,7 @@ export function useWageScales() {
 
       if (updateError) throw updateError
 
-      setWageScales(prev => prev.map(w => w.id === id ? data : w))
+      await fetchWageScales()
       return { data, error: null }
     } catch (err: any) {
       setError(err.message)
@@ -86,7 +118,7 @@ export function useWageScales() {
       setError(null)
 
       const { error: deleteError } = await supabase
-        .from('wage_scales')
+        .from('master_upah')
         .delete()
         .eq('id', id)
 
