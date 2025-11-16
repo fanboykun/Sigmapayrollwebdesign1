@@ -235,7 +235,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const payrollProcessItems = [
     { id: 'annual-payroll', label: 'Proses Gaji Tahunan', icon: Gift, module: 'annual-payroll' },
     { id: 'processing', label: 'Proses Gaji Bulanan', icon: DollarSign, module: 'processing' },
-    { id: 'employees', label: 'Gaji Karyawan', icon: Users, module: 'employees' },
+    { id: 'employees', label: 'Gaji Pokok', icon: Users, module: 'employees' },
     { id: 'premi-penggajian', label: 'Premi Sawit', icon: Sprout, module: 'premi_penggajian' },
     { id: 'premi-deres-penggajian', label: 'Premi Deres', icon: Droplets, module: 'premi_deres_penggajian' },
   ];
