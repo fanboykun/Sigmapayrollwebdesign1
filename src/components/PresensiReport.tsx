@@ -18,15 +18,15 @@
  * @author Sistem ERP Perkebunan Sawit
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Download, Printer, FileSpreadsheet, ChevronDown, ChevronUp } from 'lucide-react';
-import { MASTER_EMPLOYEES } from '../shared/employeeData';
-import { MASTER_DIVISIONS } from '../shared/divisionData';
+import { Download, Printer, FileSpreadsheet, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { format, getDaysInMonth, getDay, startOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { supabase } from '../utils/supabase/client';
+import { toast } from 'sonner';
 
 /**
  * Interface untuk data presensi karyawan
@@ -53,6 +53,26 @@ interface EmployeeAttendance {
 type AttendanceStatus = 'HK' | 'A' | 'C' | 'S' | 'P' | 'L'; // L = Libur (Minggu)
 
 /**
+ * Database status type
+ */
+type DBStatus = 'present' | 'absent' | 'sick' | 'leave' | 'half-day' | 'holiday';
+
+/**
+ * Helper function to map database status to UI status
+ */
+const mapDBStatusToUI = (dbStatus: DBStatus): AttendanceStatus => {
+  switch (dbStatus) {
+    case 'present': return 'HK';
+    case 'absent': return 'A';
+    case 'sick': return 'S';
+    case 'leave': return 'P';  // Permit/Izin
+    case 'holiday': return 'L';
+    case 'half-day': return 'HK'; // Count as present for reporting
+    default: return 'HK';
+  }
+};
+
+/**
  * Data hari libur nasional 2025 (contoh)
  * Dalam implementasi sebenarnya, ini akan diambil dari database
  */
@@ -76,48 +96,7 @@ const HOLIDAYS_2025: Record<string, string> = {
   '2025-12-25': 'Hari Raya Natal',
 };
 
-/**
- * Generate data presensi dummy untuk demo
- * Dalam implementasi sebenarnya, ini akan diambil dari database
- */
-const generateDummyAttendance = (
-  nik: string,
-  year: number,
-  month: number,
-  holidays: Set<number>,
-  sundays: Set<number>
-): Record<number, AttendanceStatus> => {
-  const daysInMonth = getDaysInMonth(new Date(year, month - 1));
-  const attendance: Record<number, AttendanceStatus> = {};
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    // Minggu = Libur
-    if (sundays.has(day)) {
-      attendance[day] = 'L';
-    }
-    // Hari libur nasional = Libur
-    else if (holidays.has(day)) {
-      attendance[day] = 'L';
-    }
-    // Hari kerja - generate random status dengan probabilitas
-    else {
-      const rand = Math.random();
-      if (rand < 0.85) {
-        attendance[day] = 'HK'; // 85% hadir
-      } else if (rand < 0.90) {
-        attendance[day] = 'C'; // 5% cuti
-      } else if (rand < 0.95) {
-        attendance[day] = 'S'; // 5% sakit
-      } else if (rand < 0.98) {
-        attendance[day] = 'P'; // 3% permit
-      } else {
-        attendance[day] = 'A'; // 2% alpa
-      }
-    }
-  }
-
-  return attendance;
-};
+// This function is no longer needed as we fetch from database
 
 /**
  * Komponen utama PresensiReport
@@ -128,6 +107,12 @@ export function PresensiReport() {
   const [selectedMonth, setSelectedMonth] = useState((currentDate.getMonth() + 1).toString());
   const [selectedDivision, setSelectedDivision] = useState('all');
   const [expandedDivisions, setExpandedDivisions] = useState<string[]>([]);
+
+  // Data state
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [divisions, setDivisions] = useState<any[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Generate list tahun (3 tahun ke belakang dan 1 tahun ke depan)
   const years = useMemo(() => {
@@ -150,6 +135,89 @@ export function PresensiReport() {
     { value: '11', label: 'November' },
     { value: '12', label: 'Desember' },
   ];
+
+  // Load divisions
+  const loadDivisions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('divisions')
+        .select('id, kode_divisi, nama_divisi')
+        .order('nama_divisi');
+
+      if (error) throw error;
+      setDivisions(data || []);
+    } catch (err: any) {
+      console.error('Error loading divisions:', err);
+      toast.error('Gagal memuat data divisi');
+    }
+  };
+
+  // Load employees
+  const loadEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, employee_id, full_name, division_id, position_id')
+        .eq('status', 'active')
+        .order('full_name');
+
+      if (error) throw error;
+
+      // Fetch positions separately
+      const { data: positionsData } = await supabase
+        .from('positions')
+        .select('id, name');
+
+      const positionsMap = new Map((positionsData || []).map((p: any) => [p.id, p.name]));
+
+      setEmployees((data || []).map((emp: any) => ({
+        ...emp,
+        position_name: positionsMap.get(emp.position_id) || '-'
+      })));
+    } catch (err: any) {
+      console.error('Error loading employees:', err);
+      toast.error('Gagal memuat data karyawan');
+    }
+  };
+
+  // Load attendance records for selected period
+  const loadAttendanceRecords = useCallback(async () => {
+    try {
+      setLoading(true);
+      const year = parseInt(selectedYear);
+      const month = parseInt(selectedMonth);
+
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
+
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select('employee_id, date, status')
+        .gte('date', firstDay.toISOString().split('T')[0])
+        .lte('date', lastDay.toISOString().split('T')[0]);
+
+      if (error) throw error;
+      setAttendanceRecords(data || []);
+    } catch (err: any) {
+      console.error('Error loading attendance:', err);
+      toast.error('Gagal memuat data presensi');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedYear, selectedMonth]);
+
+  // Load data on mount
+  useEffect(() => {
+    loadDivisions();
+    loadEmployees();
+  }, []);
+
+  // Reload attendance when period changes or when employees are loaded
+  useEffect(() => {
+    if (employees.length > 0) {
+      loadAttendanceRecords();
+    }
+  }, [selectedYear, selectedMonth, loadAttendanceRecords, employees.length]);
 
   // Calculate days in selected month and identify Sundays and holidays
   const { daysInMonth, sundays, holidays } = useMemo(() => {
@@ -185,13 +253,41 @@ export function PresensiReport() {
     };
   }, [selectedYear, selectedMonth]);
 
-  // Generate attendance data for all employees
+  // Generate attendance data for all employees from database
   const attendanceData: EmployeeAttendance[] = useMemo(() => {
-    const year = parseInt(selectedYear);
-    const month = parseInt(selectedMonth);
+    if (employees.length === 0) return [];
 
-    return MASTER_EMPLOYEES.map(emp => {
-      const attendance = generateDummyAttendance(emp.employeeId, year, month, holidays, sundays);
+    // Create divisions map
+    const divisionsMap = new Map(divisions.map(d => [d.id, d.nama_divisi]));
+
+    return employees.map(emp => {
+      const attendance: Record<number, AttendanceStatus> = {};
+
+      // Initialize all days
+      for (let day = 1; day <= daysInMonth; day++) {
+        // Mark Sundays as Libur
+        if (sundays.has(day)) {
+          attendance[day] = 'L';
+        }
+        // Mark holidays as Libur
+        else if (holidays.has(day)) {
+          attendance[day] = 'L';
+        }
+        // Default to HK (will be overridden by actual data if exists)
+        else {
+          attendance[day] = 'HK';
+        }
+      }
+
+      // Override with actual attendance data from database
+      attendanceRecords
+        .filter(record => record.employee_id === emp.id)
+        .forEach(record => {
+          const recordDate = new Date(record.date);
+          const day = recordDate.getDate();
+          const status = mapDBStatusToUI(record.status as DBStatus);
+          attendance[day] = status;
+        });
 
       // Calculate summary
       const summary = {
@@ -213,15 +309,15 @@ export function PresensiReport() {
       });
 
       return {
-        nik: emp.employeeId,
-        name: emp.fullName,
-        division: emp.division,
-        position: emp.position,
+        nik: emp.employee_id,
+        name: emp.full_name,
+        division: divisionsMap.get(emp.division_id) || '-',
+        position: emp.position_name,
         attendance,
         summary,
       };
     });
-  }, [selectedYear, selectedMonth, holidays, sundays]);
+  }, [employees, divisions, attendanceRecords, daysInMonth, sundays, holidays]);
 
   // Filter by division
   const filteredData = useMemo(() => {
@@ -231,8 +327,8 @@ export function PresensiReport() {
     return attendanceData.filter(emp => emp.division === selectedDivision);
   }, [attendanceData, selectedDivision]);
 
-  // Get unique divisions from filtered data
-  const divisions = useMemo(() => {
+  // Get unique divisions from filtered data for display
+  const displayDivisions = useMemo(() => {
     if (selectedDivision === 'all') {
       return Array.from(new Set(attendanceData.map(emp => emp.division)));
     }
@@ -331,8 +427,8 @@ export function PresensiReport() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Divisi</SelectItem>
-                  {MASTER_DIVISIONS.map(div => (
-                    <SelectItem key={div.code} value={div.name}>{div.name}</SelectItem>
+                  {divisions.map(div => (
+                    <SelectItem key={div.id} value={div.nama_divisi}>{div.nama_divisi}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -386,9 +482,15 @@ export function PresensiReport() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[1800px]">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/50 border-b-2 border-border">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-muted-foreground" size={32} />
+              <span className="ml-3 text-muted-foreground">Memuat data presensi...</span>
+            </div>
+          ) : (
+            <div className="min-w-[1800px]">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/50 border-b-2 border-border">
                 <tr>
                   <th rowSpan={2} className="px-2 py-3 text-left border-r border-border sticky left-0 bg-muted/50 z-10 min-w-[60px]">NIK</th>
                   <th rowSpan={2} className="px-2 py-3 text-left border-r border-border sticky left-[60px] bg-muted/50 z-10 min-w-[150px]">Nama</th>
@@ -427,7 +529,7 @@ export function PresensiReport() {
                 </tr>
               </thead>
               <tbody>
-                {divisions.map(division => {
+                {displayDivisions.map(division => {
                   const divisionData = filteredData.filter(emp => emp.division === division);
                   const isExpanded = expandedDivisions.includes(division);
                   const divisionSummary = calculateDivisionSummary(division);
@@ -507,6 +609,7 @@ export function PresensiReport() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </Card>
 

@@ -17,12 +17,12 @@
  * @author Sistem ERP Perkebunan Sawit
  */
 
-import React, { useState } from "react";
-import { 
-  ClipboardCheck, 
-  Plus, 
-  Pencil, 
-  Trash2, 
+import React, { useState, useEffect } from "react";
+import {
+  ClipboardCheck,
+  Plus,
+  Pencil,
+  Trash2,
   Search,
   Save,
   X,
@@ -30,7 +30,8 @@ import {
   Users,
   Download,
   Upload,
-  FileText
+  FileText,
+  Loader2
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -83,8 +84,8 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "./ui/pagination";
-import { MASTER_EMPLOYEES, getEmployeesByDivision } from "../shared/employeeData";
-import { MASTER_DIVISIONS, Division } from "../shared/divisionData";
+import { supabase } from "../utils/supabase/client";
+import { toast } from "sonner";
 import {
   getWorkingDaysInMonth,
   getMonthNumber,
@@ -153,6 +154,12 @@ export function AttendanceMaster() {
   const [selectedYear, setSelectedYear] = useState<number>(2025);
   const [selectedDivision, setSelectedDivision] = useState<string>("all");
 
+  // Supabase data state
+  const [attendanceData, setAttendanceData] = useState<Attendance[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [divisions, setDivisions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
@@ -170,128 +177,238 @@ export function AttendanceMaster() {
     notes: "",
   });
 
-  // Data karyawan untuk dropdown dari master data (filtered by division)
-  const getEmployeesList = () => {
-    if (selectedDivision === "all") {
-      return MASTER_EMPLOYEES;
+  // Status mapping: Database → UI
+  const mapStatusToUI = (dbStatus: string): AttendanceStatus => {
+    switch (dbStatus) {
+      case 'present': return 'HK';
+      case 'leave': return 'P';
+      case 'sick': return 'S';
+      case 'absent': return 'A';
+      default: return 'HK';
     }
-    return getEmployeesByDivision(selectedDivision);
   };
 
-  const employees = getEmployeesList().map(emp => ({
-    id: emp.id,
-    name: emp.fullName,
-    nip: emp.employeeId,
-    division: emp.division,
-    department: emp.department,
-    position: emp.position,
-  }));
+  // Status mapping: UI → Database
+  const mapStatusToDB = (uiStatus: AttendanceStatus): string => {
+    switch (uiStatus) {
+      case 'HK': return 'present';
+      case 'P': return 'leave';
+      case 'S': return 'sick';
+      case 'A': return 'absent';
+      default: return 'present';
+    }
+  };
 
-  // Helper function untuk generate attendance data untuk seluruh tahun 2025
-  const generateAttendanceData = (): Attendance[] => {
-    const attendanceData: Attendance[] = [];
-    let idCounter = 1;
+  // Load divisions from Supabase
+  const loadDivisions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('divisions')
+        .select('id, kode_divisi, nama_divisi')
+        .order('nama_divisi');
 
-    // Definisi bulan dalam bahasa Indonesia
-    const monthNames = [
-      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ];
+      if (error) throw error;
+      setDivisions(data || []);
+    } catch (err: any) {
+      console.error('Error loading divisions:', err);
+    }
+  };
 
-    // Generate data untuk seluruh tahun 2025 (Januari - Desember)
-    for (let month = 1; month <= 12; month++) {
-      const year = 2025;
-      const monthName = monthNames[month - 1];
+  // Load employees from Supabase
+  const loadEmployees = async () => {
+    try {
+      // Fetch employees without joins
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, employee_id, full_name, division_id, position_id')
+        .eq('status', 'active')
+        .order('full_name');
 
-      // Dapatkan semua tanggal dalam bulan ini
-      const daysInMonth = new Date(year, month, 0).getDate();
+      if (error) throw error;
 
-      // Loop setiap karyawan
-      MASTER_EMPLOYEES.forEach((emp) => {
-        // Loop setiap hari dalam bulan
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      // Fetch divisions separately
+      const { data: divisionsData } = await supabase
+        .from('divisions')
+        .select('id, kode_divisi, nama_divisi');
 
-          // Skip weekend (Sabtu dan Minggu)
-          if (isWeekend(dateStr)) {
-            continue;
-          }
+      const divisionsMap = new Map((divisionsData || []).map((d: any) => [d.id, d.nama_divisi]));
 
-          // Skip hari libur nasional
-          if (isHoliday(dateStr)) {
-            continue;
-          }
+      // Fetch positions separately
+      const { data: positionsData } = await supabase
+        .from('positions')
+        .select('id, name');
 
-          let status: AttendanceStatus = "HK";
-          let notes = "";
+      const positionsMap = new Map((positionsData || []).map((p: any) => [p.id, p.name]));
 
-          // Simulasi variasi kehadiran berdasarkan karakteristik karyawan
-          const randomFactor = Math.random();
+      const employeesList = (data || []).map((emp: any) => ({
+        id: emp.id,
+        name: emp.full_name,
+        nip: emp.employee_id,
+        division: divisionsMap.get(emp.division_id) || '-',
+        divisionId: emp.division_id,
+        department: divisionsMap.get(emp.division_id) || '-',
+        position: positionsMap.get(emp.position_id) || '-',
+      }));
 
-          // Karyawan contract: 5% kemungkinan sakit
-          if (emp.employmentType === "contract" && randomFactor > 0.95) {
-            status = "S";
-            notes = "Sakit";
-          }
-          // Staff senior/Mandor: 3% kemungkinan permisi dinas
-          else if ((emp.position.includes("Mandor") || emp.position.includes("Manager")) && randomFactor > 0.97) {
-            status = "P";
-            notes = "Permisi keperluan dinas";
-          }
-          // Karyawan permanent: 1% kemungkinan alfa
-          else if (emp.employmentType === "permanent" && randomFactor > 0.99) {
-            status = "A";
-            notes = "Tidak hadir tanpa keterangan";
-          }
-          // Semua karyawan: 2% kemungkinan sakit ringan
-          else if (randomFactor > 0.98) {
-            status = "S";
-            notes = "Sakit ringan";
-          }
+      setEmployees(employeesList);
+    } catch (err: any) {
+      console.error('Error loading employees:', err);
+      toast.error('Gagal memuat data karyawan');
+    }
+  };
 
-          attendanceData.push({
-            id: idCounter.toString(),
-            employeeId: emp.employeeId,
-            employeeName: emp.fullName,
-            employeeNIP: emp.employeeId,
-            division: emp.division,
-            department: emp.department,
-            position: emp.position,
-            date: dateStr,
-            status: status,
-            notes: notes,
-            month: monthName,
-            year: year,
-            createdBy: "System",
-            createdAt: dateStr,
-            updatedAt: dateStr,
-          });
+  // Load attendance data from Supabase
+  const loadAttendanceData = async () => {
+    try {
+      setLoading(true);
 
-          idCounter++;
+      // Calculate date range for selected month/year
+      const monthNumber = getMonthNumber(selectedMonth);
+      const firstDay = new Date(selectedYear, monthNumber - 1, 1);
+      const lastDay = new Date(selectedYear, monthNumber, 0);
+
+      // Build query
+      let query = supabase
+        .from('attendance_records')
+        .select(`
+          id,
+          employee_id,
+          date,
+          status,
+          notes,
+          created_at,
+          updated_at
+        `)
+        .gte('date', firstDay.toISOString().split('T')[0])
+        .lte('date', lastDay.toISOString().split('T')[0]);
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Fetch employee details for each attendance record
+      const employeeIds = [...new Set((data || []).map((a: any) => a.employee_id))];
+
+      if (employeeIds.length === 0) {
+        setAttendanceData([]);
+        return;
+      }
+
+      // Fetch employees without joins
+      const { data: employeesData, error: empError } = await supabase
+        .from('employees')
+        .select('id, employee_id, full_name, division_id, position_id')
+        .in('id', employeeIds);
+
+      if (empError) {
+        console.error('Error fetching employees:', empError);
+      }
+
+      // Fetch divisions separately
+      const { data: divisionsData } = await supabase
+        .from('divisions')
+        .select('id, kode_divisi, nama_divisi');
+
+      const divisionsMap = new Map((divisionsData || []).map((d: any) => [d.id, d.nama_divisi]));
+
+      // Fetch positions separately
+      const { data: positionsData } = await supabase
+        .from('positions')
+        .select('id, name');
+
+      const positionsMap = new Map((positionsData || []).map((p: any) => [p.id, p.name]));
+
+      // Create employee map
+      const employeeMap = new Map((employeesData || []).map((emp: any) => [
+        emp.id,
+        {
+          employeeId: emp.employee_id,
+          fullName: emp.full_name,
+          division: divisionsMap.get(emp.division_id) || '-',
+          position: positionsMap.get(emp.position_id) || '-',
         }
-      });
-    }
+      ]));
 
-    return attendanceData;
+      // Transform attendance data
+      const transformedData: Attendance[] = (data || [])
+        .map((record: any) => {
+          const employee = employeeMap.get(record.employee_id);
+
+          // Log missing employee data for debugging
+          if (!employee) {
+            console.warn('Missing employee data for attendance record:', {
+              recordId: record.id,
+              employeeId: record.employee_id,
+              date: record.date
+            });
+          }
+
+          // Skip records with missing or invalid employee_id
+          if (!record.employee_id || !employee) {
+            console.warn('Skipping attendance record due to missing employee:', record.id);
+            return null;
+          }
+
+          return {
+            id: record.id,
+            employeeId: record.employee_id,
+            employeeName: employee.fullName,
+            employeeNIP: employee.employeeId,
+            division: employee.division,
+            department: employee.division,
+            position: employee.position,
+            date: record.date,
+            status: mapStatusToUI(record.status),
+            notes: record.notes || '',
+            month: selectedMonth,
+            year: selectedYear,
+            createdBy: user?.email || 'System',
+            createdAt: record.created_at,
+            updatedAt: record.updated_at,
+          };
+        })
+        .filter((record): record is Attendance => record !== null);
+
+      setAttendanceData(transformedData);
+
+      // Log total records loaded
+      console.log(`Loaded ${transformedData.length} attendance records for ${selectedMonth} ${selectedYear}`);
+
+      // Notify if some records were skipped
+      const skippedCount = (data || []).length - transformedData.length;
+      if (skippedCount > 0) {
+        toast.warning(`${skippedCount} data presensi tidak dapat ditampilkan karena data karyawan tidak ditemukan. Periksa console untuk detail.`);
+      }
+    } catch (err: any) {
+      console.error('Error loading attendance:', err);
+      toast.error('Gagal memuat data presensi');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Data dummy untuk demonstrasi - menggunakan data master dengan division
-  const [attendances, setAttendances] = useState<Attendance[]>(generateAttendanceData());
+  // useEffect to load data on mount and when filters change
+  useEffect(() => {
+    loadDivisions();
+    loadEmployees();
+  }, []);
+
+  useEffect(() => {
+    loadAttendanceData();
+  }, [selectedMonth, selectedYear]);
 
   /**
-   * Filter data berdasarkan pencarian, periode, dan divisi
+   * Filter data berdasarkan pencarian dan divisi
    */
-  const filteredData = attendances.filter(item => {
+  const filteredData = attendanceData.filter(item => {
     const matchesSearch =
       item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.employeeNIP.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.division.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesPeriod = item.month === selectedMonth && item.year === selectedYear;
-
     const matchesDivision = selectedDivision === "all" || item.division === selectedDivision;
 
-    return matchesSearch && matchesPeriod && matchesDivision;
+    return matchesSearch && matchesDivision;
   });
 
   /**
@@ -462,54 +579,124 @@ export function AttendanceMaster() {
   /**
    * Simpan data (create/update)
    */
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validasi
     if (!formData.employeeId || !formData.date) {
-      alert("Karyawan dan tanggal wajib diisi!");
+      toast.error("Karyawan dan tanggal wajib diisi!");
       return;
     }
 
-    const dateObj = new Date(formData.date);
-    const month = format(dateObj, "MMMM", { locale: id });
-    const year = dateObj.getFullYear();
+    try {
+      setLoading(true);
 
-    if (editingItem) {
-      // Update existing
-      setAttendances(attendances.map(item =>
-        item.id === editingItem.id
-          ? {
-              ...item,
-              ...formData,
-              month,
-              year,
-              updatedAt: new Date().toISOString().split('T')[0],
-            }
-          : item
-      ));
-    } else {
-      // Create new
-      const newItem: Attendance = {
-        id: (attendances.length + 1).toString(),
-        ...formData,
-        month,
-        year,
-        createdBy: user?.name || "Admin",
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0],
-      };
-      setAttendances([...attendances, newItem]);
+      // Convert UI status to DB status
+      const dbStatus = mapStatusToDB(formData.status);
+
+      // Check if the date is in the current selected month/year
+      const inputDate = new Date(formData.date);
+      const inputMonth = format(inputDate, "MMMM", { locale: id });
+      const inputYear = inputDate.getFullYear();
+      const isInCurrentPeriod = inputMonth === selectedMonth && inputYear === selectedYear;
+
+      if (editingItem) {
+        // Update existing
+        const { error } = await supabase
+          .from('attendance_records')
+          .update({
+            status: dbStatus,
+            notes: formData.notes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingItem.id);
+
+        if (error) throw error;
+        toast.success('Data presensi berhasil diperbarui');
+      } else {
+        // Check for duplicate before inserting
+        const { data: existingRecord, error: checkError } = await supabase
+          .from('attendance_records')
+          .select('id, status, notes')
+          .eq('employee_id', formData.employeeId)
+          .eq('date', formData.date)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        if (existingRecord) {
+          // Record already exists, update instead of insert
+          const { error: updateError } = await supabase
+            .from('attendance_records')
+            .update({
+              status: dbStatus,
+              notes: formData.notes,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingRecord.id);
+
+          if (updateError) throw updateError;
+          toast.success('Data presensi sudah ada dan telah diperbarui');
+        } else {
+          // Create new
+          const { error } = await supabase
+            .from('attendance_records')
+            .insert({
+              employee_id: formData.employeeId,
+              date: formData.date,
+              status: dbStatus,
+              notes: formData.notes,
+            });
+
+          if (error) throw error;
+
+          if (!isInCurrentPeriod) {
+            toast.success(`Data presensi berhasil ditambahkan untuk ${inputMonth} ${inputYear}. Ubah filter periode untuk melihat data.`);
+            // Auto-switch to the period of the added data
+            setSelectedMonth(inputMonth);
+            setSelectedYear(inputYear);
+          } else {
+            toast.success('Data presensi berhasil ditambahkan');
+          }
+        }
+      }
+
+      // Reload data
+      await loadAttendanceData();
+      setIsDialogOpen(false);
+    } catch (err: any) {
+      console.error('Error saving attendance:', err);
+      toast.error(err.message || 'Gagal menyimpan data presensi');
+    } finally {
+      setLoading(false);
     }
-    setIsDialogOpen(false);
   };
 
   /**
    * Handle delete confirmation
    */
-  const handleDelete = () => {
-    if (editingItem) {
-      setAttendances(attendances.filter(item => item.id !== editingItem.id));
+  const handleDelete = async () => {
+    if (!editingItem) return;
+
+    try {
+      setLoading(true);
+
+      const { error } = await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('id', editingItem.id);
+
+      if (error) throw error;
+
+      toast.success('Data presensi berhasil dihapus');
+
+      // Reload data
+      await loadAttendanceData();
       setIsDeleteDialogOpen(false);
       setEditingItem(null);
+    } catch (err: any) {
+      console.error('Error deleting attendance:', err);
+      toast.error(err.message || 'Gagal menghapus data presensi');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -552,7 +739,7 @@ export function AttendanceMaster() {
 
     // CSV Header
     const headers = [
-      "NIP",
+      "ID Karyawan",
       "Nama Karyawan",
       "Divisi",
       "Department",
@@ -607,7 +794,7 @@ export function AttendanceMaster() {
     // CSV Header
     const headers = [
       "Tanggal",
-      "NIP",
+      "ID Karyawan",
       "Nama Karyawan",
       "Divisi",
       "Department",
@@ -776,7 +963,7 @@ export function AttendanceMaster() {
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Cari nama, NIP, atau divisi..."
+                        placeholder="Cari nama, ID Karyawan, atau divisi..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
@@ -830,11 +1017,11 @@ export function AttendanceMaster() {
                             <Badge variant="outline">Semua Divisi</Badge>
                           </div>
                         </SelectItem>
-                        {MASTER_DIVISIONS.filter(div => div.isActive).map((division) => (
-                          <SelectItem key={division.id} value={division.name}>
+                        {divisions.map((division) => (
+                          <SelectItem key={division.id} value={division.nama_divisi}>
                             <div className="flex items-center gap-2">
-                              <Badge variant="secondary">{division.shortname}</Badge>
-                              <span>{division.name}</span>
+                              <Badge variant="secondary">{division.kode_divisi}</Badge>
+                              <span>{division.nama_divisi}</span>
                             </div>
                           </SelectItem>
                         ))}
@@ -859,7 +1046,7 @@ export function AttendanceMaster() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Tanggal</TableHead>
-                        <TableHead>NIP</TableHead>
+                        <TableHead>ID Karyawan</TableHead>
                         <TableHead>Nama Karyawan</TableHead>
                         <TableHead>Divisi</TableHead>
                         <TableHead>Posisi</TableHead>
@@ -870,7 +1057,13 @@ export function AttendanceMaster() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedData.length === 0 ? (
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-12">
+                            <Loader2 className="animate-spin mx-auto text-muted-foreground" size={32} />
+                          </TableCell>
+                        </TableRow>
+                      ) : paginatedData.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             Tidak ada data presensi untuk periode yang dipilih
@@ -879,7 +1072,7 @@ export function AttendanceMaster() {
                       ) : (
                         paginatedData.map((item) => {
                           const statusBadge = getStatusBadge(item.status);
-                          const division = MASTER_DIVISIONS.find(d => d.name === item.division);
+                          const division = divisions.find(d => d.nama_divisi === item.division);
                           return (
                             <TableRow key={item.id}>
                               <TableCell>
@@ -903,7 +1096,7 @@ export function AttendanceMaster() {
                                 <div className="flex items-center gap-2">
                                   {division && (
                                     <Badge variant="outline" className="text-xs">
-                                      {division.shortname}
+                                      {division.kode_divisi}
                                     </Badge>
                                   )}
                                   <span className="text-sm">{item.division}</span>
@@ -1089,11 +1282,11 @@ export function AttendanceMaster() {
                             <Badge variant="outline">Semua Divisi</Badge>
                           </div>
                         </SelectItem>
-                        {MASTER_DIVISIONS.filter(div => div.isActive).map((division) => (
-                          <SelectItem key={division.id} value={division.name}>
+                        {divisions.map((division) => (
+                          <SelectItem key={division.id} value={division.nama_divisi}>
                             <div className="flex items-center gap-2">
-                              <Badge variant="secondary">{division.shortname}</Badge>
-                              <span>{division.name}</span>
+                              <Badge variant="secondary">{division.kode_divisi}</Badge>
+                              <span>{division.nama_divisi}</span>
                             </div>
                           </SelectItem>
                         ))}
@@ -1117,7 +1310,7 @@ export function AttendanceMaster() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>NIP</TableHead>
+                        <TableHead>ID Karyawan</TableHead>
                         <TableHead>Nama Karyawan</TableHead>
                         <TableHead>Divisi</TableHead>
                         <TableHead>Posisi</TableHead>
@@ -1129,7 +1322,13 @@ export function AttendanceMaster() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {getAttendanceSummary().length === 0 ? (
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-12">
+                            <Loader2 className="animate-spin mx-auto text-muted-foreground" size={32} />
+                          </TableCell>
+                        </TableRow>
+                      ) : getAttendanceSummary().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             Tidak ada data ringkasan untuk periode yang dipilih
@@ -1137,7 +1336,7 @@ export function AttendanceMaster() {
                         </TableRow>
                       ) : (
                         getAttendanceSummary().map((summary) => {
-                          const division = MASTER_DIVISIONS.find(d => d.name === summary.division);
+                          const division = divisions.find(d => d.nama_divisi === summary.division);
                           return (
                             <TableRow key={summary.employeeId}>
                               <TableCell>
@@ -1153,7 +1352,7 @@ export function AttendanceMaster() {
                                 <div className="flex items-center gap-2">
                                   {division && (
                                     <Badge variant="outline" className="text-xs">
-                                      {division.shortname}
+                                      {division.kode_divisi}
                                     </Badge>
                                   )}
                                   <span className="text-sm">{summary.division}</span>
@@ -1228,11 +1427,11 @@ export function AttendanceMaster() {
                           <Badge variant="outline">Semua Divisi</Badge>
                         </div>
                       </SelectItem>
-                      {MASTER_DIVISIONS.filter(div => div.isActive).map((division) => (
-                        <SelectItem key={division.id} value={division.name}>
+                      {divisions.map((division) => (
+                        <SelectItem key={division.id} value={division.nama_divisi}>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{division.shortname}</Badge>
-                            <span>{division.name}</span>
+                            <Badge variant="secondary">{division.kode_divisi}</Badge>
+                            <span>{division.nama_divisi}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -1240,8 +1439,8 @@ export function AttendanceMaster() {
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     {selectedDivision === "all"
-                      ? `Menampilkan ${employees.length} karyawan dari semua divisi`
-                      : `Menampilkan ${employees.length} karyawan dari divisi ${selectedDivision}`
+                      ? `Menampilkan ${employees.filter(e => selectedDivision === "all" || e.division === selectedDivision).length} karyawan dari semua divisi`
+                      : `Menampilkan ${employees.filter(e => selectedDivision === "all" || e.division === selectedDivision).length} karyawan dari divisi ${selectedDivision}`
                     }
                   </p>
                 </div>
@@ -1259,21 +1458,23 @@ export function AttendanceMaster() {
                     <SelectValue placeholder="Pilih karyawan" />
                   </SelectTrigger>
                   <SelectContent>
-                    {employees.map((emp) => {
-                      const division = MASTER_DIVISIONS.find(d => d.name === emp.division);
-                      return (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          <div className="flex items-center gap-2">
-                            {division && (
-                              <Badge variant="outline" className="text-xs">
-                                {division.shortname}
-                              </Badge>
-                            )}
-                            <span>{emp.nip} - {emp.name}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
+                    {employees
+                      .filter(emp => selectedDivision === "all" || emp.division === selectedDivision)
+                      .map((emp) => {
+                        const division = divisions.find(d => d.nama_divisi === emp.division);
+                        return (
+                          <SelectItem key={emp.id} value={emp.id}>
+                            <div className="flex items-center gap-2">
+                              {division && (
+                                <Badge variant="outline" className="text-xs">
+                                  {division.kode_divisi}
+                                </Badge>
+                              )}
+                              <span>{emp.nip} - {emp.name}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>
@@ -1283,7 +1484,7 @@ export function AttendanceMaster() {
                 <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-900">
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <span className="text-muted-foreground">NIP:</span>
+                      <span className="text-muted-foreground">ID Karyawan:</span>
                       <span className="ml-2 font-mono font-medium">{formData.employeeNIP}</span>
                     </div>
                     <div>

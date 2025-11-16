@@ -5,9 +5,11 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Filter, Download, Eye, Loader2 } from 'lucide-react';
+import { Search, Filter, Download, Eye, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 interface EmployeePayroll {
   id: string;
@@ -30,6 +32,29 @@ export function EmployeePayroll() {
   const [employees, setEmployees] = useState<EmployeePayroll[]>([]);
   const [loading, setLoading] = useState(false);
   const [divisions, setDivisions] = useState<any[]>([]);
+
+  // Period filter state
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(format(currentDate, 'MMMM', { locale: id }));
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
+
+  // Month options
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  // Year options (current year ± 2 years)
+  const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
+
+  // Helper function to convert month name to month number
+  const getMonthNumber = (monthName: string): number => {
+    return months.indexOf(monthName) + 1;
+  };
 
   // Load divisions for filter
   const loadDivisions = async () => {
@@ -82,10 +107,10 @@ export function EmployeePayroll() {
       // Create positions map for quick lookup
       const positionsMap = new Map((positionsData || []).map((p: any) => [p.id, p.name]));
 
-      // Get current month's attendance data for all employees
-      const currentDate = new Date();
-      const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-      const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      // Get attendance data for selected period
+      const monthNumber = getMonthNumber(selectedMonth);
+      const firstDayOfMonth = new Date(selectedYear, monthNumber - 1, 1);
+      const lastDayOfMonth = new Date(selectedYear, monthNumber, 0);
 
       const { data: attendanceData, error: attError} = await supabase
         .from('attendance_records')
@@ -138,8 +163,16 @@ export function EmployeePayroll() {
 
   useEffect(() => {
     loadDivisions();
-    loadEmployees();
   }, []);
+
+  useEffect(() => {
+    loadEmployees();
+  }, [selectedMonth, selectedYear]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, divisionFilter, selectedMonth, selectedYear]);
 
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -147,6 +180,12 @@ export function EmployeePayroll() {
     const matchesDivision = divisionFilter === 'all' || emp.divisionId === divisionFilter;
     return matchesSearch && matchesDivision;
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
 
   const formatCurrency = (amount: number) => {
     return `Rp ${amount.toLocaleString('id-ID')}`;
@@ -185,6 +224,30 @@ export function EmployeePayroll() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {month}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={divisionFilter} onValueChange={setDivisionFilter}>
                 <SelectTrigger className="w-full sm:w-48">
                   <Filter size={16} className="mr-2" />
@@ -213,7 +276,7 @@ export function EmployeePayroll() {
               <Loader2 className="animate-spin text-muted-foreground" size={32} />
             </div>
           ) : (
-            <table className="w-full min-w-[800px]">
+            <table className="w-full min-w-[900px]">
               <thead className="bg-muted/30 border-b border-border">
                 <tr>
                   <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Karyawan</th>
@@ -222,19 +285,20 @@ export function EmployeePayroll() {
                   <th className="text-right px-4 md:px-6 py-3 text-sm text-muted-foreground">Gaji Pokok</th>
                   <th className="text-center px-4 md:px-6 py-3 text-sm text-muted-foreground">Tidak Hadir</th>
                   <th className="text-right px-4 md:px-6 py-3 text-sm text-muted-foreground">Potongan</th>
+                  <th className="text-right px-4 md:px-6 py-3 text-sm text-muted-foreground">Gaji Pokok Bersih</th>
                   <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Status</th>
                   <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.length === 0 ? (
+                {paginatedEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 md:px-6 py-12 text-center text-muted-foreground">
+                    <td colSpan={9} className="px-4 md:px-6 py-12 text-center text-muted-foreground">
                       Tidak ada data karyawan
                     </td>
                   </tr>
                 ) : (
-                  filteredEmployees.map((employee) => {
+                  paginatedEmployees.map((employee) => {
                     const statusBadge = getStatusBadge(employee.status);
                     return (
                       <tr key={employee.id} className="border-b border-border last:border-0 hover:bg-muted/20">
@@ -263,6 +327,9 @@ export function EmployeePayroll() {
                         </td>
                         <td className="px-4 md:px-6 py-4 text-right text-[#e63757]">
                           {employee.deductions > 0 ? `-${formatCurrency(employee.deductions)}` : '-'}
+                        </td>
+                        <td className="px-4 md:px-6 py-4 text-right font-semibold text-[#00d27a]">
+                          {formatCurrency(employee.baseSalary - employee.deductions)}
                         </td>
                         <td className="px-4 md:px-6 py-4">
                           <Badge variant="secondary" className={statusBadge.className}>
@@ -364,8 +431,56 @@ export function EmployeePayroll() {
 
         <div className="px-4 md:px-6 py-3 md:py-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs md:text-sm text-muted-foreground">
-            Menampilkan {filteredEmployees.length} dari {employees.length} karyawan
+            Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredEmployees.length)} dari {filteredEmployees.length} karyawan
+            {divisionFilter !== 'all' && ` (${employees.length} total)`}
           </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft size={16} />
+                Sebelumnya
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Selanjutnya
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
     </div>
