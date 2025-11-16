@@ -124,6 +124,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      estate_subdivisions: {
+        Row: {
+          id: string
+          estate_id: string
+          kode_subdivisi: string
+          nama_subdivisi: string
+          kepala_subdivisi: string | null
+          jumlah_karyawan: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          estate_id: string
+          kode_subdivisi: string
+          nama_subdivisi: string
+          kepala_subdivisi?: string | null
+          jumlah_karyawan?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          estate_id?: string
+          kode_subdivisi?: string
+          nama_subdivisi?: string
+          kepala_subdivisi?: string | null
+          jumlah_karyawan?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       positions: {
         Row: {
           id: string

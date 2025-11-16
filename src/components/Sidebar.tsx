@@ -259,7 +259,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const hrMasterDataItems = [
     { id: 'hrm', label: 'Data Karyawan', icon: UserCog, module: 'hrm' },
     { id: 'employee-transfer', label: 'Mutasi Karyawan', icon: ArrowRightLeft, module: 'employee-transfer' },
-    { id: 'division', label: 'Divisi', icon: Layers, module: 'division' },
+    { id: 'division', label: 'Estate dan Divisi', icon: Layers, module: 'division' },
     { id: 'position', label: 'Jabatan', icon: Briefcase, module: 'position' },
   ];
 

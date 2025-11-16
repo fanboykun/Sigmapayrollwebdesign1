@@ -16,13 +16,40 @@ export function useDivisions() {
       setLoading(true)
       setError(null)
 
-      const { data, error: fetchError } = await supabase
+      // Fetch all divisions
+      const { data: divisionsData, error: fetchError } = await supabase
         .from('divisions')
         .select('*')
         .order('kode_divisi', { ascending: true })
 
       if (fetchError) throw fetchError
-      setDivisions(data || [])
+
+      // Fetch employee counts for all divisions
+      const { data: employeeCounts, error: countError } = await supabase
+        .from('employees')
+        .select('division_id, status')
+        .eq('status', 'active')
+
+      if (countError) {
+        console.warn('Error fetching employee counts:', countError)
+      }
+
+      // Create a map of division_id to employee count
+      const employeeCountMap = new Map<string, number>()
+      if (employeeCounts) {
+        employeeCounts.forEach(emp => {
+          const currentCount = employeeCountMap.get(emp.division_id) || 0
+          employeeCountMap.set(emp.division_id, currentCount + 1)
+        })
+      }
+
+      // Merge employee counts with divisions data
+      const divisionsWithCounts = (divisionsData || []).map(division => ({
+        ...division,
+        jumlah_karyawan: employeeCountMap.get(division.id) || 0
+      }))
+
+      setDivisions(divisionsWithCounts)
     } catch (err: any) {
       setError(err.message)
       console.error('Error fetching divisions:', err)
@@ -44,7 +71,8 @@ export function useDivisions() {
 
       if (insertError) throw insertError
 
-      setDivisions(prev => [...prev, data])
+      // Refresh divisions to get accurate employee counts
+      await fetchDivisions()
       return { data, error: null }
     } catch (err: any) {
       setError(err.message)
@@ -69,7 +97,8 @@ export function useDivisions() {
 
       if (updateError) throw updateError
 
-      setDivisions(prev => prev.map(d => d.id === id ? data : d))
+      // Refresh divisions to get accurate employee counts
+      await fetchDivisions()
       return { data, error: null }
     } catch (err: any) {
       setError(err.message)
