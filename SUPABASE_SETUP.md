@@ -327,7 +327,9 @@ export async function getAllEmployees() {
   const { data, error } = await supabase
     .from('employees')
     .select(`
-      *,
+      id,
+      employee_id,
+      full_name,
       division:divisions(*),
       position:positions(*)
     `)
@@ -338,6 +340,9 @@ export async function getAllEmployees() {
     console.error('Error fetching employees:', error);
     return { success: false, error: error.message };
   }
+
+  // NOTE: Column 'employee_id' contains Employee ID (e.g., EMP-AL-0001)
+  // NOT NIK/National ID! For National ID, use 'national_id' column.
 
   return { success: true, data };
 }

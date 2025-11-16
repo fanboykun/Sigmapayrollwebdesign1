@@ -199,7 +199,7 @@ CREATE TABLE public.holidays (
 -- Employees table
 CREATE TABLE public.employees (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    employee_id VARCHAR(20) UNIQUE NOT NULL, -- NIK
+    employee_id VARCHAR(20) UNIQUE NOT NULL, -- Employee ID (e.g., EMP-AL-0001) - NOT NIK/National ID!
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE,
     phone VARCHAR(20),
