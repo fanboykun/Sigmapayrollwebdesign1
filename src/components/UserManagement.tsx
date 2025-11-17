@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { useAuth, User, UserRole } from '../contexts/AuthContext';
+import { useState, useMemo } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useUsers, UserData } from '../hooks/useUsers';
+import { useRoles } from '../hooks/useRoles';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -28,94 +30,40 @@ import {
 } from './ui/select';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { 
-  UserPlus, 
-  Pencil, 
-  Trash2, 
-  Search, 
-  Shield, 
+import {
+  UserPlus,
+  Pencil,
+  Trash2,
+  Search,
+  Shield,
   ShieldCheck,
   ShieldAlert,
   User as UserIcon,
   Mail,
-  Lock
+  Lock,
+  Loader2
 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 
 export function UserManagement() {
   const { hasPermission } = useAuth();
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Super Admin',
-      email: 'superadmin@sawit.com',
-      role: 'super_admin',
-      status: 'active',
-      createdAt: '2024-01-01',
-      lastLogin: '2024-10-26'
-    },
-    {
-      id: '2',
-      name: 'Admin Payroll',
-      email: 'admin@sawit.com',
-      role: 'admin',
-      status: 'active',
-      createdAt: '2024-01-01',
-      lastLogin: '2024-10-26'
-    },
-    {
-      id: '3',
-      name: 'Manager HRD',
-      email: 'manager@sawit.com',
-      role: 'manager',
-      status: 'active',
-      createdAt: '2024-01-01',
-      lastLogin: '2024-10-25'
-    },
-    {
-      id: '4',
-      name: 'Budi Santoso',
-      email: 'budi@sawit.com',
-      role: 'karyawan',
-      employeeId: 'EMP001',
-      status: 'active',
-      createdAt: '2024-01-01',
-      lastLogin: '2024-10-26'
-    },
-    {
-      id: '5',
-      name: 'Siti Nurhaliza',
-      email: 'siti@sawit.com',
-      role: 'karyawan',
-      employeeId: 'EMP002',
-      status: 'active',
-      createdAt: '2024-02-15',
-      lastLogin: '2024-10-24'
-    },
-    {
-      id: '6',
-      name: 'Ahmad Dhani',
-      email: 'ahmad@sawit.com',
-      role: 'manager',
-      status: 'inactive',
-      createdAt: '2024-03-10',
-      lastLogin: '2024-09-30'
-    }
-  ]);
+  const { users, loading, createUser, updateUser, deleteUser, toggleUserStatus, getStats } = useUsers();
+  const { roles, loading: rolesLoading } = useRoles();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
-    name: '',
+    full_name: '',
     email: '',
-    role: 'karyawan' as UserRole,
-    employeeId: '',
+    role_id: '',
+    employee_id: '',
     password: ''
   });
 
@@ -124,16 +72,21 @@ export function UserManagement() {
   const canDelete = hasPermission('user_management', 'delete');
 
   // Filter users
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const matchesSearch =
+        user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
+      const matchesRole = filterRole === 'all' || user.role_id === filterRole;
+      const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [users, searchTerm, filterRole, filterStatus]);
+
+  const getRoleIcon = (roleCode: string) => {
+    switch (roleCode) {
       case 'super_admin':
         return <ShieldCheck className="w-4 h-4" />;
       case 'admin':
@@ -145,8 +98,8 @@ export function UserManagement() {
     }
   };
 
-  const getRoleBadgeVariant = (role: UserRole): "default" | "secondary" | "destructive" | "outline" => {
-    switch (role) {
+  const getRoleBadgeVariant = (roleCode: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (roleCode) {
       case 'super_admin':
         return 'destructive';
       case 'admin':
@@ -158,74 +111,73 @@ export function UserManagement() {
     }
   };
 
-  const getRoleLabel = (role: UserRole) => {
-    const labels: Record<UserRole, string> = {
-      super_admin: 'Super Admin',
-      admin: 'Admin',
-      manager: 'Manager',
-      karyawan: 'Karyawan'
-    };
-    return labels[role];
-  };
+  const handleAddUser = async () => {
+    if (!formData.full_name || !formData.email || !formData.password || !formData.role_id) {
+      return;
+    }
 
-  const handleAddUser = () => {
-    const newUser: User = {
-      id: (users.length + 1).toString(),
-      name: formData.name,
+    setIsSubmitting(true);
+    const result = await createUser({
       email: formData.email,
-      role: formData.role,
-      employeeId: formData.role === 'karyawan' ? formData.employeeId : undefined,
-      status: 'active',
-      createdAt: new Date().toISOString().split('T')[0],
-      lastLogin: undefined
-    };
+      password: formData.password,
+      full_name: formData.full_name,
+      role_id: formData.role_id,
+      employee_id: formData.employee_id || undefined
+    });
 
-    setUsers([...users, newUser]);
-    setIsAddDialogOpen(false);
-    resetForm();
-  };
+    setIsSubmitting(false);
 
-  const handleEditUser = () => {
-    if (!selectedUser) return;
-
-    setUsers(users.map(user => 
-      user.id === selectedUser.id
-        ? {
-            ...user,
-            name: formData.name,
-            email: formData.email,
-            role: formData.role,
-            employeeId: formData.role === 'karyawan' ? formData.employeeId : undefined
-          }
-        : user
-    ));
-
-    setIsEditDialogOpen(false);
-    setSelectedUser(null);
-    resetForm();
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus user ini?')) {
-      setUsers(users.filter(user => user.id !== userId));
+    if (result) {
+      setIsAddDialogOpen(false);
+      resetForm();
     }
   };
 
-  const toggleUserStatus = (userId: string) => {
-    setUsers(users.map(user =>
-      user.id === userId
-        ? { ...user, status: user.status === 'active' ? 'inactive' as const : 'active' as const }
-        : user
-    ));
+  const handleEditUser = async () => {
+    if (!selectedUser) return;
+    if (!formData.full_name || !formData.email || !formData.role_id) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    const updates: any = {
+      full_name: formData.full_name,
+      role_id: formData.role_id,
+      employee_id: formData.employee_id || undefined
+    };
+
+    // Only include password if it's provided
+    if (formData.password) {
+      updates.password = formData.password;
+    }
+
+    const result = await updateUser(selectedUser.id, updates);
+    setIsSubmitting(false);
+
+    if (result) {
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      resetForm();
+    }
   };
 
-  const openEditDialog = (user: User) => {
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus user "${userName}"?`)) {
+      await deleteUser(userId);
+    }
+  };
+
+  const handleToggleStatus = async (userId: string) => {
+    await toggleUserStatus(userId);
+  };
+
+  const openEditDialog = (user: UserData) => {
     setSelectedUser(user);
     setFormData({
-      name: user.name,
+      full_name: user.full_name,
       email: user.email,
-      role: user.role,
-      employeeId: user.employeeId || '',
+      role_id: user.role_id,
+      employee_id: user.employee_id || '',
       password: ''
     });
     setIsEditDialogOpen(true);
@@ -233,30 +185,31 @@ export function UserManagement() {
 
   const resetForm = () => {
     setFormData({
-      name: '',
+      full_name: '',
       email: '',
-      role: 'karyawan',
-      employeeId: '',
+      role_id: '',
+      employee_id: '',
       password: ''
     });
   };
 
-  // Stats
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === 'active').length,
-    superAdmin: users.filter(u => u.role === 'super_admin').length,
-    admin: users.filter(u => u.role === 'admin').length,
-    manager: users.filter(u => u.role === 'manager').length,
-    karyawan: users.filter(u => u.role === 'karyawan').length
-  };
+  // Get stats
+  const stats = getStats();
+
+  if (loading || rolesLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-foreground">Manajemen User</h2>
+          <h2 className="text-3xl font-bold text-foreground">Manajemen User</h2>
           <p className="text-muted-foreground">
             Kelola user dan hak akses sistem
           </p>
@@ -281,8 +234,8 @@ export function UserManagement() {
                   <Label htmlFor="add-name">Nama Lengkap</Label>
                   <Input
                     id="add-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     placeholder="Nama lengkap"
                   />
                 </div>
@@ -320,39 +273,54 @@ export function UserManagement() {
                 <div className="space-y-2">
                   <Label htmlFor="add-role">Role</Label>
                   <Select
-                    value={formData.role}
-                    onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
+                    value={formData.role_id}
+                    onValueChange={(value) => setFormData({ ...formData, role_id: value })}
                   >
                     <SelectTrigger id="add-role">
-                      <SelectValue />
+                      <SelectValue placeholder="Pilih role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="karyawan">Karyawan</SelectItem>
+                      {roles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.role === 'karyawan' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="add-employeeId">ID Karyawan</Label>
-                    <Input
-                      id="add-employeeId"
-                      value={formData.employeeId}
-                      onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                      placeholder="EMP001"
-                    />
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="add-employeeId">ID Karyawan (Opsional)</Label>
+                  <Input
+                    id="add-employeeId"
+                    value={formData.employee_id}
+                    onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                    placeholder="EMP-XX-0001"
+                  />
+                </div>
 
                 <div className="flex gap-2 pt-4">
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAddDialogOpen(false)}
+                    className="flex-1"
+                    disabled={isSubmitting}
+                  >
                     Batal
                   </Button>
-                  <Button onClick={handleAddUser} className="flex-1">
-                    Tambah User
+                  <Button
+                    onClick={handleAddUser}
+                    className="flex-1"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Menyimpan...
+                      </>
+                    ) : (
+                      'Tambah User'
+                    )}
                   </Button>
                 </div>
               </div>
@@ -366,25 +334,29 @@ export function UserManagement() {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Total User</CardDescription>
-            <CardTitle className="text-foreground">{stats.total}</CardTitle>
+            <CardTitle className="text-3xl text-foreground">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>User Aktif</CardDescription>
-            <CardTitle className="text-foreground">{stats.active}</CardTitle>
+            <CardTitle className="text-3xl text-foreground">{stats.active}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Admin & Super Admin</CardDescription>
-            <CardTitle className="text-foreground">{stats.superAdmin + stats.admin}</CardTitle>
+            <CardTitle className="text-3xl text-foreground">
+              {(stats.byRole['super_admin'] || 0) + (stats.byRole['admin'] || 0)}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Karyawan</CardDescription>
-            <CardTitle className="text-foreground">{stats.karyawan}</CardTitle>
+            <CardTitle className="text-3xl text-foreground">
+              {stats.byRole['karyawan'] || 0}
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -408,10 +380,11 @@ export function UserManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Role</SelectItem>
-                <SelectItem value="super_admin">Super Admin</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="karyawan">Karyawan</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    {role.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -422,6 +395,7 @@ export function UserManagement() {
                 <SelectItem value="all">Semua Status</SelectItem>
                 <SelectItem value="active">Aktif</SelectItem>
                 <SelectItem value="inactive">Nonaktif</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -444,68 +418,79 @@ export function UserManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          {getRoleIcon(user.role)}
-                        </div>
-                        <div>
-                          <div>{user.name}</div>
-                          {user.employeeId && (
-                            <div className="text-muted-foreground">{user.employeeId}</div>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {getRoleLabel(user.role)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                        {user.status === 'active' ? 'Aktif' : 'Nonaktif'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('id-ID') : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditDialog(user)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleUserStatus(user.id)}
-                          >
-                            {user.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                          </Button>
-                        )}
-                        {canDelete && user.role !== 'super_admin' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteUser(user.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      {users.length === 0
+                        ? 'Belum ada user. Tambahkan user pertama Anda.'
+                        : 'Tidak ada user yang sesuai dengan filter.'
+                      }
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            {getRoleIcon(user.role?.code || '')}
+                          </div>
+                          <div>
+                            <div className="font-medium">{user.full_name}</div>
+                            {user.employee_id && (
+                              <div className="text-sm text-muted-foreground">{user.employee_id}</div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={getRoleBadgeVariant(user.role?.code || '')}>
+                          {user.role?.name || 'Unknown'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                          {user.status === 'active' ? 'Aktif' : user.status === 'inactive' ? 'Nonaktif' : 'Suspended'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {user.last_login ? new Date(user.last_login).toLocaleDateString('id-ID') : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(user)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleStatus(user.id)}
+                            >
+                              {user.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
+                            </Button>
+                          )}
+                          {canDelete && user.role?.code !== 'super_admin' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteUser(user.id, user.full_name)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -526,8 +511,8 @@ export function UserManagement() {
               <Label htmlFor="edit-name">Nama Lengkap</Label>
               <Input
                 id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={formData.full_name}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
               />
             </div>
 
@@ -538,37 +523,40 @@ export function UserManagement() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                disabled
+                className="opacity-60"
               />
+              <p className="text-xs text-muted-foreground">Email tidak dapat diubah</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
               <Select
-                value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
+                value={formData.role_id}
+                onValueChange={(value) => setFormData({ ...formData, role_id: value })}
               >
                 <SelectTrigger id="edit-role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="karyawan">Karyawan</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {formData.role === 'karyawan' && (
-              <div className="space-y-2">
-                <Label htmlFor="edit-employeeId">ID Karyawan</Label>
-                <Input
-                  id="edit-employeeId"
-                  value={formData.employeeId}
-                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="edit-employeeId">ID Karyawan (Opsional)</Label>
+              <Input
+                id="edit-employeeId"
+                value={formData.employee_id}
+                onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                placeholder="EMP-XX-0001"
+              />
+            </div>
 
             <Alert>
               <AlertDescription>
@@ -588,11 +576,27 @@ export function UserManagement() {
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                className="flex-1"
+                disabled={isSubmitting}
+              >
                 Batal
               </Button>
-              <Button onClick={handleEditUser} className="flex-1">
-                Simpan Perubahan
+              <Button
+                onClick={handleEditUser}
+                className="flex-1"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  'Simpan Perubahan'
+                )}
               </Button>
             </div>
           </div>

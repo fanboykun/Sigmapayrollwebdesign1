@@ -1210,6 +1210,254 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
       canDelete: false,
     },
   },
+  // ===== ADMIN KLINIK PERMISSIONS =====
+  admin_klinik: {
+    dashboard: {
+      module: "dashboard",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // Full access to all clinic modules
+    clinic_dashboard: {
+      module: "clinic_dashboard",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_medicines: {
+      module: "clinic_master_medicines",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_suppliers: {
+      module: "clinic_master_suppliers",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_doctors: {
+      module: "clinic_master_doctors",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_nurses: {
+      module: "clinic_master_nurses",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_master_diseases: {
+      module: "clinic_master_diseases",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_registration: {
+      module: "clinic_registration",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_examination: {
+      module: "clinic_examination",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_prescription: {
+      module: "clinic_prescription",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_dispensing: {
+      module: "clinic_dispensing",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_sick_letter: {
+      module: "clinic_sick_letter",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_stock_management: {
+      module: "clinic_stock_management",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+    clinic_reports: {
+      module: "clinic_reports",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
+  },
+  // ===== DOKTER KLINIK PERMISSIONS =====
+  dokter_klinik: {
+    dashboard: {
+      module: "dashboard",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    clinic_dashboard: {
+      module: "clinic_dashboard",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // View only for master data
+    clinic_master_medicines: {
+      module: "clinic_master_medicines",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    clinic_master_diseases: {
+      module: "clinic_master_diseases",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // Full access to clinical services
+    clinic_registration: {
+      module: "clinic_registration",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    clinic_examination: {
+      module: "clinic_examination",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    clinic_prescription: {
+      module: "clinic_prescription",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    clinic_sick_letter: {
+      module: "clinic_sick_letter",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    // View only for reports
+    clinic_reports: {
+      module: "clinic_reports",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+  },
+  // ===== PERAWAT (NURSE) PERMISSIONS =====
+  perawat: {
+    dashboard: {
+      module: "dashboard",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    clinic_dashboard: {
+      module: "clinic_dashboard",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // View only for master data
+    clinic_master_medicines: {
+      module: "clinic_master_medicines",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    clinic_master_diseases: {
+      module: "clinic_master_diseases",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // Limited access to clinical services
+    clinic_registration: {
+      module: "clinic_registration",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    clinic_examination: {
+      module: "clinic_examination",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    clinic_prescription: {
+      module: "clinic_prescription",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+    // Full access to dispensing
+    clinic_dispensing: {
+      module: "clinic_dispensing",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    clinic_stock_management: {
+      module: "clinic_stock_management",
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    // View only for reports
+    clinic_reports: {
+      module: "clinic_reports",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+  },
 };
 
 /**
@@ -1524,6 +1772,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Fallback to hardcoded permissions
     const permissions = ROLE_PERMISSIONS[user.role];
+
+    // Safety check: if role not found in ROLE_PERMISSIONS, deny access
+    if (!permissions) {
+      console.warn(`⚠️ Role "${user.role}" not found in ROLE_PERMISSIONS`);
+      return false;
+    }
+
     const modulePermission = permissions[module];
 
     if (!modulePermission) return false;
