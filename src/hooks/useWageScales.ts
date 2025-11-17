@@ -1,3 +1,17 @@
+/**
+ * useWageScales Hook
+ *
+ * Custom hook untuk mengelola data Master Skala Upah.
+ *
+ * IMPORTANT: Implementasi batch fetching untuk mengatasi Supabase 1000-row limit.
+ * Dengan 47 divisi × 141 scales = 6,627 records, kita perlu pagination untuk
+ * mengambil semua data.
+ *
+ * @see SUPABASE_PAGINATION_GUIDE.md - Complete guide untuk pagination
+ * @see AttendanceMaster.tsx:278-330 - Similar implementation
+ *
+ * @returns {Object} - { wageScales, loading, error, fetchWageScales, addWageScale, updateWageScale, deleteWageScale }
+ */
 import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase/client'
 
@@ -44,17 +58,43 @@ export function useWageScales() {
       setLoading(true)
       setError(null)
 
-      const { data, error: fetchError } = await supabase
-        .from('master_upah')
-        .select('*')
-        .order('tahun', { ascending: false })
-        .order('divisi_id', { ascending: true })
-        .order('golongan', { ascending: true })
-        .order('skala', { ascending: true })
+      // Fetch data in batches due to Supabase 1000-row limit per request
+      let allData: WageScale[] = []
+      let currentPage = 0
+      const pageSize = 1000
+      let hasMore = true
 
-      if (fetchError) throw fetchError
+      while (hasMore) {
+        const from = currentPage * pageSize
+        const to = from + pageSize - 1
 
-      setWageScales(data || [])
+        const { data: batchData, error: batchError, count } = await supabase
+          .from('master_upah')
+          .select('*', { count: 'exact' })
+          .order('tahun', { ascending: false })
+          .order('divisi_id', { ascending: true })
+          .order('golongan', { ascending: true })
+          .order('skala', { ascending: true })
+          .range(from, to)
+
+        if (batchError) throw batchError
+
+        if (batchData && batchData.length > 0) {
+          allData = [...allData, ...batchData]
+        }
+
+        hasMore = batchData && batchData.length === pageSize
+        currentPage++
+
+        // Safety break - max 50 batches (50,000 records)
+        if (currentPage >= 50) {
+          console.warn('Reached maximum batch limit (50 batches = 50,000 records)')
+          break
+        }
+      }
+
+      console.log(`Fetched ${allData.length} wage scales in ${currentPage} batch(es)`)
+      setWageScales(allData)
     } catch (err: any) {
       setError(err.message)
       console.error('Error fetching wage scales:', err)

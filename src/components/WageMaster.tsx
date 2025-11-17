@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Edit2, Trash2, Plus, DollarSign, TrendingUp, Building, Loader2 } from 'lucide-react';
+import { Search, Edit2, Trash2, Plus, DollarSign, TrendingUp, Building, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Switch } from './ui/switch';
 import { useWageScales } from '../hooks/useWageScales';
 import { useDivisions } from '../hooks/useDivisions';
@@ -163,6 +163,10 @@ export function WageMaster() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedWage, setSelectedWage] = useState<any>(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
+
   // Use Supabase hooks
   const { wageScales, loading, error, addWageScale, updateWageScale, deleteWageScale } = useWageScales();
   const { divisions, loading: divisionsLoading } = useDivisions();
@@ -191,232 +195,21 @@ export function WageMaster() {
     return matchesSearch && matchesGrade && matchesDivision && matchesYear;
   });
 
-  /*
-  // Old hardcoded data - now fetched from Supabase
-  const [wageScales, setWageScales] = useState<WageScale[]>([
-    // TAHUN 2024
-    // DIVISI BB - Bangun Bandar
-    {
-      id: '1',
-      year: 2024,
-      divisionId: '7',
-      grade: 'pegawai',
-      scale: 'I-1',
-      baseSalary: 2900000,
-      description: 'Pegawai tingkat awal',
-      isActive: true,
-    },
-    {
-      id: '2',
-      year: 2024,
-      divisionId: '7',
-      grade: 'pegawai',
-      scale: 'I-2',
-      baseSalary: 2950000,
-      description: 'Pegawai dengan pengalaman 1-2 tahun',
-      isActive: true,
-    },
-    {
-      id: '3',
-      year: 2024,
-      divisionId: '7',
-      grade: 'pegawai',
-      scale: 'I-3',
-      baseSalary: 3000000,
-      description: 'Pegawai dengan pengalaman 2-3 tahun',
-      isActive: true,
-    },
-    {
-      id: '11',
-      year: 2024,
-      divisionId: '7',
-      grade: 'karyawan',
-      scale: 'II-1',
-      baseSalary: 2900000,
-      description: 'Karyawan tingkat awal',
-      isActive: true,
-    },
-    {
-      id: '12',
-      year: 2024,
-      divisionId: '7',
-      grade: 'karyawan',
-      scale: 'II-2',
-      baseSalary: 2950000,
-      description: 'Karyawan dengan pengalaman 1-2 tahun',
-      isActive: true,
-    },
-    {
-      id: '21',
-      year: 2024,
-      divisionId: '7',
-      grade: 'pkwt',
-      scale: 'III-1',
-      baseSalary: 2900000,
-      description: 'Karyawan Kontrak (PKWT) sesuai UMP',
-      isActive: true,
-    },
-    
-    // DIVISI TG - PT Socfindo Kebun TG
-    {
-      id: '31',
-      year: 2024,
-      divisionId: '8',
-      grade: 'pegawai',
-      scale: 'I-1',
-      baseSalary: 2900000,
-      description: 'Pegawai tingkat awal',
-      isActive: true,
-    },
-    {
-      id: '32',
-      year: 2024,
-      divisionId: '8',
-      grade: 'pegawai',
-      scale: 'I-2',
-      baseSalary: 2950000,
-      description: 'Pegawai dengan pengalaman 1-2 tahun',
-      isActive: true,
-    },
-    {
-      id: '41',
-      year: 2024,
-      divisionId: '8',
-      grade: 'karyawan',
-      scale: 'II-1',
-      baseSalary: 2900000,
-      description: 'Karyawan tingkat awal',
-      isActive: true,
-    },
-    
-    // DIVISI HO - Head Office
-    {
-      id: '51',
-      year: 2024,
-      divisionId: '13',
-      grade: 'pegawai',
-      scale: 'I-1',
-      baseSalary: 3200000,
-      description: 'Pegawai tingkat awal - Head Office',
-      isActive: true,
-    },
-    {
-      id: '52',
-      year: 2024,
-      divisionId: '13',
-      grade: 'pegawai',
-      scale: 'I-2',
-      baseSalary: 3300000,
-      description: 'Pegawai dengan pengalaman 1-2 tahun - Head Office',
-      isActive: true,
-    },
-    {
-      id: '61',
-      year: 2024,
-      divisionId: '13',
-      grade: 'karyawan',
-      scale: 'II-1',
-      baseSalary: 3200000,
-      description: 'Karyawan tingkat awal - Head Office',
-      isActive: true,
-    },
-    
-    // TAHUN 2025 - Dengan kenaikan upah
-    // DIVISI BB - Bangun Bandar
-    {
-      id: '101',
-      year: 2025,
-      divisionId: '7',
-      grade: 'pegawai',
-      scale: 'I-1',
-      baseSalary: 3050000,
-      description: 'Pegawai tingkat awal',
-      isActive: true,
-    },
-    {
-      id: '102',
-      year: 2025,
-      divisionId: '7',
-      grade: 'pegawai',
-      scale: 'I-2',
-      baseSalary: 3100000,
-      description: 'Pegawai dengan pengalaman 1-2 tahun',
-      isActive: true,
-    },
-    {
-      id: '103',
-      year: 2025,
-      divisionId: '7',
-      grade: 'pegawai',
-      scale: 'I-3',
-      baseSalary: 3150000,
-      description: 'Pegawai dengan pengalaman 2-3 tahun',
-      isActive: true,
-    },
-    {
-      id: '111',
-      year: 2025,
-      divisionId: '7',
-      grade: 'karyawan',
-      scale: 'II-1',
-      baseSalary: 3050000,
-      description: 'Karyawan tingkat awal',
-      isActive: true,
-    },
-    {
-      id: '112',
-      year: 2025,
-      divisionId: '7',
-      grade: 'karyawan',
-      scale: 'II-2',
-      baseSalary: 3100000,
-      description: 'Karyawan dengan pengalaman 1-2 tahun',
-      isActive: true,
-    },
-    {
-      id: '121',
-      year: 2025,
-      divisionId: '7',
-      grade: 'pkwt',
-      scale: 'III-1',
-      baseSalary: 3050000,
-      description: 'Karyawan Kontrak (PKWT) sesuai UMP',
-      isActive: true,
-    },
-    
-    // DIVISI HO - Head Office 2025
-    {
-      id: '151',
-      year: 2025,
-      divisionId: '13',
-      grade: 'pegawai',
-      scale: 'I-1',
-      baseSalary: 3400000,
-      description: 'Pegawai tingkat awal - Head Office',
-      isActive: true,
-    },
-    {
-      id: '152',
-      year: 2025,
-      divisionId: '13',
-      grade: 'pegawai',
-      scale: 'I-2',
-      baseSalary: 3500000,
-      description: 'Pegawai dengan pengalaman 1-2 tahun - Head Office',
-      isActive: true,
-    },
-    {
-      id: '161',
-      year: 2025,
-      divisionId: '13',
-      grade: 'karyawan',
-      scale: 'II-1',
-      baseSalary: 3400000,
-      description: 'Karyawan tingkat awal - Head Office',
-      isActive: true,
-    },
-  ]);
-  */
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredWageScales.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedWageScales = filteredWageScales.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const resetToFirstPage = () => {
+    setCurrentPage(1);
+  };
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData({ ...formData, [field]: value });
@@ -586,13 +379,30 @@ export function WageMaster() {
       ? Math.round(karyawanScales.reduce((sum, w) => sum + w.upah_pokok, 0) / karyawanScales.length)
       : 0;
 
+    const avgPkwt = pkwtScales.length > 0
+      ? Math.round(pkwtScales.reduce((sum, w) => sum + w.upah_pokok, 0) / pkwtScales.length)
+      : 0;
+
     // Hitung jumlah divisi unik yang memiliki skala upah (untuk tahun yang dipilih)
     const divisionsWithWages = new Set(filteredByYear.map(w => w.divisi_id)).size;
 
     // Hitung jumlah tahun unik
     const uniqueYears = new Set(wageScales.map(w => w.tahun)).size;
 
-    return { pegawaiScales, karyawanScales, pkwtScales, avgPegawai, avgKaryawan, divisionsWithWages, uniqueYears };
+    // Total skala untuk tahun yang dipilih
+    const totalScalesForYear = filteredByYear.length;
+
+    return {
+      pegawaiScales,
+      karyawanScales,
+      pkwtScales,
+      avgPegawai,
+      avgKaryawan,
+      avgPkwt,
+      divisionsWithWages,
+      uniqueYears,
+      totalScalesForYear
+    };
   };
 
   const stats = calculateStats();
@@ -609,7 +419,10 @@ export function WageMaster() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Total Skala</p>
-              <h3 className="text-2xl">{wageScales.length}</h3>
+              <h3 className="text-2xl">{yearFilter === 'all' ? wageScales.length : stats.totalScalesForYear}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {yearFilter === 'all' ? 'Semua tahun' : `Tahun ${yearFilter}`}
+              </p>
             </div>
             <div className="w-12 h-12 bg-primary/10 rounded flex items-center justify-center">
               <DollarSign size={24} className="text-primary" />
@@ -619,30 +432,11 @@ export function WageMaster() {
         <Card className="p-4 md:p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Jumlah Tahun</p>
-              <h3 className="text-2xl">{stats.uniqueYears}</h3>
-            </div>
-            <div className="w-12 h-12 bg-[#e83e8c]/10 rounded flex items-center justify-center">
-              <DollarSign size={24} className="text-[#e83e8c]" />
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 md:p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Total Divisi</p>
-              <h3 className="text-2xl">{stats.divisionsWithWages}</h3>
-            </div>
-            <div className="w-12 h-12 bg-[#6f42c1]/10 rounded flex items-center justify-center">
-              <Building size={24} className="text-[#6f42c1]" />
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 md:p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
               <p className="text-sm text-muted-foreground mb-1">Skala Pegawai</p>
               <h3 className="text-2xl">{stats.pegawaiScales.length}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Rata-rata: {formatCurrency(stats.avgPegawai)}
+              </p>
             </div>
             <div className="w-12 h-12 bg-[#2c7be5]/10 rounded flex items-center justify-center">
               <TrendingUp size={24} className="text-[#2c7be5]" />
@@ -654,9 +448,40 @@ export function WageMaster() {
             <div>
               <p className="text-sm text-muted-foreground mb-1">Skala Karyawan</p>
               <h3 className="text-2xl">{stats.karyawanScales.length}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Rata-rata: {formatCurrency(stats.avgKaryawan)}
+              </p>
             </div>
             <div className="w-12 h-12 bg-[#00d27a]/10 rounded flex items-center justify-center">
               <TrendingUp size={24} className="text-[#00d27a]" />
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 md:p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Skala PKWT</p>
+              <h3 className="text-2xl">{stats.pkwtScales.length}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Rata-rata: {formatCurrency(stats.avgPkwt)}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-[#f5803e]/10 rounded flex items-center justify-center">
+              <TrendingUp size={24} className="text-[#f5803e]" />
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 md:p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Divisi & Tahun</p>
+              <h3 className="text-2xl">{stats.divisionsWithWages}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.uniqueYears} tahun data
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-[#6f42c1]/10 rounded flex items-center justify-center">
+              <Building size={24} className="text-[#6f42c1]" />
             </div>
           </div>
         </Card>
@@ -675,7 +500,7 @@ export function WageMaster() {
                   className="pl-10 bg-background"
                 />
               </div>
-              <Select value={yearFilter} onValueChange={setYearFilter}>
+              <Select value={yearFilter} onValueChange={(value) => { setYearFilter(value); resetToFirstPage(); }}>
                 <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Filter tahun" />
                 </SelectTrigger>
@@ -690,7 +515,7 @@ export function WageMaster() {
                     ))}
                 </SelectContent>
               </Select>
-              <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+              <Select value={divisionFilter} onValueChange={(value) => { setDivisionFilter(value); resetToFirstPage(); }}>
                 <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="Filter divisi" />
                 </SelectTrigger>
@@ -703,7 +528,7 @@ export function WageMaster() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={gradeFilter} onValueChange={setGradeFilter}>
+              <Select value={gradeFilter} onValueChange={(value) => { setGradeFilter(value); resetToFirstPage(); }}>
                 <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="Filter golongan" />
                 </SelectTrigger>
@@ -773,7 +598,7 @@ export function WageMaster() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredWageScales.map((wage) => (
+                  {paginatedWageScales.map((wage) => (
                 <tr key={wage.id} className="border-b border-border last:border-0 hover:bg-muted/20">
                   <td className="px-4 md:px-6 py-4">
                     <span className="font-medium">{wage.tahun}</span>
@@ -829,9 +654,93 @@ export function WageMaster() {
             </div>
 
             <div className="px-4 md:px-6 py-3 md:py-4 border-t border-border">
-              <p className="text-xs md:text-sm text-muted-foreground">
-                Menampilkan {filteredWageScales.length} dari {wageScales.length} skala upah
-              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-xs md:text-sm text-muted-foreground">
+                  Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredWageScales.length)} dari {filteredWageScales.length} skala upah
+                </p>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft size={16} />
+                      <span className="hidden sm:inline ml-1">Sebelumnya</span>
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {/* Show first page */}
+                      {currentPage > 3 && (
+                        <>
+                          <Button
+                            variant={currentPage === 1 ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(1)}
+                            className="w-9 h-9 p-0"
+                          >
+                            1
+                          </Button>
+                          {currentPage > 4 && (
+                            <span className="px-2 text-muted-foreground">...</span>
+                          )}
+                        </>
+                      )}
+
+                      {/* Show pages around current page */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          return page === currentPage ||
+                                 page === currentPage - 1 ||
+                                 page === currentPage + 1 ||
+                                 page === currentPage - 2 ||
+                                 page === currentPage + 2;
+                        })
+                        .filter(page => page > 0 && page <= totalPages)
+                        .map(page => (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-9 h-9 p-0"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+
+                      {/* Show last page */}
+                      {currentPage < totalPages - 2 && (
+                        <>
+                          {currentPage < totalPages - 3 && (
+                            <span className="px-2 text-muted-foreground">...</span>
+                          )}
+                          <Button
+                            variant={currentPage === totalPages ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="w-9 h-9 p-0"
+                          >
+                            {totalPages}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <span className="hidden sm:inline mr-1">Selanjutnya</span>
+                      <ChevronRight size={16} />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}

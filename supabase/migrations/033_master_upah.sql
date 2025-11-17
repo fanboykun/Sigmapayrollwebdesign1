@@ -11,7 +11,7 @@
 CREATE TABLE IF NOT EXISTS public.master_upah (
     id TEXT PRIMARY KEY DEFAULT concat('wage-', gen_random_uuid()::text),
     tahun INTEGER NOT NULL,
-    divisi_id TEXT NOT NULL REFERENCES public.divisions(id) ON DELETE CASCADE,
+    divisi_id UUID NOT NULL REFERENCES public.divisions(id) ON DELETE CASCADE,
     golongan TEXT NOT NULL CHECK (golongan IN ('pegawai', 'karyawan', 'pkwt')),
     skala TEXT NOT NULL,
     upah_pokok NUMERIC(15, 2) NOT NULL,

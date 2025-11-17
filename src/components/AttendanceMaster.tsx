@@ -1012,7 +1012,7 @@ export function AttendanceMaster() {
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Cari nama, ID Karyawan, atau divisi..."
+                        placeholder="Cari nama, ID Karyawan, atau estate..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
@@ -1055,15 +1055,15 @@ export function AttendanceMaster() {
                   {/* Division Filter */}
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <Label>Filter Divisi:</Label>
+                    <Label>Filter Estate:</Label>
                     <Select value={selectedDivision} onValueChange={setSelectedDivision}>
                       <SelectTrigger className="w-[300px]">
-                        <SelectValue placeholder="Pilih divisi" />
+                        <SelectValue placeholder="Pilih Estate" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline">Semua Divisi</Badge>
+                            <Badge variant="outline">Semua Estate</Badge>
                           </div>
                         </SelectItem>
                         {divisions.map((division) => (
@@ -1098,7 +1098,7 @@ export function AttendanceMaster() {
                           <TableHead>Tanggal</TableHead>
                           <TableHead>ID Karyawan</TableHead>
                           <TableHead>Nama Karyawan</TableHead>
-                          <TableHead>Divisi</TableHead>
+                          <TableHead>Estate</TableHead>
                           <TableHead>Posisi</TableHead>
                           <TableHead className="text-center">Status</TableHead>
                           <TableHead>Keterangan</TableHead>
