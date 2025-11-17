@@ -6,7 +6,7 @@
 -- =====================================================
 
 -- Generate attendance records for all active employees in November 2025
--- Excludes weekends (Saturday & Sunday)
+-- Excludes Sunday only (Saturday is a working day)
 -- Realistic distribution: ~90% present, ~5% leave, ~3% sick, ~2% absent
 
 DO $$
@@ -20,14 +20,14 @@ BEGIN
     RAISE NOTICE 'Deleted existing November 2025 attendance records';
 
     -- Insert attendance records for all active employees
-    -- For all working days in November 2025 (Monday-Friday)
+    -- For all working days in November 2025 (Monday-Saturday)
     INSERT INTO attendance_records (employee_id, date, status, notes)
     SELECT
         e.id as employee_id,
         d.date,
         CASE
-            -- Weekend check (should not happen as we filter below, but as safety)
-            WHEN EXTRACT(DOW FROM d.date) IN (0, 6) THEN 'present'
+            -- Sunday check (should not happen as we filter below, but as safety)
+            WHEN EXTRACT(DOW FROM d.date) = 0 THEN 'present'
             -- Random realistic distribution
             WHEN random() < 0.90 THEN 'present'  -- 90% present
             WHEN random() < 0.50 THEN 'leave'     -- 5% leave (50% of remaining 10%)
@@ -35,7 +35,7 @@ BEGIN
             ELSE 'absent'                         -- 2% absent
         END as status,
         CASE
-            WHEN EXTRACT(DOW FROM d.date) IN (0, 6) THEN 'Weekend'
+            WHEN EXTRACT(DOW FROM d.date) = 0 THEN 'Sunday'
             WHEN random() < 0.90 THEN NULL  -- No notes for present
             WHEN random() < 0.50 THEN 'Izin'
             WHEN random() < 0.60 THEN 'Sakit'
@@ -52,16 +52,16 @@ BEGIN
         ) as d(date)
     WHERE
         e.status = 'active'
-        -- Exclude weekends (0 = Sunday, 6 = Saturday)
-        AND EXTRACT(DOW FROM d.date) NOT IN (0, 6)
+        -- Exclude Sunday only (0 = Sunday)
+        AND EXTRACT(DOW FROM d.date) <> 0
     ON CONFLICT (employee_id, date) DO NOTHING;
 
     -- Get count of inserted records
     GET DIAGNOSTICS total_inserted = ROW_COUNT;
 
     RAISE NOTICE 'Successfully inserted % attendance records for November 2025', total_inserted;
-    RAISE NOTICE 'November 2025 working days: 20 days (excluding weekends)';
-    RAISE NOTICE 'Coverage: All active employees x 20 working days';
+    RAISE NOTICE 'November 2025 working days: 26 days (Monday-Saturday, excluding Sunday only)';
+    RAISE NOTICE 'Coverage: All active employees x 26 working days';
 
 END $$;
 
@@ -96,14 +96,14 @@ BEGIN
     FROM attendance_records
     WHERE date >= '2025-11-01' AND date <= '2025-11-30';
 
-    -- Count working days (excluding weekends)
+    -- Count working days (excluding Sunday only)
     SELECT COUNT(*) INTO working_days
     FROM generate_series(
         '2025-11-01'::date,
         '2025-11-30'::date,
         '1 day'::interval
     ) as d(date)
-    WHERE EXTRACT(DOW FROM d.date) NOT IN (0, 6);
+    WHERE EXTRACT(DOW FROM d.date) <> 0;
 
     -- Display summary
     RAISE NOTICE '';
@@ -111,7 +111,7 @@ BEGIN
     RAISE NOTICE 'ATTENDANCE SEED DATA SUMMARY';
     RAISE NOTICE '========================================';
     RAISE NOTICE 'Period: November 2025';
-    RAISE NOTICE 'Working Days: % days (Mon-Fri)', working_days;
+    RAISE NOTICE 'Working Days: % days (Mon-Sat)', working_days;
     RAISE NOTICE 'Active Employees: %', total_employees;
     RAISE NOTICE 'Total Records: %', total_records;
     RAISE NOTICE 'Expected Records: % (% employees x % days)',

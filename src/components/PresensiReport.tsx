@@ -185,19 +185,61 @@ export function PresensiReport() {
     try {
       setLoading(true);
       const year = parseInt(selectedYear);
-      const month = parseInt(selectedMonth);
+      const monthNumber = parseInt(selectedMonth);
 
-      const firstDay = new Date(year, month - 1, 1);
-      const lastDay = new Date(year, month, 0);
+      // Format dates directly to avoid timezone issues
+      const month = String(monthNumber).padStart(2, '0');
+      const firstDay = `${year}-${month}-01`;
+      const lastDayOfMonth = new Date(year, monthNumber, 0).getDate();
+      const lastDay = `${year}-${month}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-      const { data, error } = await supabase
+      // Fetch data in batches due to Supabase 1000-row limit per request
+      let allData: any[] = [];
+      let currentPage = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let totalCount = 0;
+
+      // First, get total count
+      const { count: totalRecords, error: countError } = await supabase
         .from('attendance_records')
-        .select('employee_id, date, status')
-        .gte('date', firstDay.toISOString().split('T')[0])
-        .lte('date', lastDay.toISOString().split('T')[0]);
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay);
 
-      if (error) throw error;
-      setAttendanceRecords(data || []);
+      if (countError) throw countError;
+      totalCount = totalRecords || 0;
+
+      // Fetch all data in batches
+      while (hasMore && currentPage * pageSize < totalCount) {
+        const from = currentPage * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data: batchData, error: batchError } = await supabase
+          .from('attendance_records')
+          .select('employee_id, date, status')
+          .gte('date', firstDay)
+          .lte('date', lastDay)
+          .range(from, to)
+          .order('date', { ascending: true });
+
+        if (batchError) throw batchError;
+
+        if (batchData && batchData.length > 0) {
+          allData.push(...batchData);
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+
+        // Safety break - max 20 batches (20,000 records)
+        if (currentPage >= 20) {
+          console.warn('Reached maximum batch limit (20 batches = 20,000 records)');
+          break;
+        }
+      }
+
+      setAttendanceRecords(allData);
     } catch (err: any) {
       console.error('Error loading attendance:', err);
       toast.error('Gagal memuat data presensi');
@@ -263,7 +305,7 @@ export function PresensiReport() {
     return employees.map(emp => {
       const attendance: Record<number, AttendanceStatus> = {};
 
-      // Initialize all days
+      // Initialize only Sundays and holidays
       for (let day = 1; day <= daysInMonth; day++) {
         // Mark Sundays as Libur
         if (sundays.has(day)) {
@@ -273,10 +315,7 @@ export function PresensiReport() {
         else if (holidays.has(day)) {
           attendance[day] = 'L';
         }
-        // Default to HK (will be overridden by actual data if exists)
-        else {
-          attendance[day] = 'HK';
-        }
+        // Do NOT set default for working days - leave empty if no data
       }
 
       // Override with actual attendance data from database
@@ -568,12 +607,16 @@ export function PresensiReport() {
                             const status = emp.attendance[day];
                             return (
                               <td key={day} className="px-1 py-2 text-center border-r border-border">
-                                <div
-                                  className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-medium mx-auto"
-                                  style={getStatusStyle(status)}
-                                >
-                                  {status}
-                                </div>
+                                {status ? (
+                                  <div
+                                    className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-medium mx-auto"
+                                    style={getStatusStyle(status)}
+                                  >
+                                    {status}
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 mx-auto"></div>
+                                )}
                               </td>
                             );
                           })}

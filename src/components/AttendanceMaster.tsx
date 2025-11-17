@@ -262,10 +262,6 @@ export function AttendanceMaster() {
     try {
       setLoading(true);
 
-      // VERSION CHECK - If you see this in console, new code is loaded!
-      console.log('🔄 AttendanceMaster.tsx - Version: 2025-11-17-v4 (PAGINATION LOOP)');
-      console.log(`📅 Loading attendance for: ${selectedMonth} ${selectedYear}`);
-
       // Calculate date range for selected month/year
       const monthNumber = getMonthNumber(selectedMonth);
 
@@ -280,11 +276,6 @@ export function AttendanceMaster() {
       const lastDay = `${year}-${month}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
       // Fetch data in batches due to Supabase 1000-row limit per request
-      console.log('='.repeat(60));
-      console.log('ATTENDANCE QUERY - v4 (PAGINATION LOOP FIX)');
-      console.log('='.repeat(60));
-      console.log(`Date range: ${firstDay} to ${lastDay}`);
-
       let allData: any[] = [];
       let currentPage = 0;
       const pageSize = 1000;
@@ -301,15 +292,10 @@ export function AttendanceMaster() {
       if (countError) throw countError;
       totalCount = totalRecords || 0;
 
-      console.log(`Total records in DB: ${totalCount}`);
-      console.log(`Fetching in batches of ${pageSize}...`);
-
       // Fetch all data in batches
       while (hasMore && currentPage * pageSize < totalCount) {
         const from = currentPage * pageSize;
         const to = from + pageSize - 1;
-
-        console.log(`Fetching batch ${currentPage + 1}: rows ${from}-${to}`);
 
         const { data: batchData, error: batchError } = await supabase
           .from('attendance_records')
@@ -331,7 +317,6 @@ export function AttendanceMaster() {
 
         if (batchData && batchData.length > 0) {
           allData.push(...batchData);
-          console.log(`✓ Batch ${currentPage + 1} fetched: ${batchData.length} records`);
           currentPage++;
         } else {
           hasMore = false;
@@ -339,14 +324,10 @@ export function AttendanceMaster() {
 
         // Safety break - max 20 batches (20,000 records)
         if (currentPage >= 20) {
-          console.warn('⚠️ Reached maximum batch limit (20 batches)');
+          console.warn('Reached maximum batch limit (20 batches = 20,000 records)');
           break;
         }
       }
-
-      console.log('='.repeat(60));
-      console.log(`✅ Total fetched: ${allData.length} / ${totalCount} records`);
-      console.log('='.repeat(60));
 
       if (!allData || allData.length === 0) {
         setAttendanceData([]);
