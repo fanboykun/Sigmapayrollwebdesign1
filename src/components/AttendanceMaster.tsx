@@ -262,32 +262,100 @@ export function AttendanceMaster() {
     try {
       setLoading(true);
 
+      // VERSION CHECK - If you see this in console, new code is loaded!
+      console.log('🔄 AttendanceMaster.tsx - Version: 2025-11-17-v4 (PAGINATION LOOP)');
+      console.log(`📅 Loading attendance for: ${selectedMonth} ${selectedYear}`);
+
       // Calculate date range for selected month/year
       const monthNumber = getMonthNumber(selectedMonth);
-      const firstDay = new Date(selectedYear, monthNumber - 1, 1);
-      const lastDay = new Date(selectedYear, monthNumber, 0);
 
-      // Build query
-      let query = supabase
+      // Create date strings directly to avoid timezone issues
+      // Format: YYYY-MM-DD
+      const year = selectedYear;
+      const month = String(monthNumber).padStart(2, '0');
+      const firstDay = `${year}-${month}-01`;
+
+      // Get last day of month
+      const lastDayOfMonth = new Date(selectedYear, monthNumber, 0).getDate();
+      const lastDay = `${year}-${month}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+      // Fetch data in batches due to Supabase 1000-row limit per request
+      console.log('='.repeat(60));
+      console.log('ATTENDANCE QUERY - v4 (PAGINATION LOOP FIX)');
+      console.log('='.repeat(60));
+      console.log(`Date range: ${firstDay} to ${lastDay}`);
+
+      let allData: any[] = [];
+      let currentPage = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let totalCount = 0;
+
+      // First, get total count
+      const { count: totalRecords, error: countError } = await supabase
         .from('attendance_records')
-        .select(`
-          id,
-          employee_id,
-          date,
-          status,
-          notes,
-          created_at,
-          updated_at
-        `)
-        .gte('date', firstDay.toISOString().split('T')[0])
-        .lte('date', lastDay.toISOString().split('T')[0]);
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay);
 
-      const { data, error } = await query;
+      if (countError) throw countError;
+      totalCount = totalRecords || 0;
 
-      if (error) throw error;
+      console.log(`Total records in DB: ${totalCount}`);
+      console.log(`Fetching in batches of ${pageSize}...`);
+
+      // Fetch all data in batches
+      while (hasMore && currentPage * pageSize < totalCount) {
+        const from = currentPage * pageSize;
+        const to = from + pageSize - 1;
+
+        console.log(`Fetching batch ${currentPage + 1}: rows ${from}-${to}`);
+
+        const { data: batchData, error: batchError } = await supabase
+          .from('attendance_records')
+          .select(`
+            id,
+            employee_id,
+            date,
+            status,
+            notes,
+            created_at,
+            updated_at
+          `)
+          .gte('date', firstDay)
+          .lte('date', lastDay)
+          .range(from, to)
+          .order('date', { ascending: true });
+
+        if (batchError) throw batchError;
+
+        if (batchData && batchData.length > 0) {
+          allData.push(...batchData);
+          console.log(`✓ Batch ${currentPage + 1} fetched: ${batchData.length} records`);
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+
+        // Safety break - max 20 batches (20,000 records)
+        if (currentPage >= 20) {
+          console.warn('⚠️ Reached maximum batch limit (20 batches)');
+          break;
+        }
+      }
+
+      console.log('='.repeat(60));
+      console.log(`✅ Total fetched: ${allData.length} / ${totalCount} records`);
+      console.log('='.repeat(60));
+
+      if (!allData || allData.length === 0) {
+        setAttendanceData([]);
+        toast.warning('Tidak ada data presensi untuk periode yang dipilih');
+        return;
+      }
 
       // Fetch employee details for each attendance record
-      const employeeIds = [...new Set((data || []).map((a: any) => a.employee_id))];
+      const employeeIds = [...new Set(allData.map((a: any) => a.employee_id))];
 
       if (employeeIds.length === 0) {
         setAttendanceData([]);
@@ -330,7 +398,7 @@ export function AttendanceMaster() {
       ]));
 
       // Transform attendance data
-      const transformedData: Attendance[] = (data || [])
+      const transformedData: Attendance[] = allData
         .map((record: any) => {
           const employee = employeeMap.get(record.employee_id);
 
@@ -375,7 +443,7 @@ export function AttendanceMaster() {
       console.log(`Loaded ${transformedData.length} attendance records for ${selectedMonth} ${selectedYear}`);
 
       // Notify if some records were skipped
-      const skippedCount = (data || []).length - transformedData.length;
+      const skippedCount = allData.length - transformedData.length;
       if (skippedCount > 0) {
         toast.warning(`${skippedCount} data presensi tidak dapat ditampilkan karena data karyawan tidak ditemukan. Periksa console untuk detail.`);
       }
@@ -1041,36 +1109,37 @@ export function AttendanceMaster() {
                 </div>
 
                 {/* Table */}
-                <div className="border rounded-lg overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tanggal</TableHead>
-                        <TableHead>ID Karyawan</TableHead>
-                        <TableHead>Nama Karyawan</TableHead>
-                        <TableHead>Divisi</TableHead>
-                        <TableHead>Posisi</TableHead>
-                        <TableHead className="text-center">Status</TableHead>
-                        <TableHead>Keterangan</TableHead>
-                        <TableHead>Dibuat Oleh</TableHead>
-                        <TableHead className="text-right">Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading ? (
+                <div className="border rounded-lg overflow-x-auto">
+                  <div className="max-h-[70vh] overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center py-12">
-                            <Loader2 className="animate-spin mx-auto text-muted-foreground" size={32} />
-                          </TableCell>
+                          <TableHead>Tanggal</TableHead>
+                          <TableHead>ID Karyawan</TableHead>
+                          <TableHead>Nama Karyawan</TableHead>
+                          <TableHead>Divisi</TableHead>
+                          <TableHead>Posisi</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead>Keterangan</TableHead>
+                          <TableHead>Dibuat Oleh</TableHead>
+                          <TableHead className="text-right">Aksi</TableHead>
                         </TableRow>
-                      ) : paginatedData.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                            Tidak ada data presensi untuk periode yang dipilih
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        paginatedData.map((item) => {
+                      </TableHeader>
+                      <TableBody>
+                        {loading ? (
+                          <TableRow>
+                            <TableCell colSpan={9} className="text-center py-12">
+                              <Loader2 className="animate-spin mx-auto text-muted-foreground" size={32} />
+                            </TableCell>
+                          </TableRow>
+                        ) : paginatedData.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                              Tidak ada data presensi untuk periode yang dipilih
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          paginatedData.map((item) => {
                           const statusBadge = getStatusBadge(item.status);
                           const division = divisions.find(d => d.nama_divisi === item.division);
                           return (
@@ -1152,6 +1221,7 @@ export function AttendanceMaster() {
                       )}
                     </TableBody>
                   </Table>
+                  </div>
                 </div>
 
                 {/* Pagination Info and Controls */}

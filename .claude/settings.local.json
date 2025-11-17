@@ -15,7 +15,19 @@
       "Bash(npm run dev:*)",
       "Bash(timeout /t 5)",
       "Bash(ping:*)",
-      "Bash(\"src\\hooks\\useWageScales.ts\")"
+      "Bash(\"src\\hooks\\useWageScales.ts\")",
+      "Bash(ATTENDANCE_FIX_SUMMARY.md )",
+      "Bash(CARA_SEED_ATTENDANCE_DATA.md )",
+      "Bash(DEBUG_CHECKLIST.md )",
+      "Bash(FINAL_DIAGNOSIS.md )",
+      "Bash(FINAL_FIX_V4.md )",
+      "Bash(LANGKAH_TESTING.md )",
+      "Bash(MASALAH_DITEMUKAN_DAN_DIPERBAIKI.md )",
+      "Bash(SUKSES_DATA_SUDAH_MASUK.md )",
+      "Bash(test_direct_insert.ts )",
+      "Bash(test_logged_in_insert.md )",
+      "Bash(direct_sql_test.sql )",
+      "Bash(seed_attendance_simple.sql)"
     ],
     "deny": [],
     "ask": []
