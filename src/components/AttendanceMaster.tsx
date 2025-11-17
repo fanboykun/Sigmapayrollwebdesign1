@@ -1090,8 +1090,8 @@ export function AttendanceMaster() {
                 </div>
 
                 {/* Table */}
-                <div className="border rounded-lg overflow-x-auto">
-                  <div className="max-h-[70vh] overflow-y-auto">
+                <div className="border rounded-lg">
+                  <div className="max-h-[calc(100vh-350px)] overflow-y-auto overflow-x-auto">
                     <Table>
                       <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
@@ -1102,20 +1102,19 @@ export function AttendanceMaster() {
                           <TableHead>Posisi</TableHead>
                           <TableHead className="text-center">Status</TableHead>
                           <TableHead>Keterangan</TableHead>
-                          <TableHead>Dibuat Oleh</TableHead>
                           <TableHead className="text-right">Aksi</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {loading ? (
                           <TableRow>
-                            <TableCell colSpan={9} className="text-center py-12">
+                            <TableCell colSpan={8} className="text-center py-12">
                               <Loader2 className="animate-spin mx-auto text-muted-foreground" size={32} />
                             </TableCell>
                           </TableRow>
                         ) : paginatedData.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                               Tidak ada data presensi untuk periode yang dipilih
                             </TableCell>
                           </TableRow>
@@ -1167,9 +1166,6 @@ export function AttendanceMaster() {
                                 <div className="max-w-xs truncate" title={item.notes}>
                                   {item.notes || "-"}
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <span className="text-sm">{item.createdBy}</span>
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-2">
