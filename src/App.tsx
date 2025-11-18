@@ -50,7 +50,6 @@ import { PresensiReport } from "./components/PresensiReport";
 import { BpjsReport } from "./components/BpjsReport";
 import { PremiumMaster } from "./components/PremiumMaster";
 import { WorkingDaysMaster } from "./components/WorkingDaysMaster";
-import { HolidayMaster } from "./components/HolidayMaster";
 import { AttendanceMaster } from "./components/AttendanceMaster";
 import { LeaveManagement } from "./components/LeaveManagement";
 import { EmployeeTransfer } from "./components/EmployeeTransfer";
@@ -119,7 +118,6 @@ type ViewType =
   | "tax-master"
   | "potongan"
   | "working-days"
-  | "holidays"
   | "attendance"
   | "leave"
   | "settings"
@@ -395,11 +393,6 @@ function MainApp() {
           {activeView === "working-days" && (
             <PermissionGuard module="working_days_master">
               <WorkingDaysMaster />
-            </PermissionGuard>
-          )}
-          {activeView === "holidays" && (
-            <PermissionGuard module="holiday_master">
-              <HolidayMaster />
             </PermissionGuard>
           )}
           {activeView === "attendance" && (

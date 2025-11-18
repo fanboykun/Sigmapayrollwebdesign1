@@ -63,7 +63,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { useAuth } from "../contexts/AuthContext";
 import { PermissionGuard } from "./PermissionGuard";
 import { DatePicker } from "./ui/date-picker";
 import { format } from "date-fns";
@@ -86,11 +85,10 @@ const categoryLabels: Record<HolidayCategory, string> = {
 };
 
 /**
- * Komponen utama HolidayMaster
- * Mengelola master hari libur untuk sistem payroll
+ * Komponen konten HolidayMaster (tanpa wrapper)
+ * Digunakan sebagai tab content di WorkingDaysMaster
  */
-export function HolidayMaster() {
-  const { user } = useAuth();
+export function HolidayMasterContent() {
   const { toast } = useToast();
   const { holidays, loading, error, addHoliday, updateHoliday, deleteHoliday } = useHolidays();
 
@@ -282,21 +280,9 @@ export function HolidayMaster() {
   };
 
   return (
-    <PermissionGuard module="holiday_master" action="view">
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="flex items-center gap-2">
-            <CalendarIcon className="h-8 w-8" />
-            Master Hari Libur
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Kelola data hari libur nasional, cuti bersama, dan hari libur perusahaan
-          </p>
-        </div>
-
-        {/* Card dengan Table */}
-        <Card>
+    <>
+      {/* Card dengan Table */}
+      <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -568,6 +554,30 @@ export function HolidayMaster() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+    </>
+  );
+}
+
+/**
+ * Komponen utama HolidayMaster dengan wrapper
+ * Untuk digunakan sebagai halaman standalone
+ */
+export function HolidayMaster() {
+  return (
+    <PermissionGuard module="holiday_master" action="view">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="flex items-center gap-2">
+            <CalendarIcon className="h-8 w-8" />
+            Master Hari Libur
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Kelola data hari libur nasional, cuti bersama, dan hari libur perusahaan
+          </p>
+        </div>
+
+        <HolidayMasterContent />
       </div>
     </PermissionGuard>
   );

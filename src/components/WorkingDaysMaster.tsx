@@ -16,7 +16,7 @@
  * @author Sistem ERP Perkebunan Sawit
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Calendar,
   Plus,
@@ -25,7 +25,9 @@ import {
   Search,
   Save,
   X,
-  Clock
+  Clock,
+  Loader2,
+  CalendarDays
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -67,10 +69,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import {
   getWorkingDaysInMonth,
   getMonthNumber,
-  MASTER_HOLIDAYS_2025,
   MONTH_NAMES_ID,
 } from "../shared/holidayData";
 import { WorkingHours } from "./WorkingHours";
+import { HolidayMasterContent } from "./HolidayMaster";
+import { useWorkingDays } from "../hooks/useWorkingDays";
+import { useHolidays } from "../hooks/useHolidays";
+import { toast } from "sonner";
 
 /**
  * Interface untuk data Hari Kerja
@@ -99,6 +104,21 @@ export function WorkingDaysMaster() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkingDay | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Supabase hook
+  const {
+    workingDays: dbWorkingDays,
+    loading,
+    error,
+    addWorkingDay,
+    updateWorkingDay,
+    deleteWorkingDay,
+    fetchWorkingDays,
+  } = useWorkingDays();
+
+  // Fetch holidays from database for calculation
+  const { holidays: dbHolidays } = useHolidays();
 
   // State untuk form input
   const [formData, setFormData] = useState({
@@ -111,62 +131,43 @@ export function WorkingDaysMaster() {
     effectiveDays: 0,
   });
 
-  // Helper function untuk generate data hari kerja seluruh tahun 2025
-  const generateWorkingDaysData = (): WorkingDay[] => {
-    const data: WorkingDay[] = [];
-    const year = 2025;
+  // Transform database data to UI format
+  const workingDays = useMemo(() => {
+    return dbWorkingDays.map(wd => {
+      const monthName = MONTH_NAMES_ID[(wd.month || 1) - 1];
 
-    for (let month = 1; month <= 12; month++) {
-      const monthName = MONTH_NAMES_ID[month - 1];
+      // Re-calculate total days and weekends from month/year
+      const totalDays = new Date(wd.year, wd.month || 1, 0).getDate();
 
-      // Hitung total hari dalam bulan
-      const totalDays = new Date(year, month, 0).getDate();
-
-      // Hitung weekend dalam bulan (hanya Minggu, Sabtu tetap kerja)
-      let weekends = 0;
+      // Calculate weekends (Sundays) for this month
+      let weekendDaysCount = 0;
       for (let day = 1; day <= totalDays; day++) {
-        const date = new Date(year, month - 1, day);
-        const dayOfWeek = date.getDay();
-        if (dayOfWeek === 0) { // Hanya Minggu
-          weekends++;
+        const currentDate = new Date(wd.year, (wd.month || 1) - 1, day);
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek === 0) { // Sunday
+          weekendDaysCount++;
         }
       }
 
-      // Hitung hari libur dari master data (excluding Minggu)
-      const holidaysInMonth = MASTER_HOLIDAYS_2025.filter(holiday => {
-        const holidayDate = new Date(holiday.date);
-        const holidayMonth = holidayDate.getMonth() + 1;
-        const dayOfWeek = holidayDate.getDay();
-        // Hanya hitung libur yang bukan Minggu
-        return holidayMonth === month && dayOfWeek !== 0;
-      }).length;
+      const workingDaysCount = wd.working_days || 0;
+      const holidayDaysCount = wd.holidays || 0;
+      const effectiveDays = workingDaysCount - holidayDaysCount;
 
-      // Hari kerja = Total hari - Weekend
-      const workingDays = totalDays - weekends;
-
-      // Hari efektif = Hari kerja - Hari libur
-      const effectiveDays = getWorkingDaysInMonth(year, month);
-
-      data.push({
-        id: month.toString(),
+      return {
+        id: wd.id,
         month: monthName,
-        year: year,
-        totalDays: totalDays,
-        workingDays: workingDays,
-        holidays: holidaysInMonth,
-        weekends: weekends,
-        effectiveDays: effectiveDays,
+        year: wd.year,
+        totalDays,
+        workingDays: workingDaysCount,
+        holidays: holidayDaysCount,
+        weekends: weekendDaysCount,
+        effectiveDays,
         createdBy: "System",
-        createdAt: `${year}-${String(month).padStart(2, '0')}-01`,
-        updatedAt: `${year}-${String(month).padStart(2, '0')}-01`,
-      });
-    }
-
-    return data;
-  };
-
-  // Data hari kerja untuk seluruh tahun 2025
-  const [workingDays, setWorkingDays] = useState<WorkingDay[]>(generateWorkingDaysData());
+        createdAt: wd.created_at || "",
+        updatedAt: wd.updated_at || "",
+      } as WorkingDay;
+    });
+  }, [dbWorkingDays]);
 
   /**
    * Filter data berdasarkan pencarian
@@ -214,40 +215,97 @@ export function WorkingDaysMaster() {
   /**
    * Simpan data (create/update)
    */
-  const handleSave = () => {
-    if (editingItem) {
-      // Update existing
-      setWorkingDays(workingDays.map(item =>
-        item.id === editingItem.id
-          ? {
-              ...item,
-              ...formData,
-              updatedAt: new Date().toISOString().split('T')[0],
-            }
-          : item
-      ));
-    } else {
-      // Create new
-      const newItem: WorkingDay = {
-        id: (workingDays.length + 1).toString(),
-        ...formData,
-        createdBy: user?.name || "Admin",
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0],
-      };
-      setWorkingDays([...workingDays, newItem]);
+  const handleSave = async () => {
+    // Validate
+    if (!formData.month || !formData.year) {
+      toast.error("Bulan dan tahun wajib diisi!");
+      return;
     }
-    setIsDialogOpen(false);
+
+    try {
+      setSaving(true);
+
+      // Convert month name to number
+      const monthNumber = MONTH_NAMES_ID.indexOf(formData.month) + 1;
+      if (monthNumber === 0) {
+        toast.error("Bulan tidak valid!");
+        return;
+      }
+
+      // Check for duplicate (only when creating new, not when editing)
+      if (!editingItem) {
+        const isDuplicate = dbWorkingDays.some(
+          wd => wd.year === formData.year && wd.month === monthNumber
+        );
+
+        if (isDuplicate) {
+          toast.error(`Data untuk ${formData.month} ${formData.year} sudah ada! Hapus data lama terlebih dahulu jika ingin menambahkan data baru.`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Prepare data for Supabase
+      // Only save columns that exist in database schema
+      const dataToSave = {
+        year: formData.year,
+        month: monthNumber,
+        working_days: formData.workingDays,  // Hari kerja (Total - Weekend)
+        holidays: formData.holidays,          // Hari libur nasional
+        description: `Total: ${formData.totalDays} hari, Weekend: ${formData.weekends} hari, Efektif: ${formData.effectiveDays} hari`,
+      };
+
+      if (editingItem) {
+        // Update existing
+        const { error } = await updateWorkingDay(editingItem.id, dataToSave);
+        if (error) {
+          toast.error(error);
+        } else {
+          toast.success("Data hari kerja berhasil diperbarui");
+          await fetchWorkingDays(); // Refresh data
+          setIsDialogOpen(false);
+        }
+      } else {
+        // Create new
+        const { error } = await addWorkingDay(dataToSave);
+        if (error) {
+          toast.error(error);
+        } else {
+          toast.success("Data hari kerja berhasil ditambahkan");
+          await fetchWorkingDays(); // Refresh data
+          setIsDialogOpen(false);
+        }
+      }
+    } catch (err: any) {
+      console.error("Error saving working day:", err);
+      toast.error("Gagal menyimpan data");
+    } finally {
+      setSaving(false);
+    }
   };
 
   /**
    * Handle delete confirmation
    */
-  const handleDelete = () => {
-    if (editingItem) {
-      setWorkingDays(workingDays.filter(item => item.id !== editingItem.id));
-      setIsDeleteDialogOpen(false);
-      setEditingItem(null);
+  const handleDelete = async () => {
+    if (!editingItem) return;
+
+    try {
+      setSaving(true);
+      const { error } = await deleteWorkingDay(editingItem.id);
+      if (error) {
+        toast.error(error);
+      } else {
+        toast.success("Data hari kerja berhasil dihapus");
+        await fetchWorkingDays(); // Refresh data
+        setIsDeleteDialogOpen(false);
+        setEditingItem(null);
+      }
+    } catch (err: any) {
+      console.error("Error deleting working day:", err);
+      toast.error("Gagal menghapus data");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -276,13 +334,14 @@ export function WorkingDaysMaster() {
       }
     }
 
-    // 3. Hitung hari libur dari master data (excluding Minggu)
-    const holidaysInMonth = MASTER_HOLIDAYS_2025.filter(holiday => {
+    // 3. Hitung hari libur dari database (excluding Minggu)
+    const holidaysInMonth = (dbHolidays || []).filter(holiday => {
       const holidayDate = new Date(holiday.date);
       const holidayMonth = holidayDate.getMonth() + 1;
+      const holidayYear = holidayDate.getFullYear();
       const dayOfWeek = holidayDate.getDay();
-      // Hanya hitung libur yang bukan Minggu
-      return holidayMonth === month && holidayDate.getFullYear() === year && dayOfWeek !== 0;
+      // Hanya hitung libur yang bukan Minggu dan sesuai bulan/tahun
+      return holidayMonth === month && holidayYear === year && dayOfWeek !== 0;
     }).length;
 
     // 4. Hitung hari kerja = Total hari - Weekend
@@ -332,6 +391,10 @@ export function WorkingDaysMaster() {
               <Calendar className="h-4 w-4" />
               Hari Kerja
             </TabsTrigger>
+            <TabsTrigger value="hari-libur">
+              <CalendarDays className="h-4 w-4" />
+              Hari Libur
+            </TabsTrigger>
             <TabsTrigger value="jam-kerja">
               <Clock className="h-4 w-4" />
               Jam Kerja
@@ -340,6 +403,18 @@ export function WorkingDaysMaster() {
 
           {/* Tab Content: Hari Kerja */}
           <TabsContent value="hari-kerja" className="space-y-6">
+        {/* Error Display */}
+        {error && (
+          <Card className="border-destructive bg-destructive/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-destructive">
+                <X className="h-5 w-5" />
+                <p className="font-medium">Terjadi kesalahan: {error}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
@@ -385,7 +460,7 @@ export function WorkingDaysMaster() {
             </CardHeader>
             <CardContent>
               <div className="text-sm text-muted-foreground">
-                Sabtu & Minggu
+                Minggu
               </div>
             </CardContent>
           </Card>
@@ -439,7 +514,16 @@ export function WorkingDaysMaster() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.length === 0 ? (
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">Memuat data...</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Tidak ada data ditemukan
@@ -588,7 +672,7 @@ export function WorkingDaysMaster() {
                     <div className="p-3 bg-white rounded border">
                       <Label className="text-xs text-muted-foreground">Weekend</Label>
                       <div className="text-2xl font-bold text-gray-700">{formData.weekends}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Sabtu & Minggu</p>
+                      <p className="text-xs text-muted-foreground mt-1">Minggu</p>
                     </div>
 
                     {/* Hari Kerja */}
@@ -624,13 +708,29 @@ export function WorkingDaysMaster() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                disabled={saving}
+              >
                 <X className="h-4 w-4 mr-2" />
                 Batal
               </Button>
-              <Button onClick={handleSave}>
-                <Save className="h-4 w-4 mr-2" />
-                Simpan
+              <Button
+                onClick={handleSave}
+                disabled={saving || !formData.month || !formData.year}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Simpan
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -650,15 +750,32 @@ export function WorkingDaysMaster() {
               <Button
                 variant="outline"
                 onClick={() => setIsDeleteDialogOpen(false)}
+                disabled={saving}
               >
                 Batal
               </Button>
-              <Button variant="destructive" onClick={handleDelete}>
-                Hapus
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Menghapus...
+                  </>
+                ) : (
+                  "Hapus"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+          </TabsContent>
+
+          {/* Tab Content: Hari Libur */}
+          <TabsContent value="hari-libur" className="space-y-6">
+            <HolidayMasterContent />
           </TabsContent>
 
           {/* Tab Content: Jam Kerja */}

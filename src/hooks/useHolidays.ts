@@ -31,6 +31,75 @@ export function useHolidays() {
     }
   }
 
+  /**
+   * Generate attendance records untuk semua karyawan aktif pada tanggal libur
+   */
+  const generateAttendanceRecordsForHoliday = async (date: string, holidayName: string) => {
+    try {
+      // Fetch all active employees
+      const { data: employees, error: empError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('status', 'active')
+
+      if (empError) throw empError
+      if (!employees || employees.length === 0) return
+
+      // Create attendance records for each employee
+      const attendanceRecords = employees.map(emp => ({
+        employee_id: emp.id,
+        date: date,
+        status: 'holiday',
+        notes: `Libur: ${holidayName}`,
+        check_in: null,
+        check_out: null,
+        work_hours: null,
+        overtime_hours: 0
+      }))
+
+      // Insert attendance records using upsert to handle duplicates
+      const { error: insertError } = await supabase
+        .from('attendance_records')
+        .upsert(attendanceRecords, {
+          onConflict: 'employee_id,date',
+          ignoreDuplicates: false
+        })
+
+      if (insertError) {
+        console.error('Error creating attendance records for holiday:', insertError)
+        throw insertError
+      }
+
+      console.log(`Successfully created ${attendanceRecords.length} attendance records for holiday: ${holidayName}`)
+    } catch (err: any) {
+      console.error('Error generating attendance records for holiday:', err)
+      throw err
+    }
+  }
+
+  /**
+   * Delete attendance records dengan status holiday untuk tanggal tertentu
+   */
+  const deleteAttendanceRecordsForHoliday = async (date: string) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('date', date)
+        .eq('status', 'holiday')
+
+      if (deleteError) {
+        console.error('Error deleting attendance records for holiday:', deleteError)
+        throw deleteError
+      }
+
+      console.log(`Successfully deleted attendance records for holiday date: ${date}`)
+    } catch (err: any) {
+      console.error('Error deleting attendance records for holiday:', err)
+      throw err
+    }
+  }
+
   const addHoliday = async (holiday: HolidayInsert) => {
     try {
       setLoading(true)
@@ -43,6 +112,11 @@ export function useHolidays() {
         .single()
 
       if (insertError) throw insertError
+
+      // Auto-generate attendance records untuk semua karyawan aktif
+      if (data?.date) {
+        await generateAttendanceRecordsForHoliday(data.date, data.name)
+      }
 
       setHolidays(prev => [...prev, data])
       return { data, error: null }
@@ -85,12 +159,20 @@ export function useHolidays() {
       setLoading(true)
       setError(null)
 
+      // Get holiday data before deleting
+      const holidayToDelete = holidays.find(h => h.id === id)
+
       const { error: deleteError } = await supabase
         .from('holidays')
         .delete()
         .eq('id', id)
 
       if (deleteError) throw deleteError
+
+      // Auto-delete attendance records untuk tanggal libur ini
+      if (holidayToDelete?.date) {
+        await deleteAttendanceRecordsForHoliday(holidayToDelete.date)
+      }
 
       setHolidays(prev => prev.filter(h => h.id !== id))
       return { error: null }

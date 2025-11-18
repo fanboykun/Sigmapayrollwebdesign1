@@ -372,34 +372,34 @@ export interface Database {
       working_days: {
         Row: {
           id: string
+          division_id: string | null
           year: number
           month: number
-          total_days: number
           working_days: number
-          weekend_days: number
-          holiday_days: number
+          holidays: number
+          description: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
+          division_id?: string | null
           year: number
           month: number
-          total_days: number
           working_days: number
-          weekend_days?: number
-          holiday_days?: number
+          holidays?: number
+          description?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
+          division_id?: string | null
           year?: number
           month?: number
-          total_days?: number
           working_days?: number
-          weekend_days?: number
-          holiday_days?: number
+          holidays?: number
+          description?: string | null
           created_at?: string
           updated_at?: string
         }

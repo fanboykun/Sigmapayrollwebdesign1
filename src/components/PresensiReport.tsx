@@ -27,6 +27,7 @@ import { format, getDaysInMonth, getDay, startOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { supabase } from '../utils/supabase/client';
 import { toast } from 'sonner';
+import { useHolidays } from '../hooks/useHolidays';
 
 /**
  * Interface untuk data presensi karyawan
@@ -74,30 +75,11 @@ const mapDBStatusToUI = (dbStatus: DBStatus): AttendanceStatus => {
 };
 
 /**
- * Data hari libur nasional 2025 (contoh)
- * Dalam implementasi sebenarnya, ini akan diambil dari database
+ * Data hari libur nasional 2025 (contoh) - DEPRECATED
+ * Sekarang menggunakan data dari database melalui useHolidays hook
  */
-const HOLIDAYS_2025: Record<string, string> = {
-  '2025-01-01': 'Tahun Baru 2025',
-  '2025-03-29': 'Hari Raya Nyepi',
-  '2025-03-30': 'Cuti Bersama Nyepi',
-  '2025-03-31': 'Wafat Isa Almasih',
-  '2025-04-01': 'Cuti Bersama Idul Fitri',
-  '2025-04-02': 'Cuti Bersama Idul Fitri',
-  '2025-04-03': 'Idul Fitri 1446 H',
-  '2025-04-04': 'Idul Fitri 1446 H',
-  '2025-04-05': 'Cuti Bersama Idul Fitri',
-  '2025-05-01': 'Hari Buruh Internasional',
-  '2025-05-29': 'Kenaikan Yesus Kristus',
-  '2025-06-01': 'Hari Lahir Pancasila',
-  '2025-06-07': 'Idul Adha 1446 H',
-  '2025-06-28': 'Tahun Baru Islam 1447 H',
-  '2025-08-17': 'Hari Kemerdekaan RI',
-  '2025-09-06': 'Maulid Nabi Muhammad SAW',
-  '2025-12-25': 'Hari Raya Natal',
-};
-
-// This function is no longer needed as we fetch from database
+// const HOLIDAYS_2025: Record<string, string> = { ... };
+// Hardcoded holidays removed - now using database
 
 /**
  * Komponen utama PresensiReport
@@ -114,6 +96,9 @@ export function PresensiReport() {
   const [divisions, setDivisions] = useState<any[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Fetch holidays from database
+  const { holidays: dbHolidays } = useHolidays();
 
   // Generate list tahun (3 tahun ke belakang dan 1 tahun ke depan)
   const years = useMemo(() => {
@@ -272,7 +257,19 @@ export function PresensiReport() {
     const sundaySet = new Set<number>();
     const holidaySet = new Set<number>();
 
-    // Find all Sundays in the month
+    // Build holiday map from database for the selected month/year
+    const holidayMap = new Map<string, string>();
+    if (dbHolidays && dbHolidays.length > 0) {
+      dbHolidays.forEach((holiday) => {
+        // Filter only holidays in the selected month/year
+        const holidayDate = new Date(holiday.date);
+        if (holidayDate.getFullYear() === year && holidayDate.getMonth() + 1 === month) {
+          holidayMap.set(holiday.date, holiday.name);
+        }
+      });
+    }
+
+    // Find all Sundays and holidays in the month
     for (let day = 1; day <= days; day++) {
       const date = new Date(year, month - 1, day);
       const dayOfWeek = getDay(date);
@@ -282,9 +279,9 @@ export function PresensiReport() {
         sundaySet.add(day);
       }
 
-      // Check if it's a holiday
+      // Check if it's a holiday from database
       const dateStr = format(date, 'yyyy-MM-dd');
-      if (HOLIDAYS_2025[dateStr]) {
+      if (holidayMap.has(dateStr)) {
         holidaySet.add(day);
       }
     }
@@ -294,7 +291,7 @@ export function PresensiReport() {
       sundays: sundaySet,
       holidays: holidaySet,
     };
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, dbHolidays]);
 
   // Generate attendance data for all employees from database
   const attendanceData: EmployeeAttendance[] = useMemo(() => {

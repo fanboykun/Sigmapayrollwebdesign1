@@ -274,7 +274,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    */
   const presenceMenuItems = [
     { id: 'working-days', label: 'Hari Kerja', icon: Calendar, module: 'working-days' },
-    { id: 'holidays', label: 'Hari Libur', icon: CalendarDays, module: 'holidays' },
     { id: 'attendance', label: 'Data Presensi', icon: ClipboardCheck, module: 'attendance' },
     { id: 'leave', label: 'Cuti Karyawan', icon: Umbrella, module: 'leave' },
   ];
