@@ -55,7 +55,7 @@ type AttendanceStatus = 'HK' | 'A' | 'C' | 'S' | 'P' | 'L'; // L = Libur (Minggu
 /**
  * Database status type
  */
-type DBStatus = 'present' | 'absent' | 'sick' | 'leave' | 'half-day' | 'holiday';
+type DBStatus = 'present' | 'absent' | 'sick' | 'leave' | 'half-day' | 'holiday' | 'cuti';
 
 /**
  * Helper function to map database status to UI status
@@ -66,6 +66,7 @@ const mapDBStatusToUI = (dbStatus: DBStatus): AttendanceStatus => {
     case 'absent': return 'A';
     case 'sick': return 'S';
     case 'leave': return 'P';  // Permit/Izin
+    case 'cuti': return 'C';   // Cuti (dari approval cuti karyawan)
     case 'holiday': return 'L';
     case 'half-day': return 'HK'; // Count as present for reporting
     default: return 'HK';
