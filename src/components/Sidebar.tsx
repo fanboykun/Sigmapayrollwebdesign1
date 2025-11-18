@@ -888,13 +888,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                   setPayrollMainOpen,
                   [
                     {
-                      title: 'Master Data',
-                      icon: Database,
-                      items: filteredPayrollMasterDataItems,
-                      isOpen: payrollMasterDataOpen,
-                      setIsOpen: setPayrollMasterDataOpen
-                    },
-                    {
                       title: 'Penggajian',
                       icon: Calculator,
                       items: filteredPayrollProcessItems,
@@ -907,6 +900,13 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                       items: filteredPayrollReportsItems,
                       isOpen: payrollReportsOpen,
                       setIsOpen: setPayrollReportsOpen
+                    },
+                    {
+                      title: 'Master Data',
+                      icon: Database,
+                      items: filteredPayrollMasterDataItems,
+                      isOpen: payrollMasterDataOpen,
+                      setIsOpen: setPayrollMasterDataOpen
                     }
                   ]
                 )}
@@ -917,24 +917,24 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
             {hasHrAccess && (
               <li className="pt-2">
                 {renderNestedMenu(
-                  'HR',
+                  'HRM',
                   Users,
                   hrMainOpen,
                   setHrMainOpen,
                   [
-                    {
-                      title: 'Master Data',
-                      icon: Database,
-                      items: filteredHrMasterDataItems,
-                      isOpen: hrMasterDataOpen,
-                      setIsOpen: setHrMasterDataOpen
-                    },
                     {
                       title: 'Presensi',
                       icon: ClipboardCheck,
                       items: filteredPresenceMenuItems,
                       isOpen: presenceOpen,
                       setIsOpen: setPresenceOpen
+                    },
+                    {
+                      title: 'Master Data',
+                      icon: Database,
+                      items: filteredHrMasterDataItems,
+                      isOpen: hrMasterDataOpen,
+                      setIsOpen: setHrMasterDataOpen
                     }
                   ]
                 )}
@@ -1126,13 +1126,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                 setPayrollMainOpen,
                 [
                   {
-                    title: 'Master Data',
-                    icon: Database,
-                    items: filteredPayrollMasterDataItems,
-                    isOpen: payrollMasterDataOpen,
-                    setIsOpen: setPayrollMasterDataOpen
-                  },
-                  {
                     title: 'Penggajian',
                     icon: Calculator,
                     items: filteredPayrollProcessItems,
@@ -1145,6 +1138,13 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                     items: filteredPayrollReportsItems,
                     isOpen: payrollReportsOpen,
                     setIsOpen: setPayrollReportsOpen
+                  },
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredPayrollMasterDataItems,
+                    isOpen: payrollMasterDataOpen,
+                    setIsOpen: setPayrollMasterDataOpen
                   }
                 ]
               )}
@@ -1155,24 +1155,24 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
           {hasHrAccess && (
             <li className="pt-2">
               {renderNestedMenu(
-                'HR',
+                'HRM',
                 Users,
                 hrMainOpen,
                 setHrMainOpen,
                 [
-                  {
-                    title: 'Master Data',
-                    icon: Database,
-                    items: filteredHrMasterDataItems,
-                    isOpen: hrMasterDataOpen,
-                    setIsOpen: setHrMasterDataOpen
-                  },
                   {
                     title: 'Presensi',
                     icon: ClipboardCheck,
                     items: filteredPresenceMenuItems,
                     isOpen: presenceOpen,
                     setIsOpen: setPresenceOpen
+                  },
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredHrMasterDataItems,
+                    isOpen: hrMasterDataOpen,
+                    setIsOpen: setHrMasterDataOpen
                   }
                 ]
               )}
