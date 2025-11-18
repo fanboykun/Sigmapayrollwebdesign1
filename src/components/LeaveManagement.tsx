@@ -4,7 +4,7 @@
  * dan search karyawan berdasarkan divisi yang dipilih
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -16,7 +16,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { DatePicker } from './ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Eye, CheckCircle, XCircle, Clock, Calendar as CalendarIcon, FileText, Users, User, ChevronsUpDown, Check, Building2, Plus, Loader2 } from 'lucide-react';
+import { Search, Eye, CheckCircle, XCircle, Clock, Calendar as CalendarIcon, FileText, Users, User, ChevronsUpDown, Check, Building2, Plus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from './ui/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -31,8 +31,14 @@ export function LeaveManagement() {
   // Use the Supabase hooks
   const {
     leaveRequests: dbLeaveRequests,
+    statistics,
+    totalCount,
+    currentPage,
+    pageSize,
     loading: dbLoading,
     error: dbError,
+    goToPage,
+    applyFilters,
     addLeaveRequest,
     approveLeaveRequest,
     rejectLeaveRequest,
@@ -62,6 +68,16 @@ export function LeaveManagement() {
   const [divisionFilter, setDivisionFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('all');
+
+  // Apply filters whenever they change
+  useEffect(() => {
+    applyFilters({
+      search: searchQuery,
+      division: divisionFilter,
+      status: statusFilter,
+      leaveType: leaveTypeFilter,
+    });
+  }, [searchQuery, divisionFilter, statusFilter, leaveTypeFilter]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequestWithEmployee | null>(null);
@@ -78,7 +94,7 @@ export function LeaveManagement() {
     reason: '',
   });
 
-  // Transform Supabase data to component format
+  // Transform Supabase data to component format (SERVER-SIDE FILTERED)
   const leaveRequests = useMemo(() => {
     return dbLeaveRequests.map((req) => ({
       ...req,
@@ -108,19 +124,8 @@ export function LeaveManagement() {
     return enrichedEmployees.filter(emp => emp.division_id === selectedDivisionId && emp.status === 'active');
   }, [enrichedEmployees, selectedDivisionId]);
 
-  // Filter leave requests
-  const filteredRequests = useMemo(() => {
-    return leaveRequests.filter((req) => {
-      const matchesSearch =
-        req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        req.employeeCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        req.division?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesDivision = divisionFilter === 'all' || req.division === divisionFilter;
-      const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
-      const matchesLeaveType = leaveTypeFilter === 'all' || req.leaveType === leaveTypeFilter;
-      return matchesSearch && matchesDivision && matchesStatus && matchesLeaveType;
-    });
-  }, [leaveRequests, searchQuery, divisionFilter, statusFilter, leaveTypeFilter]);
+  // Use leaveRequests directly - already filtered server-side
+  const filteredRequests = leaveRequests;
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -199,7 +204,7 @@ export function LeaveManagement() {
       return;
     }
 
-    toast.success('Pengajuan cuti telah disetujui');
+    toast.success('Pengajuan cuti telah disetujui dan data presensi otomatis telah dibuat');
     setIsDetailDialogOpen(false);
   };
 
@@ -259,13 +264,7 @@ export function LeaveManagement() {
     );
   };
 
-  // Calculate statistics
-  const totalRequests = leaveRequests.length;
-  const pendingRequests = leaveRequests.filter(r => r.status === 'pending').length;
-  const approvedRequests = leaveRequests.filter(r => r.status === 'approved').length;
-  const totalDaysUsed = leaveRequests
-    .filter(r => r.status === 'approved' && r.leaveType === 'annual')
-    .reduce((sum, r) => sum + r.days, 0);
+  // Use statistics from hook (already calculated server-side for better performance)
 
   return (
     <div className="p-4 md:p-6">
@@ -300,7 +299,7 @@ export function LeaveManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Total Pengajuan</p>
-              <h3 className="text-2xl">{totalRequests}</h3>
+              <h3 className="text-2xl">{statistics.totalRequests}</h3>
             </div>
             <div className="w-12 h-12 bg-primary/10 rounded flex items-center justify-center">
               <FileText size={24} className="text-primary" />
@@ -312,7 +311,7 @@ export function LeaveManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Menunggu Approval</p>
-              <h3 className="text-2xl">{pendingRequests}</h3>
+              <h3 className="text-2xl">{statistics.pendingRequests}</h3>
             </div>
             <div className="w-12 h-12 bg-[#f5803e]/10 rounded flex items-center justify-center">
               <Clock size={24} className="text-[#f5803e]" />
@@ -324,7 +323,7 @@ export function LeaveManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Disetujui</p>
-              <h3 className="text-2xl">{approvedRequests}</h3>
+              <h3 className="text-2xl">{statistics.approvedRequests}</h3>
             </div>
             <div className="w-12 h-12 bg-[#00d27a]/10 rounded flex items-center justify-center">
               <CheckCircle size={24} className="text-[#00d27a]" />
@@ -336,7 +335,7 @@ export function LeaveManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Total Hari Cuti Digunakan</p>
-              <h3 className="text-2xl">{totalDaysUsed}</h3>
+              <h3 className="text-2xl">{statistics.totalDaysUsed}</h3>
               <p className="text-xs text-muted-foreground">Cuti tahunan</p>
             </div>
             <div className="w-12 h-12 bg-[#2c7be5]/10 rounded flex items-center justify-center">
@@ -719,9 +718,67 @@ export function LeaveManagement() {
         </div>
 
         <div className="px-4 md:px-6 py-3 md:py-4 border-t border-border">
-          <p className="text-xs md:text-sm text-muted-foreground">
-            Menampilkan {filteredRequests.length} dari {leaveRequests.length} pengajuan
-          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Menampilkan {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} dari {totalCount} total pengajuan
+            </p>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1 || dbLoading}
+                className="gap-1"
+              >
+                <ChevronLeft size={16} />
+                <span className="hidden sm:inline">Previous</span>
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, Math.ceil(totalCount / pageSize)) }, (_, i) => {
+                  const totalPages = Math.ceil(totalCount / pageSize);
+                  let pageNumber;
+
+                  if (totalPages <= 5) {
+                    pageNumber = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNumber = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNumber = totalPages - 4 + i;
+                  } else {
+                    pageNumber = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <Button
+                      key={pageNumber}
+                      variant={currentPage === pageNumber ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => goToPage(pageNumber)}
+                      disabled={dbLoading}
+                      className="w-8 h-8 p-0"
+                    >
+                      {pageNumber}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage >= Math.ceil(totalCount / pageSize) || dbLoading}
+                className="gap-1"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
 

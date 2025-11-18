@@ -96,8 +96,9 @@ import {
 
 /**
  * Tipe status kehadiran
+ * C (Cuti) - hanya bisa dibuat otomatis dari approval cuti, tidak bisa manual input
  */
-type AttendanceStatus = "HK" | "P" | "S" | "A";
+type AttendanceStatus = "HK" | "P" | "S" | "A" | "C";
 
 /**
  * Interface untuk data Presensi
@@ -159,10 +160,26 @@ export function AttendanceMaster() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [divisions, setDivisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(0); // Total records from database
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
+
+  // Statistics state (for cards)
+  const [statistics, setStatistics] = useState({
+    totalEmployees: 0,
+    totalPresent: 0,
+    totalPermission: 0,
+    totalSick: 0,
+    totalAbsent: 0,
+    totalRecords: 0,
+    workingDaysInMonth: 0,
+  });
+
+  // Summary data state (for Summary tab - ALL records for the month)
+  const [summaryData, setSummaryData] = useState<AttendanceSummary[]>([]);
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   // State untuk form input
   const [formData, setFormData] = useState({
@@ -184,6 +201,7 @@ export function AttendanceMaster() {
       case 'leave': return 'P';
       case 'sick': return 'S';
       case 'absent': return 'A';
+      case 'cuti': return 'C';
       default: return 'HK';
     }
   };
@@ -195,6 +213,7 @@ export function AttendanceMaster() {
       case 'P': return 'leave';
       case 'S': return 'sick';
       case 'A': return 'absent';
+      case 'C': return 'cuti';
       default: return 'present';
     }
   };
@@ -257,8 +276,234 @@ export function AttendanceMaster() {
     }
   };
 
-  // Load attendance data from Supabase
-  const loadAttendanceData = async () => {
+  // Load statistics for cards (COUNT queries - very fast)
+  const loadStatistics = async () => {
+    try {
+      const monthNumber = getMonthNumber(selectedMonth);
+      const year = selectedYear;
+      const month = String(monthNumber).padStart(2, '0');
+      const firstDay = `${year}-${month}-01`;
+      const lastDayOfMonth = new Date(selectedYear, monthNumber, 0).getDate();
+      const lastDay = `${year}-${month}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+      // Get total count
+      const { count: total } = await supabase
+        .from('attendance_records')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay);
+
+      // Get count by status
+      const { count: present } = await supabase
+        .from('attendance_records')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay)
+        .eq('status', 'present');
+
+      const { count: permission } = await supabase
+        .from('attendance_records')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay)
+        .eq('status', 'leave');
+
+      const { count: sick } = await supabase
+        .from('attendance_records')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay)
+        .eq('status', 'sick');
+
+      const { count: absent } = await supabase
+        .from('attendance_records')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay)
+        .eq('status', 'absent');
+
+      // Get unique employee count
+      const { data: uniqueEmployees } = await supabase
+        .from('attendance_records')
+        .select('employee_id')
+        .gte('date', firstDay)
+        .lte('date', lastDay);
+
+      const workingDaysInMonth = getWorkingDaysInMonth(selectedYear, monthNumber);
+
+      setStatistics({
+        totalEmployees: uniqueEmployees ? new Set(uniqueEmployees.map(e => e.employee_id)).size : 0,
+        totalPresent: present || 0,
+        totalPermission: permission || 0,
+        totalSick: sick || 0,
+        totalAbsent: absent || 0,
+        totalRecords: total || 0,
+        workingDaysInMonth,
+      });
+
+      setTotalRecords(total || 0);
+    } catch (err: any) {
+      console.error('Error loading statistics:', err);
+    }
+  };
+
+  // Load summary data for Summary tab (ALL records for the month with aggregation)
+  const loadSummaryData = async (division: string = 'all') => {
+    try {
+      setLoadingSummary(true);
+
+      const monthNumber = getMonthNumber(selectedMonth);
+      const year = selectedYear;
+      const month = String(monthNumber).padStart(2, '0');
+      const firstDay = `${year}-${month}-01`;
+      const lastDayOfMonth = new Date(selectedYear, monthNumber, 0).getDate();
+      const lastDay = `${year}-${month}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+      // Step 1: Get division_id if division filter is active
+      let divisionId: string | null = null;
+      if (division !== 'all') {
+        const { data: divData } = await supabase
+          .from('divisions')
+          .select('id')
+          .eq('nama_divisi', division)
+          .single();
+
+        if (divData) {
+          divisionId = divData.id;
+        } else {
+          setSummaryData([]);
+          return;
+        }
+      }
+
+      // Step 2: Fetch ALL attendance records for the month (with filter if needed)
+      // We'll fetch in batches if there are many records
+      let allAttendanceRecords: any[] = [];
+      let hasMore = true;
+      let currentOffset = 0;
+      const batchSize = 1000;
+
+      while (hasMore) {
+        let query = supabase
+          .from('attendance_records')
+          .select('employee_id, status')
+          .gte('date', firstDay)
+          .lte('date', lastDay)
+          .range(currentOffset, currentOffset + batchSize - 1);
+
+        const { data: batchData } = await query;
+
+        if (batchData && batchData.length > 0) {
+          allAttendanceRecords = [...allAttendanceRecords, ...batchData];
+          currentOffset += batchSize;
+          hasMore = batchData.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (allAttendanceRecords.length === 0) {
+        setSummaryData([]);
+        return;
+      }
+
+      // Step 3: Get unique employee IDs from attendance records
+      const uniqueEmployeeIds = [...new Set(allAttendanceRecords.map(r => r.employee_id))];
+
+      // Step 4: Fetch employee details
+      let empQuery = supabase
+        .from('employees')
+        .select('id, employee_id, full_name, division_id, position_id')
+        .in('id', uniqueEmployeeIds)
+        .eq('status', 'active');
+
+      // Apply division filter if needed
+      if (divisionId) {
+        empQuery = empQuery.eq('division_id', divisionId);
+      }
+
+      const { data: employeesData } = await empQuery;
+
+      if (!employeesData || employeesData.length === 0) {
+        setSummaryData([]);
+        return;
+      }
+
+      // Fetch divisions and positions separately
+      const { data: divisionsData } = await supabase
+        .from('divisions')
+        .select('id, kode_divisi, nama_divisi');
+
+      const divisionsMap = new Map((divisionsData || []).map((d: any) => [d.id, d.nama_divisi]));
+
+      const { data: positionsData } = await supabase
+        .from('positions')
+        .select('id, name');
+
+      const positionsMap = new Map((positionsData || []).map((p: any) => [p.id, p.name]));
+
+      // Step 5: Aggregate attendance data by employee
+      const summary: { [key: string]: AttendanceSummary } = {};
+
+      employeesData.forEach(emp => {
+        summary[emp.id] = {
+          employeeId: emp.id,
+          employeeName: emp.full_name,
+          employeeNIP: emp.employee_id,
+          division: divisionsMap.get(emp.division_id) || '-',
+          department: divisionsMap.get(emp.division_id) || '-',
+          position: positionsMap.get(emp.position_id) || '-',
+          totalHK: 0,
+          totalP: 0,
+          totalS: 0,
+          totalA: 0,
+          effectiveDays: 0,
+          month: selectedMonth,
+          year: selectedYear,
+        };
+      });
+
+      // Count statuses
+      allAttendanceRecords.forEach(record => {
+        if (summary[record.employee_id]) {
+          const uiStatus = mapStatusToUI(record.status);
+          switch (uiStatus) {
+            case 'HK':
+              summary[record.employee_id].totalHK++;
+              break;
+            case 'P':
+              summary[record.employee_id].totalP++;
+              break;
+            case 'S':
+              summary[record.employee_id].totalS++;
+              break;
+            case 'A':
+              summary[record.employee_id].totalA++;
+              break;
+            case 'C':
+              // Count cuti as permisi for effective days calculation
+              summary[record.employee_id].totalP++;
+              break;
+          }
+        }
+      });
+
+      // Calculate effective days (HK + P + S)
+      Object.values(summary).forEach(item => {
+        item.effectiveDays = item.totalHK + item.totalP + item.totalS;
+      });
+
+      setSummaryData(Object.values(summary));
+    } catch (err: any) {
+      console.error('Error loading summary data:', err);
+      toast.error('Gagal memuat ringkasan presensi');
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
+  // Load attendance data from Supabase (PAGINATED with SERVER-SIDE FILTERING)
+  const loadAttendanceData = async (page: number = 1, search: string = '', division: string = 'all') => {
     try {
       setLoading(true);
 
@@ -275,59 +520,91 @@ export function AttendanceMaster() {
       const lastDayOfMonth = new Date(selectedYear, monthNumber, 0).getDate();
       const lastDay = `${year}-${month}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-      // Fetch data in batches due to Supabase 1000-row limit per request
-      let allData: any[] = [];
-      let currentPage = 0;
-      const pageSize = 1000;
-      let hasMore = true;
-      let totalCount = 0;
+      // Step 1: If search or division filter is active, find matching employee IDs
+      let employeeIdsFilter: string[] | null = null;
 
-      // First, get total count
-      const { count: totalRecords, error: countError } = await supabase
+      if (search.trim() !== '' || division !== 'all') {
+        // Step 1A: Get division_id if division filter is active
+        let divisionId: string | null = null;
+        if (division !== 'all') {
+          const { data: divData } = await supabase
+            .from('divisions')
+            .select('id')
+            .eq('nama_divisi', division)
+            .single();
+
+          if (divData) {
+            divisionId = divData.id;
+          } else {
+            // Division not found, return empty
+            setAttendanceData([]);
+            setTotalRecords(0);
+            return;
+          }
+        }
+
+        // Build employee query
+        let empQuery = supabase
+          .from('employees')
+          .select('id, employee_id, full_name, division_id')
+          .eq('status', 'active');
+
+        // Apply search filter
+        if (search.trim() !== '') {
+          const searchTerm = search.toLowerCase();
+          empQuery = empQuery.or(`full_name.ilike.%${searchTerm}%,employee_id.ilike.%${searchTerm}%`);
+        }
+
+        // Apply division filter using division_id (not nested field)
+        if (divisionId) {
+          empQuery = empQuery.eq('division_id', divisionId);
+        }
+
+        const { data: matchingEmployees } = await empQuery;
+
+        if (matchingEmployees && matchingEmployees.length > 0) {
+          employeeIdsFilter = matchingEmployees.map(e => e.id);
+        } else {
+          // No matching employees found
+          setAttendanceData([]);
+          setTotalRecords(0);
+          return;
+        }
+      }
+
+      // Calculate pagination range
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      // Build main query
+      let query = supabase
         .from('attendance_records')
-        .select('*', { count: 'exact', head: true })
+        .select(`
+          id,
+          employee_id,
+          date,
+          status,
+          notes,
+          created_at,
+          updated_at
+        `, { count: 'exact' })
         .gte('date', firstDay)
         .lte('date', lastDay);
 
-      if (countError) throw countError;
-      totalCount = totalRecords || 0;
-
-      // Fetch all data in batches
-      while (hasMore && currentPage * pageSize < totalCount) {
-        const from = currentPage * pageSize;
-        const to = from + pageSize - 1;
-
-        const { data: batchData, error: batchError } = await supabase
-          .from('attendance_records')
-          .select(`
-            id,
-            employee_id,
-            date,
-            status,
-            notes,
-            created_at,
-            updated_at
-          `)
-          .gte('date', firstDay)
-          .lte('date', lastDay)
-          .range(from, to)
-          .order('date', { ascending: true });
-
-        if (batchError) throw batchError;
-
-        if (batchData && batchData.length > 0) {
-          allData.push(...batchData);
-          currentPage++;
-        } else {
-          hasMore = false;
-        }
-
-        // Safety break - max 20 batches (20,000 records)
-        if (currentPage >= 20) {
-          console.warn('Reached maximum batch limit (20 batches = 20,000 records)');
-          break;
-        }
+      // Apply employee filter from search/division
+      if (employeeIdsFilter) {
+        query = query.in('employee_id', employeeIdsFilter);
       }
+
+      // Fetch paginated data
+      const { data: allData, error: fetchError, count } = await query
+        .range(from, to)
+        .order('date', { ascending: true });
+
+      if (fetchError) throw fetchError;
+
+      // Update total count for pagination
+      setTotalRecords(count || 0);
 
       if (!allData || allData.length === 0) {
         setAttendanceData([]);
@@ -443,22 +720,27 @@ export function AttendanceMaster() {
   }, []);
 
   useEffect(() => {
-    loadAttendanceData();
+    // Load statistics, first page of data, and summary when month/year changes
+    loadStatistics();
+    loadAttendanceData(1, searchTerm, selectedDivision);
+    loadSummaryData(selectedDivision);
+    setCurrentPage(1); // Reset to page 1 when month/year changes
   }, [selectedMonth, selectedYear]);
 
   /**
-   * Filter data berdasarkan pencarian dan divisi
+   * Reload data when filters change (SERVER-SIDE FILTERING)
    */
-  const filteredData = attendanceData.filter(item => {
-    const matchesSearch =
-      item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.employeeNIP.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.division.toLowerCase().includes(searchTerm.toLowerCase());
+  React.useEffect(() => {
+    setCurrentPage(1);
+    loadAttendanceData(1, searchTerm, selectedDivision);
+    // Reload summary when division filter changes
+    loadSummaryData(selectedDivision);
+  }, [searchTerm, selectedDivision]);
 
-    const matchesDivision = selectedDivision === "all" || item.division === selectedDivision;
-
-    return matchesSearch && matchesDivision;
-  });
+  /**
+   * Data already filtered and paginated from server
+   */
+  const filteredData = attendanceData; // No client-side filtering needed
 
   /**
    * Sorting data berdasarkan tanggal
@@ -471,97 +753,37 @@ export function AttendanceMaster() {
   });
 
   /**
-   * Pagination calculations
+   * Pagination calculations (SERVER-SIDE)
    */
-  const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedData = sortedData.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalRecords);
+  const paginatedData = sortedData; // Data already paginated from server
 
   /**
-   * Reset page to 1 when filters change
-   */
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, selectedMonth, selectedYear, selectedDivision]);
-
-  /**
-   * Handle page change
+   * Handle page change (SERVER-SIDE)
    */
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    loadAttendanceData(page, searchTerm, selectedDivision); // Fetch new page from server with filters
     // Scroll to top of table
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   /**
-   * Hitung ringkasan kehadiran per karyawan
+   * Get attendance summary (returns pre-calculated summaryData from state)
+   * Data is loaded by loadSummaryData() which fetches ALL records for the month
    */
   const getAttendanceSummary = (): AttendanceSummary[] => {
-    const summary: { [key: string]: AttendanceSummary } = {};
-
-    filteredData.forEach(item => {
-      if (!summary[item.employeeId]) {
-        summary[item.employeeId] = {
-          employeeId: item.employeeId,
-          employeeName: item.employeeName,
-          employeeNIP: item.employeeNIP,
-          division: item.division,
-          department: item.department,
-          position: item.position,
-          totalHK: 0,
-          totalP: 0,
-          totalS: 0,
-          totalA: 0,
-          effectiveDays: 0,
-          month: item.month,
-          year: item.year,
-        };
-      }
-
-      switch (item.status) {
-        case "HK":
-          summary[item.employeeId].totalHK++;
-          break;
-        case "P":
-          summary[item.employeeId].totalP++;
-          break;
-        case "S":
-          summary[item.employeeId].totalS++;
-          break;
-        case "A":
-          summary[item.employeeId].totalA++;
-          break;
-      }
-    });
-
-    // Hitung hari efektif (HK + P + S)
-    Object.values(summary).forEach(item => {
-      item.effectiveDays = item.totalHK + item.totalP + item.totalS;
-    });
-
-    return Object.values(summary);
+    return summaryData;
   };
 
   /**
    * Hitung statistik kehadiran keseluruhan
+   * Now uses pre-calculated statistics from state
    */
   const getAttendanceStats = () => {
-    // Hitung hari kerja efektif dalam bulan yang dipilih
-    const monthNumber = getMonthNumber(selectedMonth);
-    const workingDaysInMonth = getWorkingDaysInMonth(selectedYear, monthNumber);
-
-    const stats = {
-      totalEmployees: new Set(filteredData.map(item => item.employeeId)).size,
-      totalPresent: filteredData.filter(item => item.status === "HK").length,
-      totalPermission: filteredData.filter(item => item.status === "P").length,
-      totalSick: filteredData.filter(item => item.status === "S").length,
-      totalAbsent: filteredData.filter(item => item.status === "A").length,
-      totalRecords: filteredData.length,
-      workingDaysInMonth: workingDaysInMonth,
-    };
-
-    return stats;
+    return statistics;
   };
 
   /**
@@ -609,6 +831,12 @@ export function AttendanceMaster() {
    * Buka dialog untuk edit data
    */
   const handleEdit = (item: Attendance) => {
+    // Prevent editing attendance records with status 'C' (Cuti - auto-generated)
+    if (item.status === 'C') {
+      toast.error('Data presensi dengan status Cuti tidak dapat diedit secara manual. Data ini dibuat otomatis dari approval cuti.');
+      return;
+    }
+
     setEditingItem(item);
     setFormData({
       employeeId: item.employeeId,
@@ -708,8 +936,12 @@ export function AttendanceMaster() {
         }
       }
 
-      // Reload data
-      await loadAttendanceData();
+      // Reload data, statistics, and summary with current filters
+      await Promise.all([
+        loadStatistics(),
+        loadAttendanceData(currentPage, searchTerm, selectedDivision),
+        loadSummaryData(selectedDivision)
+      ]);
       setIsDialogOpen(false);
     } catch (err: any) {
       console.error('Error saving attendance:', err);
@@ -725,6 +957,14 @@ export function AttendanceMaster() {
   const handleDelete = async () => {
     if (!editingItem) return;
 
+    // Prevent deleting attendance records with status 'C' (Cuti - auto-generated)
+    if (editingItem.status === 'C') {
+      toast.error('Data presensi dengan status Cuti tidak dapat dihapus secara manual. Data ini dibuat otomatis dari approval cuti.');
+      setIsDeleteDialogOpen(false);
+      setEditingItem(null);
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -737,8 +977,12 @@ export function AttendanceMaster() {
 
       toast.success('Data presensi berhasil dihapus');
 
-      // Reload data
-      await loadAttendanceData();
+      // Reload data, statistics, and summary with current filters
+      await Promise.all([
+        loadStatistics(),
+        loadAttendanceData(currentPage, searchTerm, selectedDivision),
+        loadSummaryData(selectedDivision)
+      ]);
       setIsDeleteDialogOpen(false);
       setEditingItem(null);
     } catch (err: any) {
@@ -775,6 +1019,8 @@ export function AttendanceMaster() {
         return { variant: "outline" as const, label: "Sakit", className: "border-yellow-500 text-yellow-700" };
       case "A":
         return { variant: "destructive" as const, label: "Alfa", className: "" };
+      case "C":
+        return { variant: "secondary" as const, label: "Cuti", className: "bg-blue-600 text-white" };
       default:
         return { variant: "default" as const, label: status, className: "" };
     }
@@ -1174,6 +1420,8 @@ export function AttendanceMaster() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleEdit(item)}
+                                      disabled={item.status === 'C'}
+                                      title={item.status === 'C' ? 'Data cuti tidak dapat diedit secara manual' : ''}
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
@@ -1186,6 +1434,8 @@ export function AttendanceMaster() {
                                         setEditingItem(item);
                                         setIsDeleteDialogOpen(true);
                                       }}
+                                      disabled={item.status === 'C'}
+                                      title={item.status === 'C' ? 'Data cuti tidak dapat dihapus secara manual' : ''}
                                     >
                                       <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
@@ -1202,11 +1452,11 @@ export function AttendanceMaster() {
                 </div>
 
                 {/* Pagination Info and Controls */}
-                {sortedData.length > 0 && (
+                {totalRecords > 0 && (
                   <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                     {/* Data Info */}
                     <div className="text-sm text-muted-foreground">
-                      Menampilkan {startIndex + 1}-{Math.min(endIndex, sortedData.length)} dari {sortedData.length} data presensi
+                      Menampilkan {startIndex + 1}-{endIndex} dari {totalRecords} total data presensi
                     </div>
 
                     {/* Pagination Controls */}
@@ -1369,7 +1619,7 @@ export function AttendanceMaster() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {loading ? (
+                      {loadingSummary ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center py-12">
                             <Loader2 className="animate-spin mx-auto text-muted-foreground" size={32} />

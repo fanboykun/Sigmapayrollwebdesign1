@@ -27,16 +27,18 @@
  *    - Penggajian (Proses Tahunan, Bulanan, Gaji Karyawan)
  *    - Laporan (Buku Gaji, Tax Worksheet)
  * 3. HR (menu utama):
- *    - Master Data (Data Karyawan, Mutasi, Divisi, Jabatan)
  *    - Presensi (Hari Kerja, Hari Libur, Data Presensi, Cuti)
+ *    - Laporan (Presensi)
+ *    - Master Data (Data Karyawan, Mutasi, Divisi, Jabatan)
  *    - Administrasi (Manajemen User, Otorisasi)
  * 4. Bottom Menu (Analitik, Engagement Dashboard, Pengaturan)
  * 
  * @author Sistem Payroll Team
- * @version 2.1.0
+ * @version 2.2.0
  * @since 2024-10-26
  * @updated 2025-01-11 - Restructured menu into 2 main groups (Payroll & HR)
  * @updated 2025-01-16 - Added conditional rendering for main menus based on user permissions
+ * @updated 2025-11-18 - Added Laporan submenu under HRM, moved Presensi report from Payroll to HRM
  * ==========================================================================
  */
 
@@ -88,6 +90,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   // State untuk sub-menu dalam HR - Collapsed by default
   const [hrMasterDataOpen, setHrMasterDataOpen] = useState(false);
   const [presenceOpen, setPresenceOpen] = useState(false);
+  const [hrReportsOpen, setHrReportsOpen] = useState(false);
   const [administrationOpen, setAdministrationOpen] = useState(false);
 
   // State untuk sub-menu dalam Clinic - Collapsed by default
@@ -245,7 +248,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   const payrollReportsItems = [
     { id: 'payroll-view', label: 'Buku Gaji', icon: Receipt, module: 'payroll-view' },
     { id: 'tax-worksheet', label: 'Tax Worksheet', icon: Calculator, module: 'tax-worksheet' },
-    { id: 'presensi-report', label: 'Presensi', icon: ClipboardList, module: 'presensi-report' },
     { id: 'bpjs-report', label: 'BPJS', icon: Heart, module: 'bpjs-report' },
     { id: 'premi-laporan', label: 'Premi Sawit', icon: Sprout, module: 'premi_laporan' },
     { id: 'premi-deres-laporan', label: 'Premi Deres', icon: Droplets, module: 'premi_deres_laporan' },
@@ -275,6 +277,14 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     { id: 'holidays', label: 'Hari Libur', icon: CalendarDays, module: 'holidays' },
     { id: 'attendance', label: 'Data Presensi', icon: ClipboardCheck, module: 'attendance' },
     { id: 'leave', label: 'Cuti Karyawan', icon: Umbrella, module: 'leave' },
+  ];
+
+  /**
+   * Menu configuration - Laporan HRM submenu
+   * #MenuConfig #HRReportsMenu
+   */
+  const hrReportsItems = [
+    { id: 'presensi-report', label: 'Presensi', icon: ClipboardList, module: 'presensi-report' },
   ];
 
   /**
@@ -363,6 +373,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   // Filter HR menu items
   const filteredHrMasterDataItems = hrMasterDataItems.filter(item => canAccessMenu(item.id));
   const filteredPresenceMenuItems = presenceMenuItems.filter(item => canAccessMenu(item.id));
+  const filteredHrReportsItems = hrReportsItems.filter(item => canAccessMenu(item.id));
   const filteredAdministrationMenuItems = administrationMenuItems.filter(item => canAccessMenu(item.id));
 
   // Filter Clinic menu items
@@ -399,7 +410,8 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
 
   const hasHrAccess =
     filteredHrMasterDataItems.length > 0 ||
-    filteredPresenceMenuItems.length > 0;
+    filteredPresenceMenuItems.length > 0 ||
+    filteredHrReportsItems.length > 0;
 
   const hasClinicAccess =
     filteredClinicDashboardItems.length > 0 ||
@@ -928,6 +940,13 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                       items: filteredPresenceMenuItems,
                       isOpen: presenceOpen,
                       setIsOpen: setPresenceOpen
+                    },
+                    {
+                      title: 'Laporan',
+                      icon: FileText,
+                      items: filteredHrReportsItems,
+                      isOpen: hrReportsOpen,
+                      setIsOpen: setHrReportsOpen
                     },
                     {
                       title: 'Master Data',
