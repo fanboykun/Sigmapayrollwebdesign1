@@ -6,31 +6,70 @@
  */
 
 /**
- * Membersihkan semua auth-related data dari localStorage
- * Berguna untuk mengatasi corrupt session state di Chrome
+ * Membersihkan semua auth-related data dari localStorage dan sessionStorage
+ * Enhanced untuk mengatasi stuck session di Chrome dan browser lainnya
+ *
+ * IMPORTANT: Fungsi ini menghapus semua data terkait autentikasi untuk
+ * memastikan tidak ada session buntu yang tersisa di browser
  */
 export function clearAuthStorage(): void {
   try {
-    // Clear all supabase auth keys
-    const keysToRemove: string[] = [];
+    console.log('🧹 Starting comprehensive auth storage cleanup...');
+
+    // Clear all supabase auth keys from localStorage
+    const localStorageKeysToRemove: string[] = [];
 
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith('supabase.auth')) {
-        keysToRemove.push(key);
+      if (key && (
+        key.startsWith('supabase.auth') ||
+        key.startsWith('sb-') ||
+        key === 'user' ||
+        key === 'activeView'
+      )) {
+        localStorageKeysToRemove.push(key);
       }
     }
 
-    keysToRemove.forEach(key => {
-      console.log('Clearing auth key:', key);
+    localStorageKeysToRemove.forEach(key => {
+      console.log('🗑️ Removing localStorage key:', key);
       localStorage.removeItem(key);
     });
 
-    // Also clear any legacy keys
-    localStorage.removeItem('sb-access-token');
-    localStorage.removeItem('sb-refresh-token');
+    // Clear all supabase auth keys from sessionStorage
+    const sessionStorageKeysToRemove: string[] = [];
 
-    console.log('✅ Auth storage cleared successfully');
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (
+        key.startsWith('supabase.auth') ||
+        key.startsWith('sb-')
+      )) {
+        sessionStorageKeysToRemove.push(key);
+      }
+    }
+
+    sessionStorageKeysToRemove.forEach(key => {
+      console.log('🗑️ Removing sessionStorage key:', key);
+      sessionStorage.removeItem(key);
+    });
+
+    // Also explicitly clear any known legacy keys
+    const legacyKeys = [
+      'sb-access-token',
+      'sb-refresh-token',
+      'user',
+      'activeView'
+    ];
+
+    legacyKeys.forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+
+    console.log(`✅ Auth storage cleared successfully`);
+    console.log(`   - Removed ${localStorageKeysToRemove.length} localStorage keys`);
+    console.log(`   - Removed ${sessionStorageKeysToRemove.length} sessionStorage keys`);
   } catch (error) {
     console.error('❌ Error clearing auth storage:', error);
   }

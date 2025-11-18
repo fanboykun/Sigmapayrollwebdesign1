@@ -1567,21 +1567,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   >(null);
 
   /**
-   * Load permissions on mount if user is logged in
-   * #InitialLoad #PermissionSync
+   * Validate session on mount and load permissions if valid
+   * #InitialLoad #SessionValidation #PermissionSync
    */
   useEffect(() => {
-    const initializePermissions = async () => {
-      if (user && user.role) {
-        console.log("🔄 Loading permissions for existing user session");
-        await loadPermissionsFromSupabase(user.role);
+    const initializeAuth = async () => {
+      try {
+        console.log("🔄 Initializing auth session...");
+
+        // Check Supabase session first
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("❌ Error getting session:", error);
+          // Clear invalid session
+          clearAuthStorage();
+          setUser(null);
+          delFromLocalStorage();
+          setIsLoading(false);
+          return;
+        }
+
+        // If no Supabase session but localStorage has user, clear it
+        if (!session && user) {
+          console.warn("⚠️ No Supabase session but localStorage has user. Clearing...");
+          clearAuthStorage();
+          setUser(null);
+          delFromLocalStorage();
+          setIsLoading(false);
+          return;
+        }
+
+        // If we have a valid session and user, load permissions
+        if (session && user && user.role) {
+          console.log("✅ Valid session found, loading permissions");
+          await loadPermissionsFromSupabase(user.role);
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error("❌ Unexpected error initializing auth:", error);
+        // On error, clear everything to be safe
+        clearAuthStorage();
+        setUser(null);
+        delFromLocalStorage();
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
-    initializePermissions();
+    initializeAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
+
+  /**
+   * Listen for auth state changes
+   * Auto-logout when session expires
+   * #AuthStateListener #SessionManagement
+   */
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("🔔 Auth state change:", event, session ? "Session exists" : "No session");
+
+        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+          console.log("🚪 Session ended, logging out...");
+          clearAuthStorage();
+          setUser(null);
+          setSupabasePermissions(null);
+          delFromLocalStorage();
+        }
+
+        if (event === 'SIGNED_IN' && session) {
+          console.log("✅ User signed in via auth state change");
+        }
+
+        if (event === 'TOKEN_REFRESHED' && session) {
+          console.log("🔄 Token refreshed successfully");
+        }
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   /**
    * Fungsi login untuk autentikasi user menggunakan Supabase Auth
@@ -1672,33 +1742,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Fungsi logout untuk menghapus session user menggunakan Supabase Auth
+   * Enhanced with comprehensive cleanup untuk prevent stuck sessions
    * #LogoutFunction #SessionClear #SupabaseAuth
    */
   const logout = async () => {
     try {
       console.log("🚪 Logging out...");
 
-      // Sign out from Supabase
+      // Step 1: Sign out from Supabase (this triggers onAuthStateChange)
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("Supabase signOut error:", error);
+        console.error("⚠️ Supabase signOut error (continuing cleanup):", error);
       }
 
-      // Clear any remaining auth storage (important for Chrome)
+      // Step 2: Clear all auth-related storage
       clearAuthStorage();
 
-      // Clear user state and permissions
+      // Step 3: Clear user state and permissions
       setUser(null);
       setSupabasePermissions(null);
       delFromLocalStorage();
 
-      console.log("✅ Logout successful");
+      // Step 4: Clear activeView to reset to dashboard on next login
+      localStorage.removeItem('activeView');
+
+      // Step 5: Force clear any remaining Supabase client state
+      // This helps prevent stale session issues
+      try {
+        await supabase.removeAllChannels();
+      } catch (e) {
+        console.warn("⚠️ Error removing channels:", e);
+      }
+
+      console.log("✅ Logout successful - all session data cleared");
     } catch (error) {
       console.error("❌ Unexpected logout error:", error);
-      // Still clear user state and storage even if signOut fails
+      // IMPORTANT: Still clear everything even if signOut fails
+      // This prevents stuck sessions
       clearAuthStorage();
       setUser(null);
+      setSupabasePermissions(null);
       delFromLocalStorage();
+      localStorage.removeItem('activeView');
+      console.log("✅ Forced logout completed");
     }
   };
 
