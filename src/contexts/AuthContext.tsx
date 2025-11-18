@@ -112,6 +112,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  * 2. Admin Payroll - Admin level access
  * 3. Manager HRD - Manager level access
  * 4. Budi Santoso - Karyawan level access
+ * 5. Admin Klinik - Clinic admin access
+ * 6. Dr. Siti - Doctor access
+ * 7. Rina - Nurse access
  *
  * ⚠️ WARNING: Jangan gunakan sistem password hardcoded ini di production!
  * ==========================================================================
@@ -155,6 +158,33 @@ const MOCK_USERS: User[] = [
     createdAt: "2024-01-01",
     lastLogin: "2024-10-26",
   },
+  {
+    id: "5",
+    name: "Admin Klinik",
+    email: "adminklinik@sawit.com",
+    role: "admin_klinik",
+    status: "active",
+    createdAt: "2024-01-01",
+    lastLogin: "2024-10-26",
+  },
+  {
+    id: "6",
+    name: "Dr. Siti Nurhaliza",
+    email: "dokter@sawit.com",
+    role: "dokter_klinik",
+    status: "active",
+    createdAt: "2024-01-01",
+    lastLogin: "2024-10-26",
+  },
+  {
+    id: "7",
+    name: "Rina Perawat",
+    email: "perawat@sawit.com",
+    role: "perawat",
+    status: "active",
+    createdAt: "2024-01-01",
+    lastLogin: "2024-10-26",
+  },
 ];
 
 /**
@@ -167,6 +197,9 @@ const MOCK_PASSWORDS: Record<string, string> = {
   "admin@sawit.com": "admin123",
   "manager@sawit.com": "manager123",
   "budi@sawit.com": "karyawan123",
+  "adminklinik@sawit.com": "klinik123",
+  "dokter@sawit.com": "dokter123",
+  "perawat@sawit.com": "perawat123",
 };
 
 /**
@@ -195,6 +228,13 @@ const MOCK_PASSWORDS: Record<string, string> = {
  */
 const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
   super_admin: {
+    welcome: {
+      module: "welcome",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     dashboard: {
       module: "dashboard",
       canView: true,
@@ -529,6 +569,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
     },
   },
   admin: {
+    welcome: {
+      module: "welcome",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     dashboard: {
       module: "dashboard",
       canView: true,
@@ -771,6 +818,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
     },
   },
   manager: {
+    welcome: {
+      module: "welcome",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     dashboard: {
       module: "dashboard",
       canView: true,
@@ -1013,6 +1067,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
     },
   },
   karyawan: {
+    welcome: {
+      module: "welcome",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     dashboard: {
       module: "dashboard",
       canView: true,
@@ -1212,6 +1273,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
   },
   // ===== ADMIN KLINIK PERMISSIONS =====
   admin_klinik: {
+    welcome: {
+      module: "welcome",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     dashboard: {
       module: "dashboard",
       canView: true,
@@ -1314,6 +1382,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
   },
   // ===== DOKTER KLINIK PERMISSIONS =====
   dokter_klinik: {
+    welcome: {
+      module: "welcome",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     dashboard: {
       module: "dashboard",
       canView: true,
@@ -1383,6 +1458,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
   },
   // ===== PERAWAT (NURSE) PERMISSIONS =====
   perawat: {
+    welcome: {
+      module: "welcome",
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
     dashboard: {
       module: "dashboard",
       canView: true,
@@ -1474,6 +1556,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
  * ==========================================================================
  */
 const MENU_MODULE_MAP: Record<string, string> = {
+  welcome: "welcome", // Welcome page accessible to all
   dashboard: "dashboard",
   "payroll-view": "payroll_view",
   "tax-worksheet": "tax_worksheet",
@@ -1862,6 +1945,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Safety check: if role not found in ROLE_PERMISSIONS, deny access
     if (!permissions) {
       console.warn(`⚠️ Role "${user.role}" not found in ROLE_PERMISSIONS`);
+      console.warn(`⚠️ Available roles:`, Object.keys(ROLE_PERMISSIONS));
+      console.warn(`⚠️ User role type:`, typeof user.role);
       return false;
     }
 

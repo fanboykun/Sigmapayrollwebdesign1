@@ -2203,7 +2203,7 @@ export function EmployeeManagement() {
                 <thead className="bg-muted/30 border-b border-border">
                   <tr>
                     <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">
-                      NIK
+                      ID
                     </th>
                     <th className="text-left px-4 md:px-6 py-3 text-sm text-muted-foreground">
                       Karyawan

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserRole } from '../contexts/AuthContext';
+import { UserRole, useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Switch } from './ui/switch';
@@ -48,6 +48,7 @@ interface RolePermissions {
 }
 
 export function RoleManagement() {
+  const { user } = useAuth();
   const [rolePermissions, setRolePermissions] = useState<RolePermissions[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +77,21 @@ export function RoleManagement() {
       icon: User,
       color: 'text-gray-600',
       description: 'Akses terbatas hanya untuk melihat slip gaji sendiri',
+    },
+    admin_klinik: {
+      icon: ShieldCheck,
+      color: 'text-red-600',
+      description: 'Akses penuh ke seluruh modul klinik termasuk manajemen data klinik',
+    },
+    dokter_klinik: {
+      icon: Shield,
+      color: 'text-blue-600',
+      description: 'Clinic doctor - clinic modules access',
+    },
+    perawat: {
+      icon: ShieldAlert,
+      color: 'text-green-600',
+      description: 'Clinic nurse - clinic modules access',
     },
   };
 
@@ -295,6 +311,24 @@ export function RoleManagement() {
     ]);
   };
 
+  /**
+   * Filter roles based on current user's role
+   * Admin Klinik can only see clinic-related roles (admin_klinik, dokter_klinik, perawat)
+   */
+  const getFilteredRolePermissions = (): RolePermissions[] => {
+    // If user is admin_klinik, only show clinic roles
+    if (user?.role === 'admin_klinik') {
+      return rolePermissions.filter(roleData =>
+        roleData.role === 'admin_klinik' ||
+        roleData.role === 'dokter_klinik' ||
+        roleData.role === 'perawat'
+      );
+    }
+
+    // For other users (super_admin, etc), show all roles
+    return rolePermissions;
+  };
+
   const togglePermission = async (
     roleIndex: number,
     moduleIndex: number,
@@ -435,7 +469,7 @@ export function RoleManagement() {
 
       {/* Role Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {rolePermissions.map((roleData) => {
+        {getFilteredRolePermissions().map((roleData) => {
           const Icon = roleData.icon;
           // Safety check: ensure permissions array exists and filter out invalid items
           const validPermissions = roleData.permissions?.filter(p => p && p.canView !== undefined) || [];
@@ -472,11 +506,11 @@ export function RoleManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="super_admin" className="w-full">
+          <Tabs defaultValue={getFilteredRolePermissions()[0]?.role || "super_admin"} className="w-full">
             {/* Scrollable tabs untuk mobile, grid untuk desktop */}
             <div className="overflow-x-auto -mx-6 px-6 mb-4">
               <TabsList className="inline-flex h-auto flex-wrap gap-1 bg-muted p-1 rounded-lg">
-                {rolePermissions.map((roleData) => {
+                {getFilteredRolePermissions().map((roleData) => {
                   const Icon = roleData.icon;
                   return (
                     <TabsTrigger
@@ -492,7 +526,7 @@ export function RoleManagement() {
               </TabsList>
             </div>
 
-            {rolePermissions.map((roleData, roleIndex) => {
+            {getFilteredRolePermissions().map((roleData, roleIndex) => {
               const groupedPermissions = getGroupedPermissions(roleData.permissions);
               
               return (

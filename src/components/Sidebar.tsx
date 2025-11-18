@@ -73,7 +73,7 @@ interface SidebarProps {
  * ==========================================================================
  */
 export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }: SidebarProps) {
-  const { canAccessMenu } = useAuth();
+  const { canAccessMenu, user } = useAuth();
   
   // State untuk menu utama (Payroll, HR, dan Clinic) - Collapsed by default
   const [payrollMainOpen, setPayrollMainOpen] = useState(false);
@@ -211,6 +211,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    * #MenuConfig #SingleMenu
    */
   const singleMenuItems = [
+    { id: 'welcome', label: 'Selamat Datang', icon: Heart, module: 'welcome' },
     { id: 'dashboard', label: 'Dasbor', icon: LayoutDashboard, module: 'dashboard' },
   ];
 
@@ -340,6 +341,15 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   ];
 
   /**
+   * Menu configuration - Administration menu (before Settings)
+   * #MenuConfig #AdministrationMainMenu
+   */
+  const administrationMainMenuItems = [
+    { id: 'user-management', label: 'Manajemen User', icon: Users, module: 'user-management' },
+    { id: 'role-management', label: 'Otorisasi', icon: Shield, module: 'role-management' },
+  ];
+
+  /**
    * Filter menu items berdasarkan user permissions
    * Hanya menu yang bisa diakses user yang akan ditampilkan
    * #PermissionFilter #MenuVisibility
@@ -365,6 +375,18 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
   // Filter bottom menu items
   const filteredBottomMenuItems = bottomMenuItems.filter(item => canAccessMenu(item.id));
 
+  // Filter administration main menu items
+  const filteredAdministrationMainMenuItems = administrationMainMenuItems.filter(item => canAccessMenu(item.id));
+
+  // Filter single menu items - hide for clinic roles
+  const filteredSingleMenuItems = singleMenuItems.filter(item => {
+    // Hide welcome and dashboard for clinic roles
+    if (user?.role === "admin_klinik" || user?.role === "dokter_klinik" || user?.role === "perawat") {
+      return false; // Don't show these items for clinic roles
+    }
+    return canAccessMenu(item.id);
+  });
+
   /**
    * Check apakah menu utama memiliki setidaknya satu submenu yang bisa diakses
    * Jika semua submenu kosong, menu utama tidak perlu ditampilkan
@@ -377,8 +399,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
 
   const hasHrAccess =
     filteredHrMasterDataItems.length > 0 ||
-    filteredPresenceMenuItems.length > 0 ||
-    filteredAdministrationMenuItems.length > 0;
+    filteredPresenceMenuItems.length > 0;
 
   const hasClinicAccess =
     filteredClinicDashboardItems.length > 0 ||
@@ -852,8 +873,8 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       >
         <TooltipProvider delayDuration={0}>
           <ul className="space-y-1">
-            {/* Single Menu Items - Dashboard */}
-            {singleMenuItems.map(item => (
+            {/* Single Menu Items - Dashboard (hidden for clinic roles) */}
+            {filteredSingleMenuItems.map(item => (
               <li key={item.id}>{renderMenuItem(item)}</li>
             ))}
 
@@ -914,13 +935,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                       items: filteredPresenceMenuItems,
                       isOpen: presenceOpen,
                       setIsOpen: setPresenceOpen
-                    },
-                    {
-                      title: 'Administrasi',
-                      icon: ShieldCheck,
-                      items: filteredAdministrationMenuItems,
-                      isOpen: administrationOpen,
-                      setIsOpen: setAdministrationOpen
                     }
                   ]
                 )}
@@ -937,13 +951,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                   setClinicMainOpen,
                   filteredClinicDashboardItems,
                   [
-                    {
-                      title: 'Master Data',
-                      icon: Database,
-                      items: filteredClinicMasterDataItems,
-                      isOpen: clinicMasterDataOpen,
-                      setIsOpen: setClinicMasterDataOpen
-                    },
                     {
                       title: 'Pelayanan',
                       icon: Stethoscope,
@@ -964,17 +971,43 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                       items: filteredClinicReportsItems,
                       isOpen: clinicReportsOpen,
                       setIsOpen: setClinicReportsOpen
+                    },
+                    {
+                      title: 'Master Data',
+                      icon: Database,
+                      items: filteredClinicMasterDataItems,
+                      isOpen: clinicMasterDataOpen,
+                      setIsOpen: setClinicMasterDataOpen
                     }
                   ]
                 )}
               </li>
             )}
 
-            {/* Bottom Menu Items - Analitik, Engagement & Pengaturan */}
-            {filteredBottomMenuItems.length > 0 && (
+            {/* Bottom Menu Items - Analitik, Engagement, Administrasi & Pengaturan */}
+            {(filteredBottomMenuItems.length > 0 || filteredAdministrationMainMenuItems.length > 0) && (
               <li className="pt-4 border-t border-[#1c3353] mt-4">
                 <ul className="space-y-1">
-                  {filteredBottomMenuItems.map(item => (
+                  {/* Analitik & Engagement */}
+                  {filteredBottomMenuItems.filter(item => item.id !== 'settings').map(item => (
+                    <li key={item.id}>{renderMenuItem(item)}</li>
+                  ))}
+
+                  {/* Administrasi - Collapsible Menu */}
+                  {filteredAdministrationMainMenuItems.length > 0 && (
+                    <li>
+                      {renderCollapsibleMenu(
+                        'Administrasi',
+                        ShieldCheck,
+                        filteredAdministrationMainMenuItems,
+                        administrationOpen,
+                        setAdministrationOpen
+                      )}
+                    </li>
+                  )}
+
+                  {/* Pengaturan */}
+                  {filteredBottomMenuItems.filter(item => item.id === 'settings').map(item => (
                     <li key={item.id}>{renderMenuItem(item)}</li>
                   ))}
                 </ul>
@@ -1078,8 +1111,8 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         }}
       >
         <ul className="space-y-1">
-          {/* Single Menu Items - Dashboard */}
-          {singleMenuItems.map(item => (
+          {/* Single Menu Items - Dashboard (hidden for clinic roles) */}
+          {filteredSingleMenuItems.map(item => (
             <li key={item.id}>{renderMenuItem(item)}</li>
           ))}
 
@@ -1140,13 +1173,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                     items: filteredPresenceMenuItems,
                     isOpen: presenceOpen,
                     setIsOpen: setPresenceOpen
-                  },
-                  {
-                    title: 'Administrasi',
-                    icon: ShieldCheck,
-                    items: filteredAdministrationMenuItems,
-                    isOpen: administrationOpen,
-                    setIsOpen: setAdministrationOpen
                   }
                 ]
               )}
@@ -1163,13 +1189,6 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                 setClinicMainOpen,
                 filteredClinicDashboardItems,
                 [
-                  {
-                    title: 'Master Data',
-                    icon: Database,
-                    items: filteredClinicMasterDataItems,
-                    isOpen: clinicMasterDataOpen,
-                    setIsOpen: setClinicMasterDataOpen
-                  },
                   {
                     title: 'Pelayanan',
                     icon: Stethoscope,
@@ -1190,17 +1209,43 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                     items: filteredClinicReportsItems,
                     isOpen: clinicReportsOpen,
                     setIsOpen: setClinicReportsOpen
+                  },
+                  {
+                    title: 'Master Data',
+                    icon: Database,
+                    items: filteredClinicMasterDataItems,
+                    isOpen: clinicMasterDataOpen,
+                    setIsOpen: setClinicMasterDataOpen
                   }
                 ]
               )}
             </li>
           )}
 
-          {/* Bottom Menu Items - Analitik, Engagement & Pengaturan */}
-          {filteredBottomMenuItems.length > 0 && (
+          {/* Bottom Menu Items - Analitik, Engagement, Administrasi & Pengaturan */}
+          {(filteredBottomMenuItems.length > 0 || filteredAdministrationMainMenuItems.length > 0) && (
             <li className="pt-4 border-t border-[#1c3353] mt-4">
               <ul className="space-y-1">
-                {filteredBottomMenuItems.map(item => (
+                {/* Analitik & Engagement */}
+                {filteredBottomMenuItems.filter(item => item.id !== 'settings').map(item => (
+                  <li key={item.id}>{renderMenuItem(item)}</li>
+                ))}
+
+                {/* Administrasi - Collapsible Menu */}
+                {filteredAdministrationMainMenuItems.length > 0 && (
+                  <li>
+                    {renderCollapsibleMenu(
+                      'Administrasi',
+                      ShieldCheck,
+                      filteredAdministrationMainMenuItems,
+                      administrationOpen,
+                      setAdministrationOpen
+                    )}
+                  </li>
+                )}
+
+                {/* Pengaturan */}
+                {filteredBottomMenuItems.filter(item => item.id === 'settings').map(item => (
                   <li key={item.id}>{renderMenuItem(item)}</li>
                 ))}
               </ul>

@@ -91,12 +91,15 @@ import PremiLaporan from "./components/PremiLaporan";
 import PremiDeresMaster from "./components/PremiDeresMaster";
 import PremiDeresPenggajian from "./components/PremiDeresPenggajian";
 import PremiDeresLaporan from "./components/PremiDeresLaporan";
+// Welcome Pages
+import { WelcomePage } from "./components/WelcomePage";
 
 /**
  * Type definition untuk semua view/halaman yang tersedia dalam aplikasi
  * #TypeDefinition #ViewTypes
  */
 type ViewType =
+  | "welcome"
   | "dashboard"
   | "payroll-view"
   | "tax-worksheet"
@@ -170,19 +173,47 @@ type ViewType =
  * ==========================================================================
  */
 function MainApp() {
-  const { isAuthenticated, canAccessMenu } = useAuth();
+  const { isAuthenticated, canAccessMenu, user } = useAuth();
 
   /**
-   * Initialize activeView from localStorage or default to dashboard
+   * Get default view based on user role
+   * This is only used for initial state, actual routing is handled by useEffect
+   * #RoleBasedDefault #InitialState
+   */
+  const getDefaultView = (): ViewType => {
+    // Check user role for initial view
+    if (user?.role === "admin_klinik" || user?.role === "dokter_klinik" || user?.role === "perawat") {
+      return "clinic-dashboard";
+    }
+    // Non-clinic roles start at welcome page
+    return "welcome";
+  };
+
+  /**
+   * Initialize activeView from localStorage or default based on role
    * #PersistentState #LocalStorage
    */
-  const [activeView, setActiveView] = useState<ViewType>(() => {
-    const savedView = localStorage.getItem('activeView');
-    return (savedView as ViewType) || "dashboard";
-  });
+  const [activeView, setActiveView] = useState<ViewType>(getDefaultView);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  /**
+   * Set default view based on user role when user logs in
+   * Non-clinic roles always start at welcome page on login
+   * #LoginDefaultView #RoleBasedRouting
+   */
+  useEffect(() => {
+    if (user) {
+      // Clinic roles go to clinic-dashboard
+      if (user.role === "admin_klinik" || user.role === "dokter_klinik" || user.role === "perawat") {
+        setActiveView("clinic-dashboard");
+      } else {
+        // Non-clinic roles (super_admin, admin, manager, karyawan) always start at welcome page
+        setActiveView("welcome");
+      }
+    }
+  }, [user?.id]); // Only run when user changes (login/logout)
 
   /**
    * Save activeView to localStorage whenever it changes
@@ -201,10 +232,11 @@ function MainApp() {
    * @param view - ID view/halaman yang ingin dituju
    */
   const handleViewChange = (view: string) => {
-    // Profile, account settings, dan design-reference selalu dapat diakses oleh semua user
+    // Profile, account settings, welcome, dan design-reference selalu dapat diakses oleh semua user
     if (
       view === "profile" ||
       view === "account-settings" ||
+      view === "welcome" ||
       view === "design-reference"
     ) {
       setActiveView(view);
@@ -269,6 +301,9 @@ function MainApp() {
           #ContentArea #PermissionGuard #RBAC 
         */}
         <div className="flex-1 overflow-auto">
+          {/* Welcome Page - Only for non-clinic users */}
+          {activeView === "welcome" && <WelcomePage />}
+
           {activeView === "dashboard" && (
             <PermissionGuard module="dashboard">
               <PayrollDashboard />
