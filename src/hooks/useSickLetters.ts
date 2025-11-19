@@ -59,8 +59,9 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
       const activeFilters = filterOverride || filters;
 
       // Build query with relations
+      // Note: Query from clinic_sick_letters (not sick_letters view) to get proper foreign key relationships
       let query = supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .select(`
           *,
           patient:patients (
@@ -140,22 +141,22 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
     try {
       // Get counts by status
       const { count: totalCount } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .select('*', { count: 'exact', head: true });
 
       const { count: activeCount } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active');
 
       const { count: cancelledCount } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'cancelled');
 
       // Get total sick days and affected employees
       const { data: aggregateData } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .select('total_days, employee_id')
         .eq('status', 'active');
 
@@ -222,7 +223,7 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
 
       // Fetch the created sick letter with relations for return
       const { data, error: fetchError } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .select(`
           *,
           patient:patients (
@@ -269,7 +270,7 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
       setError(null);
 
       const { data, error: updateError } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .update({
           ...updates,
           updated_at: new Date().toISOString(),
@@ -313,7 +314,7 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
       };
 
       const { data, error: updateError } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .update(updates)
         .eq('id', id)
         .select()
@@ -348,7 +349,7 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
       setError(null);
 
       const { error: deleteError } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .delete()
         .eq('id', id);
 
@@ -378,7 +379,7 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
       setError(null);
 
       const { data, error: fetchError } = await supabase
-        .from('sick_letters')
+        .from('clinic_sick_letters')
         .select(`
           *,
           patient:patients (
