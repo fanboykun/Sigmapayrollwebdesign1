@@ -3,7 +3,7 @@
  * Form untuk menambah mutasi karyawan baru dengan employee search combobox
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -13,9 +13,40 @@ import { DatePicker } from './ui/date-picker';
 import { ChevronsUpDown, Check, User, Briefcase } from 'lucide-react';
 import { cn } from './ui/utils';
 import { toast } from 'sonner';
-import { MASTER_EMPLOYEES } from '../shared/employeeData';
-import { MASTER_DIVISIONS } from '../shared/divisionData';
-import { MASTER_POSITIONS } from '../shared/positionData';
+import { supabase } from '../utils/supabase/client';
+
+interface Employee {
+  id: string;
+  employee_id: string;
+  full_name: string;
+  division_id: string | null;
+  position_id: string | null;
+  employment_type: string;
+  status: string;
+  division?: {
+    id: string;
+    nama_divisi: string;  // Indonesian column name
+    kode_divisi: string;  // Indonesian column name
+  };
+  position?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
+interface Division {
+  id: string;
+  nama_divisi: string;
+  kode_divisi: string;
+}
+
+interface Position {
+  id: string;
+  name: string;
+  code: string;
+  level: string;
+}
 
 interface EmployeeTransferFormProps {
   onSubmit: (data: any) => void;
@@ -26,31 +57,138 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
   // State untuk employee combobox
   const [openEmployeeCombobox, setOpenEmployeeCombobox] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   // State untuk division combobox
   const [openDivisionCombobox, setOpenDivisionCombobox] = useState(false);
   const [selectedDivisionId, setSelectedDivisionId] = useState('');
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [loadingDivisions, setLoadingDivisions] = useState(false);
 
   // State untuk position combobox
   const [openPositionCombobox, setOpenPositionCombobox] = useState(false);
   const [selectedPositionId, setSelectedPositionId] = useState('');
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [loadingPositions, setLoadingPositions] = useState(false);
 
   // Form state
   const [transferDate, setTransferDate] = useState<Date | undefined>();
   const [effectiveDate, setEffectiveDate] = useState<Date | undefined>();
-  const [formData, setFormData] = useState({
-    toDepartment: '',
-    toPosition: '',
-    reason: '',
-    notes: ''
-  });
+
+  // Fetch employees from Supabase
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoadingEmployees(true);
+
+        // Fetch employees with division relation (works!)
+        const { data: employeesData, error: empError } = await supabase
+          .from('employees')
+          .select(`
+            id,
+            employee_id,
+            full_name,
+            division_id,
+            position_id,
+            employment_type,
+            status,
+            division:division_id(id, nama_divisi, kode_divisi)
+          `)
+          .eq('status', 'active')
+          .order('full_name', { ascending: true });
+
+        if (empError) throw empError;
+
+        if (employeesData && employeesData.length > 0) {
+          // Get unique position IDs
+          const positionIds = [...new Set(employeesData.map(e => e.position_id).filter(Boolean))] as string[];
+
+          // Fetch positions separately
+          const { data: positionsData, error: posError } = await supabase
+            .from('positions')
+            .select('id, name, code')
+            .in('id', positionIds);
+
+          if (posError) throw posError;
+
+          // Manually join positions with employees
+          const enrichedEmployees = employeesData.map(emp => ({
+            ...emp,
+            position: positionsData?.find(pos => pos.id === emp.position_id) || null
+          }));
+
+          setEmployees(enrichedEmployees);
+        } else {
+          setEmployees([]);
+        }
+      } catch (error: any) {
+        console.error('Error fetching employees:', error);
+        toast.error('Gagal memuat data karyawan', {
+          description: error.message
+        });
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
+  // Fetch divisions from Supabase
+  useEffect(() => {
+    const fetchDivisions = async () => {
+      try {
+        setLoadingDivisions(true);
+        const { data, error } = await supabase
+          .from('divisions')
+          .select('id, nama_divisi, kode_divisi')
+          .order('nama_divisi', { ascending: true });
+
+        if (error) throw error;
+        setDivisions(data || []);
+      } catch (error: any) {
+        console.error('Error fetching divisions:', error);
+        toast.error('Gagal memuat data divisi', {
+          description: error.message
+        });
+      } finally {
+        setLoadingDivisions(false);
+      }
+    };
+
+    fetchDivisions();
+  }, []);
+
+  // Fetch positions from Supabase
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        setLoadingPositions(true);
+        const { data, error } = await supabase
+          .from('positions')
+          .select('id, name, code, level')
+          .order('name', { ascending: true });
+
+        if (error) throw error;
+        setPositions(data || []);
+      } catch (error: any) {
+        console.error('Error fetching positions:', error);
+        toast.error('Gagal memuat data jabatan', {
+          description: error.message
+        });
+      } finally {
+        setLoadingPositions(false);
+      }
+    };
+
+    fetchPositions();
+  }, []);
 
   // Get selected employee data
-  const selectedEmployee = MASTER_EMPLOYEES.find(emp => emp.id === selectedEmployeeId);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const selectedEmployee = employees.find(emp => emp.id === selectedEmployeeId);
+  const selectedDivision = divisions.find(div => div.id === selectedDivisionId);
+  const selectedPosition = positions.find(pos => pos.id === selectedPositionId);
 
   const handleSubmit = () => {
     // Validasi karyawan
@@ -62,7 +200,7 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
     }
 
     // Validasi divisi baru
-    if (!formData.toDepartment) {
+    if (!selectedDivisionId) {
       toast.error('Validasi Gagal', {
         description: 'Pilih divisi baru terlebih dahulu'
       });
@@ -70,7 +208,7 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
     }
 
     // Validasi jabatan baru
-    if (!formData.toPosition) {
+    if (!selectedPositionId) {
       toast.error('Validasi Gagal', {
         description: 'Pilih jabatan baru terlebih dahulu'
       });
@@ -93,17 +231,9 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
       return;
     }
 
-    // Validasi alasan mutasi
-    if (!formData.reason.trim()) {
-      toast.error('Validasi Gagal', {
-        description: 'Masukkan alasan mutasi terlebih dahulu'
-      });
-      return;
-    }
-
     // Validasi minimal ada perubahan (divisi atau jabatan atau keduanya)
-    if (selectedEmployee.division === formData.toDepartment && 
-        selectedEmployee.position === formData.toPosition) {
+    if (selectedEmployee.division_id === selectedDivisionId &&
+        selectedEmployee.position_id === selectedPositionId) {
       toast.error('Validasi Gagal', {
         description: 'Tidak ada perubahan divisi atau jabatan. Minimal salah satu harus berbeda.'
       });
@@ -111,17 +241,25 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
     }
 
     const submitData = {
-      employeeId: selectedEmployee.employeeId,
-      employeeName: selectedEmployee.fullName,
-      fromDepartment: selectedEmployee.division,
-      fromPosition: selectedEmployee.position,
-      toDepartment: formData.toDepartment,
-      toPosition: formData.toPosition,
+      employeeId: selectedEmployee.id,
+      employeeName: selectedEmployee.full_name,
+      fromDivision: selectedEmployee.division_id,
+      fromPosition: selectedEmployee.position_id,
+      toDepartment: selectedDivisionId,
+      toPosition: selectedPositionId,
       transferDate,
       effectiveDate,
-      reason: formData.reason,
-      notes: formData.notes,
+      reason: (document.getElementById('reason') as HTMLTextAreaElement)?.value || '',
+      notes: (document.getElementById('notes') as HTMLTextAreaElement)?.value || '',
     };
+
+    // Validasi alasan mutasi
+    if (!submitData.reason.trim()) {
+      toast.error('Validasi Gagal', {
+        description: 'Masukkan alasan mutasi terlebih dahulu'
+      });
+      return;
+    }
 
     onSubmit(submitData);
   };
@@ -144,28 +282,31 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
               role="combobox"
               aria-expanded={openEmployeeCombobox}
               className="w-full justify-between"
+              disabled={loadingEmployees}
             >
               {selectedEmployee ? (
                 <div className="flex items-center gap-2">
                   <User size={16} />
-                  <span>{selectedEmployee.fullName} ({selectedEmployee.employeeId})</span>
+                  <span>{selectedEmployee.full_name} ({selectedEmployee.employee_id})</span>
                 </div>
+              ) : loadingEmployees ? (
+                "Memuat data karyawan..."
               ) : (
                 "Cari dan pilih karyawan..."
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0" align="start">
+          <PopoverContent className="w-[500px] p-0" align="start">
             <Command>
               <CommandInput placeholder="Cari nama atau NIK karyawan..." />
-              <CommandList>
+              <CommandList className="max-h-[200px] overflow-y-auto">
                 <CommandEmpty>Karyawan tidak ditemukan.</CommandEmpty>
                 <CommandGroup>
-                  {MASTER_EMPLOYEES.map((employee) => (
+                  {employees.map((employee) => (
                     <CommandItem
                       key={employee.id}
-                      value={`${employee.fullName} ${employee.employeeId}`}
+                      value={`${employee.full_name} ${employee.employee_id}`}
                       onSelect={() => {
                         setSelectedEmployeeId(employee.id);
                         setOpenEmployeeCombobox(false);
@@ -178,9 +319,9 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
                         )}
                       />
                       <div className="flex flex-col">
-                        <span>{employee.fullName}</span>
+                        <span>{employee.full_name}</span>
                         <span className="text-xs text-muted-foreground">
-                          {employee.employeeId} • {employee.division} • {employee.position}
+                          {employee.employee_id} • {employee.division?.nama_divisi || 'N/A'} • {employee.position?.name || 'N/A'}
                         </span>
                       </div>
                     </CommandItem>
@@ -199,25 +340,25 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 border border-blue-200 rounded">
             <div>
               <p className="text-xs text-muted-foreground mb-1">NIK</p>
-              <p className="mb-0">{selectedEmployee.employeeId}</p>
+              <p className="mb-0">{selectedEmployee.employee_id}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Nama Lengkap</p>
-              <p className="mb-0">{selectedEmployee.fullName}</p>
+              <p className="mb-0">{selectedEmployee.full_name}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Divisi Saat Ini</p>
-              <p className="mb-0">{selectedEmployee.division}</p>
+              <p className="mb-0">{selectedEmployee.division?.nama_divisi || 'N/A'}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Jabatan Saat Ini</p>
-              <p className="mb-0">{selectedEmployee.position}</p>
+              <p className="mb-0">{selectedEmployee.position?.name || 'N/A'}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Jenis Kepegawaian</p>
               <p className="mb-0">
-                {selectedEmployee.employmentType === 'permanent' ? 'Tetap' : 
-                 selectedEmployee.employmentType === 'contract' ? 'Kontrak' : 'Magang'}
+                {selectedEmployee.employment_type === 'permanent' ? 'Tetap' :
+                 selectedEmployee.employment_type === 'contract' ? 'Kontrak' : 'Magang'}
               </p>
             </div>
             <div>
@@ -243,36 +384,37 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
                       role="combobox"
                       aria-expanded={openDivisionCombobox}
                       className="w-full justify-between"
+                      disabled={loadingDivisions}
                     >
-                      {formData.toDepartment || "Pilih divisi baru..."}
+                      {selectedDivision?.nama_divisi || (loadingDivisions ? "Memuat divisi..." : "Pilih divisi baru...")}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
+                  <PopoverContent className="w-[400px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Cari divisi..." />
-                      <CommandList>
+                      <CommandList className="max-h-[200px] overflow-y-auto">
                         <CommandEmpty>Divisi tidak ditemukan.</CommandEmpty>
                         <CommandGroup>
-                          {MASTER_DIVISIONS.filter(div => div.isActive).map((division) => (
+                          {divisions.map((division) => (
                             <CommandItem
                               key={division.id}
-                              value={division.name}
+                              value={division.nama_divisi}
                               onSelect={() => {
-                                handleInputChange('toDepartment', division.name);
+                                setSelectedDivisionId(division.id);
                                 setOpenDivisionCombobox(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  formData.toDepartment === division.name ? "opacity-100" : "opacity-0"
+                                  selectedDivisionId === division.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               <div className="flex flex-col">
-                                <span>{division.name}</span>
+                                <span>{division.nama_divisi}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {division.code} • {division.shortname}
+                                  {division.kode_divisi}
                                 </span>
                               </div>
                             </CommandItem>
@@ -283,11 +425,11 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
                   </PopoverContent>
                 </Popover>
                 <p className="text-xs text-muted-foreground">
-                  {selectedEmployee.division === formData.toDepartment && formData.toDepartment && '✓ Divisi tetap sama'}
-                  {selectedEmployee.division !== formData.toDepartment && formData.toDepartment && '⚠️ Mutasi divisi'}
+                  {selectedEmployee.division_id === selectedDivisionId && selectedDivisionId && '✓ Divisi tetap sama'}
+                  {selectedEmployee.division_id !== selectedDivisionId && selectedDivisionId && '⚠️ Mutasi divisi'}
                 </p>
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Jabatan Baru *</Label>
                 <Popover open={openPositionCombobox} onOpenChange={setOpenPositionCombobox}>
@@ -297,30 +439,32 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
                       role="combobox"
                       aria-expanded={openPositionCombobox}
                       className="w-full justify-between"
+                      disabled={loadingPositions}
                     >
-                      {formData.toPosition ? (
+                      {selectedPosition ? (
                         <div className="flex items-center gap-2">
                           <Briefcase size={16} />
-                          <span>{formData.toPosition}</span>
+                          <span>{selectedPosition.name}</span>
                         </div>
+                      ) : loadingPositions ? (
+                        "Memuat jabatan..."
                       ) : (
                         "Pilih jabatan baru..."
                       )}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
+                  <PopoverContent className="w-[400px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Cari jabatan..." />
-                      <CommandList>
+                      <CommandList className="max-h-[200px] overflow-y-auto">
                         <CommandEmpty>Jabatan tidak ditemukan.</CommandEmpty>
                         <CommandGroup>
-                          {MASTER_POSITIONS.filter(pos => pos.isActive).map((position) => (
+                          {positions.map((position) => (
                             <CommandItem
                               key={position.id}
                               value={position.name}
                               onSelect={() => {
-                                handleInputChange('toPosition', position.name);
                                 setSelectedPositionId(position.id);
                                 setOpenPositionCombobox(false);
                               }}
@@ -328,13 +472,13 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  formData.toPosition === position.name ? "opacity-100" : "opacity-0"
+                                  selectedPositionId === position.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               <div className="flex flex-col">
                                 <span>{position.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {position.code} • {position.level.charAt(0).toUpperCase() + position.level.slice(1)}
+                                  {position.code} • {position.level?.charAt(0).toUpperCase() + position.level?.slice(1)}
                                 </span>
                               </div>
                             </CommandItem>
@@ -345,8 +489,8 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
                   </PopoverContent>
                 </Popover>
                 <p className="text-xs text-muted-foreground">
-                  {selectedEmployee.position === formData.toPosition && formData.toPosition && '✓ Jabatan tetap sama'}
-                  {selectedEmployee.position !== formData.toPosition && formData.toPosition && '⚠️ Mutasi jabatan'}
+                  {selectedEmployee.position_id === selectedPositionId && selectedPositionId && '✓ Jabatan tetap sama'}
+                  {selectedEmployee.position_id !== selectedPositionId && selectedPositionId && '⚠️ Mutasi jabatan'}
                 </p>
               </div>
             </div>
@@ -367,8 +511,6 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
             <Label htmlFor="reason">Alasan Mutasi *</Label>
             <Textarea
               id="reason"
-              value={formData.reason}
-              onChange={(e) => handleInputChange('reason', e.target.value)}
               placeholder="Jelaskan alasan mutasi (promosi, rotasi, permintaan pribadi, dll)"
               rows={3}
             />
@@ -378,8 +520,6 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
             <Label htmlFor="notes">Catatan Tambahan</Label>
             <Textarea
               id="notes"
-              value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
               placeholder="Catatan tambahan (opsional)"
               rows={2}
             />

@@ -61,6 +61,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { supabase } from '../../lib/supabaseClient'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
+import { SickLetterForm } from './SickLetterForm'
+import { useSickLetters } from '../../hooks/useSickLetters'
+import type { SickLetterFormData } from '../../types/sick-letter'
 
 // TypeScript interfaces
 interface Visit {
@@ -168,6 +171,11 @@ export function MedicalExamination() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [savedRecordId, setSavedRecordId] = useState<string | null>(null)
+  const [showSickLetterForm, setShowSickLetterForm] = useState(false)
+  const [employeeCode, setEmployeeCode] = useState<string>('')
+
+  // Initialize sick letters hook
+  const { createSickLetter } = useSickLetters({ autoFetch: false })
 
   // Check if user is superadmin
   useEffect(() => {
@@ -320,6 +328,21 @@ export function MedicalExamination() {
     setSelectedVisit(visit)
     setError('')
     setSuccess(false)
+
+    // Fetch employee code if patient is an employee
+    if (visit.patient.employee_id) {
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('employee_id')
+        .eq('id', visit.patient.employee_id)
+        .single()
+
+      if (employeeData) {
+        setEmployeeCode(employeeData.employee_id)
+      }
+    } else {
+      setEmployeeCode('')
+    }
 
     // Only update status to in_progress for waiting visits
     // Completed visits are view-only
@@ -614,9 +637,25 @@ export function MedicalExamination() {
       return
     }
 
-    toast.info('Fitur Buat Surat Sakit akan segera tersedia')
-    // TODO: Implement sick leave creation
-    // Will navigate to sick leave form with pre-filled data from this medical record
+    // Check if patient has employee_id
+    if (!selectedVisit?.patient.employee_id) {
+      toast.error('Pasien ini bukan karyawan. Surat sakit hanya dapat dibuat untuk karyawan.')
+      return
+    }
+
+    // Open sick letter form
+    setShowSickLetterForm(true)
+  }
+
+  const handleSubmitSickLetter = async (formData: SickLetterFormData) => {
+    try {
+      await createSickLetter(formData)
+      setShowSickLetterForm(false)
+      toast.success('Surat sakit berhasil dibuat dan presensi telah otomatis tercatat')
+    } catch (error: any) {
+      console.error('Error creating sick letter:', error)
+      // Error already handled by useSickLetters hook
+    }
   }
 
   const handleCreatePrescription = () => {
@@ -1444,6 +1483,23 @@ export function MedicalExamination() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Sick Letter Form Dialog */}
+      {selectedVisit?.patient && (
+        <SickLetterForm
+          open={showSickLetterForm}
+          onOpenChange={setShowSickLetterForm}
+          onSubmit={handleSubmitSickLetter}
+          medicalRecordId={savedRecordId || ''}
+          patientId={selectedVisit.patient.id}
+          employeeId={selectedVisit.patient.employee_id || ''}
+          doctorId={selectedDoctorId || currentDoctor?.id || ''}
+          patientName={selectedVisit.patient.full_name}
+          employeeName={selectedVisit.patient.full_name}
+          employeeCode={employeeCode}
+          defaultDiagnosis={formData.diagnosis_notes || ''}
+        />
+      )}
     </div>
   )
 }

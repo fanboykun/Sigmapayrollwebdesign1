@@ -113,6 +113,7 @@ interface Attendance {
   position: string;
   date: string;
   status: AttendanceStatus;
+  source?: string; // Source: 'manual', 'sick_letter', 'cuti_approval'
   notes: string;
   month: string;
   year: number;
@@ -322,23 +323,38 @@ export function AttendanceMaster() {
         .lte('date', lastDay)
         .eq('status', 'absent');
 
-      // Get unique employee count
-      const { data: uniqueEmployees } = await supabase
-        .from('attendance_records')
-        .select('employee_id')
-        .gte('date', firstDay)
-        .lte('date', lastDay);
+      // Get total active employees count (not just those with attendance records)
+      const { count: totalEmployeesCount } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
 
-      const workingDaysInMonth = getWorkingDaysInMonth(selectedYear, monthNumber);
+      // Get working days from database (Hari Efektif from Master Hari Kerja)
+      const { data: workingDayData } = await supabase
+        .from('working_days')
+        .select('working_days, holidays')
+        .eq('year', selectedYear)
+        .eq('month', monthNumber)
+        .is('division_id', null) // Get company-wide working days
+        .maybeSingle();
+
+      // Calculate effective days: working_days - holidays
+      let effectiveWorkingDays = 0;
+      if (workingDayData) {
+        effectiveWorkingDays = (workingDayData.working_days || 0) - (workingDayData.holidays || 0);
+      } else {
+        // Fallback to calculation if no data in database
+        effectiveWorkingDays = getWorkingDaysInMonth(selectedYear, monthNumber);
+      }
 
       setStatistics({
-        totalEmployees: uniqueEmployees ? new Set(uniqueEmployees.map(e => e.employee_id)).size : 0,
+        totalEmployees: totalEmployeesCount || 0,
         totalPresent: present || 0,
         totalPermission: permission || 0,
         totalSick: sick || 0,
         totalAbsent: absent || 0,
         totalRecords: total || 0,
-        workingDaysInMonth,
+        workingDaysInMonth: effectiveWorkingDays,
       });
 
       setTotalRecords(total || 0);
@@ -584,6 +600,7 @@ export function AttendanceMaster() {
           employee_id,
           date,
           status,
+          source,
           notes,
           created_at,
           updated_at
@@ -685,6 +702,7 @@ export function AttendanceMaster() {
             position: employee.position,
             date: record.date,
             status: mapStatusToUI(record.status),
+            source: record.source || 'manual',
             notes: record.notes || '',
             month: selectedMonth,
             year: selectedYear,
@@ -837,6 +855,12 @@ export function AttendanceMaster() {
       return;
     }
 
+    // Prevent editing attendance records from sick_letter
+    if (item.source === 'sick_letter') {
+      toast.error('Data presensi dari surat sakit tidak dapat diedit secara manual. Data ini dibuat otomatis oleh dokter.');
+      return;
+    }
+
     setEditingItem(item);
     setFormData({
       employeeId: item.employeeId,
@@ -960,6 +984,14 @@ export function AttendanceMaster() {
     // Prevent deleting attendance records with status 'C' (Cuti - auto-generated)
     if (editingItem.status === 'C') {
       toast.error('Data presensi dengan status Cuti tidak dapat dihapus secara manual. Data ini dibuat otomatis dari approval cuti.');
+      setIsDeleteDialogOpen(false);
+      setEditingItem(null);
+      return;
+    }
+
+    // Prevent deleting attendance records from sick_letter
+    if (editingItem.source === 'sick_letter') {
+      toast.error('Data presensi dari surat sakit tidak dapat dihapus secara manual. Data ini dibuat otomatis oleh dokter.');
       setIsDeleteDialogOpen(false);
       setEditingItem(null);
       return;
@@ -1401,12 +1433,20 @@ export function AttendanceMaster() {
                                 <span className="text-sm">{item.position}</span>
                               </TableCell>
                               <TableCell className="text-center">
-                                <Badge
-                                  variant={statusBadge.variant}
-                                  className={statusBadge.className}
-                                >
-                                  {statusBadge.label}
-                                </Badge>
+                                <div className="flex flex-col items-center gap-1">
+                                  <Badge
+                                    variant={statusBadge.variant}
+                                    className={statusBadge.className}
+                                  >
+                                    {statusBadge.label}
+                                  </Badge>
+                                  {item.source === 'sick_letter' && (
+                                    <Badge variant="outline" className="text-xs bg-blue-50 border-blue-300 text-blue-700">
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      Surat Sakit
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="max-w-xs truncate" title={item.notes}>
@@ -1420,8 +1460,8 @@ export function AttendanceMaster() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleEdit(item)}
-                                      disabled={item.status === 'C'}
-                                      title={item.status === 'C' ? 'Data cuti tidak dapat diedit secara manual' : ''}
+                                      disabled={item.status === 'C' || item.source === 'sick_letter'}
+                                      title={item.status === 'C' ? 'Data cuti tidak dapat diedit secara manual' : item.source === 'sick_letter' ? 'Data surat sakit tidak dapat diedit secara manual' : ''}
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
@@ -1434,8 +1474,8 @@ export function AttendanceMaster() {
                                         setEditingItem(item);
                                         setIsDeleteDialogOpen(true);
                                       }}
-                                      disabled={item.status === 'C'}
-                                      title={item.status === 'C' ? 'Data cuti tidak dapat dihapus secara manual' : ''}
+                                      disabled={item.status === 'C' || item.source === 'sick_letter'}
+                                      title={item.status === 'C' ? 'Data cuti tidak dapat dihapus secara manual' : item.source === 'sick_letter' ? 'Data surat sakit tidak dapat dihapus secara manual' : ''}
                                     >
                                       <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
