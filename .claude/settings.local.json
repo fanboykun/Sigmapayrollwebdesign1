@@ -27,7 +27,11 @@
       "Bash(test_direct_insert.ts )",
       "Bash(test_logged_in_insert.md )",
       "Bash(direct_sql_test.sql )",
-      "Bash(seed_attendance_simple.sql)"
+      "Bash(seed_attendance_simple.sql)",
+      "Bash(npm install:*)",
+      "Bash(npx:*)",
+      "Bash(npm search:*)",
+      "mcp__supabase__postgrestRequest"
     ],
     "deny": [],
     "ask": []
@@ -36,5 +40,18 @@
   "enabledMcpjsonServers": [
     "supabase"
   ],
-  "outputStyle": "default"
+  "outputStyle": "default",
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supabase-mcp"
+      ],
+      "env": {
+        "SUPABASE_URL": "https://gketmjcxsnzrrzwfrxfw.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrZXRtamN4c256cnJ6d2ZyeGZ3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjAzODA1MSwiZXhwIjoyMDc3NjE0MDUxfQ.4codvkI7tJytyTmyE3sBJwe2GT0dq42S77ELaA_BSR4"
+      }
+    }
+  }
 }
