@@ -72,9 +72,7 @@ export function SickLetterForm({
   const [totalDays, setTotalDays] = useState(1);
   const [formData, setFormData] = useState({
     diagnosis: defaultDiagnosis,
-    treatment_summary: '',
     rest_recommendation: 'Istirahat total di rumah',
-    notes: '',
   });
 
   // Calculate total days when dates change
@@ -122,9 +120,7 @@ export function SickLetterForm({
         end_date: endDate,
         total_days: totalDays,
         diagnosis: formData.diagnosis,
-        treatment_summary: formData.treatment_summary || undefined,
         rest_recommendation: formData.rest_recommendation,
-        notes: formData.notes || undefined,
       };
 
       await onSubmit(submitData);
@@ -132,9 +128,7 @@ export function SickLetterForm({
       // Reset form
       setFormData({
         diagnosis: '',
-        treatment_summary: '',
         rest_recommendation: 'Istirahat total di rumah',
-        notes: '',
       });
       setStartDate(new Date());
       setEndDate(new Date());
@@ -174,10 +168,6 @@ export function SickLetterForm({
               <div>
                 <span className="text-muted-foreground">Nama Pasien:</span>
                 <span className="ml-2 font-medium">{patientName}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Nama Karyawan:</span>
-                <span className="ml-2 font-medium">{employeeName}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">ID Karyawan:</span>
@@ -263,18 +253,6 @@ export function SickLetterForm({
               />
             </div>
 
-            {/* Treatment Summary */}
-            <div className="space-y-2">
-              <Label htmlFor="treatment_summary">Ringkasan Pengobatan</Label>
-              <Textarea
-                id="treatment_summary"
-                value={formData.treatment_summary}
-                onChange={(e) => handleInputChange('treatment_summary', e.target.value)}
-                placeholder="Masukkan ringkasan pengobatan yang diberikan..."
-                rows={3}
-              />
-            </div>
-
             {/* Rest Recommendation */}
             <div className="space-y-2">
               <Label htmlFor="rest_recommendation">Rekomendasi Istirahat *</Label>
@@ -288,25 +266,13 @@ export function SickLetterForm({
               />
             </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Catatan Tambahan</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                placeholder="Catatan tambahan jika diperlukan..."
-                rows={2}
-              />
-            </div>
-
             {/* Warning Alert */}
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <strong>Perhatian:</strong> Setelah surat sakit dibuat, presensi dengan status "Sakit" akan
-                otomatis dibuat untuk tanggal {format(startDate, 'dd MMM yyyy', { locale: localeId })} sampai {format(endDate, 'dd MMM yyyy', { locale: localeId })} ({totalDays} hari).
-                Presensi ini tidak bisa diedit atau dihapus secara manual.
+                otomatis dibuat untuk periode {format(startDate, 'dd MMM yyyy', { locale: localeId })} sampai {format(endDate, 'dd MMM yyyy', { locale: localeId })}.
+                Hari Minggu dan hari libur nasional tidak akan dibuatkan presensi. Surat sakit dapat diedit atau dihapus dari menu Pemeriksaan Diagnosis.
               </AlertDescription>
             </Alert>
           </div>

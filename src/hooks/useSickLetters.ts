@@ -299,6 +299,60 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
   }, [fetchSickLetters]);
 
   /**
+   * Update sick letter dates and adjust attendance
+   * This will add/remove attendance records based on the new date range
+   */
+  const updateSickLetterDates = useCallback(async (
+    id: string,
+    newStartDate: Date | string,
+    newEndDate: Date | string,
+    diagnosis: string
+  ) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const startDateStr = typeof newStartDate === 'string'
+        ? newStartDate
+        : newStartDate.toISOString().split('T')[0];
+      const endDateStr = typeof newEndDate === 'string'
+        ? newEndDate
+        : newEndDate.toISOString().split('T')[0];
+
+      // Use RPC function to update dates and adjust attendance
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'update_sick_letter_dates',
+        {
+          p_sick_letter_id: id,
+          p_new_start_date: startDateStr,
+          p_new_end_date: endDateStr,
+          p_diagnosis: diagnosis
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      const result = rpcData[0];
+      console.log(`Sick letter dates updated. Removed: ${result.attendance_removed}, Added: ${result.attendance_added}, Updated: ${result.attendance_updated}`);
+
+      toast.success('Tanggal surat sakit berhasil diperbarui dan presensi disesuaikan');
+
+      // Refresh data
+      await fetchSickLetters();
+
+      return result;
+    } catch (err: any) {
+      console.error('Error updating sick letter dates:', err);
+      const errorMsg = err.message || 'Gagal memperbarui tanggal surat sakit';
+      setError(errorMsg);
+      toast.error(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchSickLetters]);
+
+  /**
    * Cancel sick letter
    * This will mark attendance records as cancelled via database trigger
    */
@@ -341,21 +395,25 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
 
   /**
    * Delete sick letter (admin only)
-   * This will also delete related attendance records if configured
+   * This will restore attendance records to 'present' status via RPC function
    */
   const deleteSickLetter = useCallback(async (id: string) => {
     try {
       setLoading(true);
       setError(null);
 
-      const { error: deleteError } = await supabase
-        .from('clinic_sick_letters')
-        .delete()
-        .eq('id', id);
+      // Use RPC function to delete sick letter and restore attendance
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'delete_sick_letter_and_restore_attendance',
+        { p_sick_letter_id: id }
+      );
 
-      if (deleteError) throw deleteError;
+      if (rpcError) throw rpcError;
 
-      toast.success('Surat sakit berhasil dihapus');
+      const result = rpcData[0];
+      console.log(`Sick letter deleted. Attendance restored: ${result.attendance_restored}`);
+
+      toast.success(`Surat sakit berhasil dihapus. ${result.attendance_restored} presensi dikembalikan ke status Hadir (HK).`);
 
       // Refresh data
       await Promise.all([fetchSickLetters(), fetchStats()]);
@@ -455,6 +513,7 @@ export function useSickLetters(options: UseSickLettersOptions = {}) {
     fetchStats,
     createSickLetter,
     updateSickLetter,
+    updateSickLetterDates,
     cancelSickLetter,
     deleteSickLetter,
     getSickLetterById,

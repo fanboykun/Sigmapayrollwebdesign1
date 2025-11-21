@@ -35,6 +35,8 @@ import {
   FileCheck,
   Pill,
   ClipboardList,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
@@ -175,7 +177,17 @@ export function MedicalExamination() {
   const [employeeCode, setEmployeeCode] = useState<string>('')
 
   // Initialize sick letters hook
-  const { createSickLetter } = useSickLetters({ autoFetch: false })
+  const {
+    createSickLetter,
+    deleteSickLetter,
+    updateSickLetterDates,
+    getSickLettersByEmployee,
+  } = useSickLetters({ autoFetch: false })
+
+  // State for managing sick letters
+  const [patientSickLetters, setPatientSickLetters] = useState<any[]>([]);
+  const [editingSickLetter, setEditingSickLetter] = useState<any | null>(null);
+  const [showEditSickLetterDialog, setShowEditSickLetterDialog] = useState(false);
 
   // Check if user is superadmin
   useEffect(() => {
@@ -324,6 +336,16 @@ export function MedicalExamination() {
     }
   }
 
+  const fetchPatientSickLetters = async (employeeId: string) => {
+    try {
+      const letters = await getSickLettersByEmployee(employeeId)
+      setPatientSickLetters(letters)
+    } catch (err: any) {
+      console.error('Error fetching sick letters:', err)
+      setPatientSickLetters([])
+    }
+  }
+
   const handleSelectVisit = async (visit: Visit) => {
     setSelectedVisit(visit)
     setError('')
@@ -340,8 +362,12 @@ export function MedicalExamination() {
       if (employeeData) {
         setEmployeeCode(employeeData.employee_id)
       }
+
+      // Fetch sick letters for this employee
+      fetchPatientSickLetters(visit.patient.employee_id)
     } else {
       setEmployeeCode('')
+      setPatientSickLetters([])
     }
 
     // Only update status to in_progress for waiting visits
@@ -652,9 +678,53 @@ export function MedicalExamination() {
       await createSickLetter(formData)
       setShowSickLetterForm(false)
       toast.success('Surat sakit berhasil dibuat dan presensi telah otomatis tercatat')
+      // Refresh sick letters list
+      if (selectedVisit?.patient.employee_id) {
+        fetchPatientSickLetters(selectedVisit.patient.employee_id)
+      }
     } catch (error: any) {
       console.error('Error creating sick letter:', error)
       // Error already handled by useSickLetters hook
+    }
+  }
+
+  const handleDeleteSickLetter = async (sickLetterId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus surat sakit ini? Presensi akan dikembalikan ke status Hadir (HK).')) {
+      return
+    }
+
+    try {
+      await deleteSickLetter(sickLetterId)
+      // Refresh sick letters list
+      if (selectedVisit?.patient.employee_id) {
+        fetchPatientSickLetters(selectedVisit.patient.employee_id)
+      }
+    } catch (error: any) {
+      console.error('Error deleting sick letter:', error)
+    }
+  }
+
+  const handleEditSickLetter = (sickLetter: any) => {
+    setEditingSickLetter(sickLetter)
+    setShowEditSickLetterDialog(true)
+  }
+
+  const handleUpdateSickLetterDates = async (
+    sickLetterId: string,
+    startDate: Date,
+    endDate: Date,
+    diagnosis: string
+  ) => {
+    try {
+      await updateSickLetterDates(sickLetterId, startDate, endDate, diagnosis)
+      setShowEditSickLetterDialog(false)
+      setEditingSickLetter(null)
+      // Refresh sick letters list
+      if (selectedVisit?.patient.employee_id) {
+        fetchPatientSickLetters(selectedVisit.patient.employee_id)
+      }
+    } catch (error: any) {
+      console.error('Error updating sick letter:', error)
     }
   }
 
@@ -1359,6 +1429,72 @@ export function MedicalExamination() {
                         )}
                       </CardContent>
                     </Card>
+
+                    {/* Sick Letters Management */}
+                    {selectedVisit.patient.employee_id && patientSickLetters.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <FileText className="w-5 h-5" />
+                            Riwayat Surat Sakit
+                          </CardTitle>
+                          <CardDescription>
+                            Surat sakit yang pernah diterbitkan untuk pasien ini
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {patientSickLetters.map((letter) => (
+                              <div
+                                key={letter.id}
+                                className="p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Badge variant={letter.status === 'active' ? 'default' : 'secondary'}>
+                                        {letter.letter_number}
+                                      </Badge>
+                                      <Badge variant={letter.status === 'active' ? 'default' : 'outline'}>
+                                        {letter.status === 'active' ? 'Aktif' : 'Dibatalkan'}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-700 mb-1">
+                                      <strong>Periode:</strong> {new Date(letter.start_date).toLocaleDateString('id-ID')} - {new Date(letter.end_date).toLocaleDateString('id-ID')} ({letter.total_days} hari)
+                                    </p>
+                                    <p className="text-sm text-gray-700 mb-1">
+                                      <strong>Diagnosis:</strong> {letter.diagnosis}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      <strong>Rekomendasi:</strong> {letter.rest_recommendation}
+                                    </p>
+                                  </div>
+                                  {letter.status === 'active' && (
+                                    <div className="flex items-center gap-2 ml-4">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEditSickLetter(letter)}
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleDeleteSickLetter(letter.id)}
+                                        className="hover:bg-red-50 hover:border-red-300"
+                                      >
+                                        <Trash2 className="w-4 h-4 text-red-600" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 )}
               </div>
@@ -1500,6 +1636,129 @@ export function MedicalExamination() {
           defaultDiagnosis={formData.diagnosis_notes || ''}
         />
       )}
+
+      {/* Edit Sick Letter Dialog */}
+      {editingSickLetter && (
+        <Dialog open={showEditSickLetterDialog} onOpenChange={setShowEditSickLetterDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Surat Sakit</DialogTitle>
+              <DialogDescription>
+                Ubah periode sakit dan diagnosis. Presensi akan disesuaikan otomatis.
+              </DialogDescription>
+            </DialogHeader>
+            <EditSickLetterForm
+              sickLetter={editingSickLetter}
+              onSubmit={handleUpdateSickLetterDates}
+              onCancel={() => {
+                setShowEditSickLetterDialog(false)
+                setEditingSickLetter(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
+  )
+}
+
+// Edit Sick Letter Form Component
+interface EditSickLetterFormProps {
+  sickLetter: any
+  onSubmit: (id: string, startDate: Date, endDate: Date, diagnosis: string) => Promise<void>
+  onCancel: () => void
+}
+
+function EditSickLetterForm({ sickLetter, onSubmit, onCancel }: EditSickLetterFormProps) {
+  const [startDate, setStartDate] = useState(new Date(sickLetter.start_date))
+  const [endDate, setEndDate] = useState(new Date(sickLetter.end_date))
+  const [diagnosis, setDiagnosis] = useState(sickLetter.diagnosis)
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (endDate < startDate) {
+      alert('Tanggal selesai tidak boleh lebih awal dari tanggal mulai')
+      return
+    }
+
+    setLoading(true)
+    try {
+      await onSubmit(sickLetter.id, startDate, endDate, diagnosis)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="p-4 bg-blue-50 rounded-lg">
+        <p className="text-sm text-gray-700">
+          <strong>Nomor Surat:</strong> {sickLetter.letter_number}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Tanggal Mulai Sakit</Label>
+          <Input
+            type="date"
+            value={startDate.toISOString().split('T')[0]}
+            onChange={(e) => setStartDate(new Date(e.target.value))}
+            required
+          />
+        </div>
+        <div>
+          <Label>Tanggal Selesai Sakit</Label>
+          <Input
+            type="date"
+            value={endDate.toISOString().split('T')[0]}
+            onChange={(e) => setEndDate(new Date(e.target.value))}
+            min={startDate.toISOString().split('T')[0]}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="p-3 bg-muted rounded-md">
+        <p className="text-sm">
+          <strong>Total Hari:</strong> {totalDays} hari
+        </p>
+      </div>
+
+      <div>
+        <Label>Diagnosis</Label>
+        <Textarea
+          value={diagnosis}
+          onChange={(e) => setDiagnosis(e.target.value)}
+          rows={3}
+          required
+        />
+      </div>
+
+      <Alert>
+        <AlertCircle className="h-4 h-4" />
+        <AlertDescription>
+          Perubahan tanggal akan mengupdate presensi secara otomatis. Hari Minggu dan libur nasional tetap dilewati.
+        </AlertDescription>
+      </Alert>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+        >
+          Batal
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+        </Button>
+      </div>
+    </form>
   )
 }
