@@ -143,11 +143,16 @@ export function MedicalExamination() {
   const [queueFilter, setQueueFilter] = useState<'active' | 'completed'>('active')
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
 
-  // States for diseases
+  // States for diseases with lazy loading
   const [diseases, setDiseases] = useState<Disease[]>([])
   const [commonDiseases, setCommonDiseases] = useState<Disease[]>([])
   const [diseaseSearch, setDiseaseSearch] = useState('')
   const [diseasesByCategory, setDiseasesByCategory] = useState<Record<string, Disease[]>>({})
+  const [diseaseLoading, setDiseaseLoading] = useState(false)
+  const [diseaseHasMore, setDiseaseHasMore] = useState(true)
+  const [diseasePage, setDiseasePage] = useState(0)
+  const [totalDiseaseCount, setTotalDiseaseCount] = useState(0)
+  const DISEASE_PAGE_SIZE = 100
 
   // States for form
   const [formData, setFormData] = useState<MedicalRecordFormData>({
@@ -250,9 +255,10 @@ export function MedicalExamination() {
     fetchTodayVisits()
   }, [queueFilter, selectedDate])
 
-  // Fetch diseases
+  // Fetch common diseases on mount
   useEffect(() => {
-    fetchDiseases()
+    fetchCommonDiseases()
+    fetchDiseases('', 0, false) // Initial load of first 100 diseases
   }, [])
 
   // Calculate BMI automatically
@@ -298,30 +304,9 @@ export function MedicalExamination() {
     }
   }
 
-  const fetchDiseases = async () => {
+  // Fetch common diseases only (for initial load - these are few)
+  const fetchCommonDiseases = async () => {
     try {
-      // Fetch all active diseases
-      const { data: allDiseases, error: allError } = await supabase
-        .from('clinic_diseases')
-        .select('*')
-        .eq('is_active', true)
-        .order('name')
-
-      if (allError) throw allError
-      setDiseases(allDiseases || [])
-
-      // Group diseases by category
-      const grouped = (allDiseases || []).reduce((acc, disease) => {
-        const category = disease.category || 'Lainnya'
-        if (!acc[category]) {
-          acc[category] = []
-        }
-        acc[category].push(disease)
-        return acc
-      }, {} as Record<string, Disease[]>)
-      setDiseasesByCategory(grouped)
-
-      // Fetch common diseases
       const { data: commonData, error: commonError } = await supabase
         .from('clinic_diseases')
         .select('*')
@@ -332,8 +317,85 @@ export function MedicalExamination() {
       if (commonError) throw commonError
       setCommonDiseases(commonData || [])
     } catch (err: any) {
-      toast.error('Gagal memuat data penyakit: ' + err.message)
+      toast.error('Gagal memuat data penyakit umum: ' + err.message)
     }
+  }
+
+  // Fetch diseases with pagination and optional search (server-side)
+  const fetchDiseases = async (search: string = '', page: number = 0, append: boolean = false) => {
+    try {
+      setDiseaseLoading(true)
+
+      const from = page * DISEASE_PAGE_SIZE
+      const to = from + DISEASE_PAGE_SIZE - 1
+
+      // Build query with server-side search
+      let query = supabase
+        .from('clinic_diseases')
+        .select('*', { count: 'exact' })
+        .eq('is_active', true)
+
+      // Apply server-side search filter
+      if (search.trim()) {
+        const searchTerm = search.trim()
+        query = query.or(`icd10_code.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
+      }
+
+      // Apply pagination and ordering
+      const { data, error, count } = await query
+        .order('icd10_code')
+        .range(from, to)
+
+      if (error) throw error
+
+      const newDiseases = data || []
+
+      // Update total count
+      setTotalDiseaseCount(count || 0)
+
+      // Append or replace based on flag
+      if (append) {
+        setDiseases(prev => [...prev, ...newDiseases])
+      } else {
+        setDiseases(newDiseases)
+      }
+
+      // Check if there are more records
+      const totalLoaded = append ? diseases.length + newDiseases.length : newDiseases.length
+      setDiseaseHasMore(totalLoaded < (count || 0))
+      setDiseasePage(page)
+
+      // Group diseases by category (only for display purposes)
+      const allDiseases = append ? [...diseases, ...newDiseases] : newDiseases
+      const grouped = allDiseases.reduce((acc, disease) => {
+        const category = disease.category || 'Lainnya'
+        if (!acc[category]) {
+          acc[category] = []
+        }
+        acc[category].push(disease)
+        return acc
+      }, {} as Record<string, Disease[]>)
+      setDiseasesByCategory(grouped)
+
+    } catch (err: any) {
+      toast.error('Gagal memuat data penyakit: ' + err.message)
+    } finally {
+      setDiseaseLoading(false)
+    }
+  }
+
+  // Load more diseases (for infinite scroll)
+  const loadMoreDiseases = () => {
+    if (diseaseLoading || !diseaseHasMore) return
+    fetchDiseases(diseaseSearch, diseasePage + 1, true)
+  }
+
+  // Handle disease search with debounce effect
+  const handleDiseaseSearch = (value: string) => {
+    setDiseaseSearch(value)
+    setDiseasePage(0)
+    setDiseaseHasMore(true)
+    fetchDiseases(value, 0, false)
   }
 
   const fetchPatientSickLetters = async (employeeId: string) => {
@@ -474,6 +536,9 @@ export function MedicalExamination() {
   const handleOpenDiseaseDialog = (isPrimary: boolean) => {
     setSelectingPrimaryDiagnosis(isPrimary)
     setDiseaseSearch('') // Clear search when opening
+    setDiseasePage(0)
+    setDiseaseHasMore(true)
+    fetchDiseases('', 0, false) // Fetch fresh data
     setShowDiseaseDialog(true)
   }
 
@@ -1522,51 +1587,79 @@ export function MedicalExamination() {
               <Input
                 placeholder="Ketik untuk mencari penyakit (ICD-10 atau nama)..."
                 value={diseaseSearch}
-                onChange={(e) => setDiseaseSearch(e.target.value)}
+                onChange={(e) => handleDiseaseSearch(e.target.value)}
                 className="pl-10"
                 autoFocus
               />
             </div>
+            {/* Show total count */}
+            <p className="text-xs text-gray-500 mt-2">
+              Menampilkan {diseases.length} dari {totalDiseaseCount.toLocaleString()} penyakit
+              {diseaseSearch && ` (filter: "${diseaseSearch}")`}
+            </p>
           </div>
 
           {/* Scrollable Disease List */}
-          <div className="flex-1 overflow-y-auto px-6 py-4" style={{ maxHeight: '400px' }}>
-            {(() => {
-              // Filter diseases based on search
-              const searchLower = diseaseSearch.toLowerCase()
-              const filteredDiseases = diseases.filter(d =>
-                d.icd10_code.toLowerCase().includes(searchLower) ||
-                d.name.toLowerCase().includes(searchLower)
-              )
-
-              if (filteredDiseases.length === 0) {
-                return (
-                  <div className="text-center py-8 text-gray-500">
-                    Tidak ditemukan penyakit yang sesuai
-                  </div>
-                )
+          <div
+            className="flex-1 overflow-y-auto px-6 py-4"
+            style={{ maxHeight: '400px' }}
+            onScroll={(e) => {
+              const target = e.target as HTMLDivElement
+              // Load more when scrolled near bottom (within 100px)
+              if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
+                loadMoreDiseases()
               }
+            }}
+          >
+            {diseaseLoading && diseases.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3"></div>
+                <p>Memuat data penyakit...</p>
+              </div>
+            ) : diseases.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Tidak ditemukan penyakit yang sesuai
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Common Diseases First - only show when not searching */}
+                {!diseaseSearch && commonDiseases.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                      Penyakit Umum
+                    </h3>
+                    <div className="space-y-1">
+                      {commonDiseases.map((disease) => (
+                        <button
+                          key={disease.id}
+                          onClick={() => handleSelectDisease(disease.id)}
+                          className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {disease.icd10_code}
+                            </Badge>
+                            <span className="flex-1 text-sm">{disease.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {disease.category}
+                            </Badge>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              // Group filtered diseases by category
-              const grouped = filteredDiseases.reduce((acc, disease) => {
-                const category = disease.category || 'Lainnya'
-                if (!acc[category]) {
-                  acc[category] = []
-                }
-                acc[category].push(disease)
-                return acc
-              }, {} as Record<string, Disease[]>)
-
-              return (
-                <div className="space-y-4">
-                  {/* Common Diseases First */}
-                  {!diseaseSearch && commonDiseases.length > 0 && (
-                    <div>
+                {/* All Diseases - grouped by category */}
+                {Object.entries(diseasesByCategory)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([category, categoryDiseases]) => (
+                    <div key={category}>
                       <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
-                        Penyakit Umum
+                        {category}
                       </h3>
                       <div className="space-y-1">
-                        {commonDiseases.map((disease) => (
+                        {categoryDiseases.map((disease) => (
                           <button
                             key={disease.id}
                             onClick={() => handleSelectDisease(disease.id)}
@@ -1577,45 +1670,43 @@ export function MedicalExamination() {
                                 {disease.icd10_code}
                               </Badge>
                               <span className="flex-1 text-sm">{disease.name}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {disease.category}
-                              </Badge>
                             </div>
                           </button>
                         ))}
                       </div>
                     </div>
-                  )}
+                  ))}
 
-                  {/* All Diseases Grouped by Category */}
-                  {Object.entries(grouped)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([category, categoryDiseases]) => (
-                      <div key={category}>
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
-                          {category}
-                        </h3>
-                        <div className="space-y-1">
-                          {categoryDiseases.map((disease) => (
-                            <button
-                              key={disease.id}
-                              onClick={() => handleSelectDisease(disease.id)}
-                              className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Badge variant="outline" className="font-mono text-xs">
-                                  {disease.icd10_code}
-                                </Badge>
-                                <span className="flex-1 text-sm">{disease.name}</span>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
+                {/* Load More Button / Loading Indicator */}
+                {diseaseHasMore && (
+                  <div className="text-center py-4">
+                    {diseaseLoading ? (
+                      <div className="flex items-center justify-center gap-2 text-gray-500">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
+                        <span className="text-sm">Memuat lebih banyak...</span>
                       </div>
-                    ))}
-                </div>
-              )
-            })()}
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadMoreDiseases}
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Muat {DISEASE_PAGE_SIZE} Data Lagi
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* End of list message */}
+                {!diseaseHasMore && diseases.length > 0 && (
+                  <div className="text-center py-4 text-xs text-gray-400">
+                    Semua data sudah ditampilkan ({diseases.length} penyakit)
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
