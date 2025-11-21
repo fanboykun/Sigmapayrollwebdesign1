@@ -32,10 +32,55 @@ export function useHolidays() {
   }
 
   /**
-   * Generate attendance records untuk semua karyawan aktif pada tanggal libur
+   * Check if there are existing attendance records for a specific date
+   * Returns the count and details of existing records
    */
-  const generateAttendanceRecordsForHoliday = async (date: string, holidayName: string) => {
+  const checkExistingAttendanceRecords = async (date: string): Promise<{
+    hasExisting: boolean
+    count: number
+    statuses: string[]
+  }> => {
     try {
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select('status')
+        .eq('date', date)
+        .neq('status', 'holiday') // Only check non-holiday records
+
+      if (error) throw error
+
+      if (!data || data.length === 0) {
+        return { hasExisting: false, count: 0, statuses: [] }
+      }
+
+      // Get unique statuses
+      const statuses = [...new Set(data.map(r => r.status))]
+      return { hasExisting: true, count: data.length, statuses }
+    } catch (err: any) {
+      console.error('Error checking existing attendance records:', err)
+      return { hasExisting: false, count: 0, statuses: [] }
+    }
+  }
+
+  /**
+   * Generate attendance records untuk semua karyawan aktif pada tanggal libur
+   * @param forceOverwrite - if true, will overwrite existing records without checking
+   */
+  const generateAttendanceRecordsForHoliday = async (
+    date: string,
+    holidayName: string,
+    forceOverwrite: boolean = false
+  ): Promise<{ overwrittenCount: number }> => {
+    try {
+      // Check for existing records first (unless force overwrite)
+      if (!forceOverwrite) {
+        const existing = await checkExistingAttendanceRecords(date)
+        if (existing.hasExisting) {
+          // Return info about existing records - let caller handle confirmation
+          return { overwrittenCount: existing.count }
+        }
+      }
+
       // Fetch all active employees
       const { data: employees, error: empError } = await supabase
         .from('employees')
@@ -43,7 +88,7 @@ export function useHolidays() {
         .eq('status', 'active')
 
       if (empError) throw empError
-      if (!employees || employees.length === 0) return
+      if (!employees || employees.length === 0) return { overwrittenCount: 0 }
 
       // Create attendance records for each employee
       const attendanceRecords = employees.map(emp => ({
@@ -71,6 +116,7 @@ export function useHolidays() {
       }
 
       console.log(`Successfully created ${attendanceRecords.length} attendance records for holiday: ${holidayName}`)
+      return { overwrittenCount: 0 }
     } catch (err: any) {
       console.error('Error generating attendance records for holiday:', err)
       throw err
@@ -100,10 +146,26 @@ export function useHolidays() {
     }
   }
 
-  const addHoliday = async (holiday: HolidayInsert) => {
+  const addHoliday = async (holiday: HolidayInsert, forceOverwrite: boolean = false) => {
     try {
       setLoading(true)
       setError(null)
+
+      // Check for existing attendance records first
+      if (holiday.date && !forceOverwrite) {
+        const existing = await checkExistingAttendanceRecords(holiday.date)
+        if (existing.hasExisting) {
+          setLoading(false)
+          return {
+            data: null,
+            error: null,
+            needsConfirmation: true,
+            existingCount: existing.count,
+            existingStatuses: existing.statuses,
+            pendingHoliday: holiday
+          }
+        }
+      }
 
       const { data, error: insertError } = await supabase
         .from('holidays')
@@ -115,15 +177,15 @@ export function useHolidays() {
 
       // Auto-generate attendance records untuk semua karyawan aktif
       if (data?.date) {
-        await generateAttendanceRecordsForHoliday(data.date, data.name)
+        await generateAttendanceRecordsForHoliday(data.date, data.name, forceOverwrite)
       }
 
       setHolidays(prev => [...prev, data])
-      return { data, error: null }
+      return { data, error: null, needsConfirmation: false }
     } catch (err: any) {
       setError(err.message)
       console.error('Error adding holiday:', err)
-      return { data: null, error: err.message }
+      return { data: null, error: err.message, needsConfirmation: false }
     } finally {
       setLoading(false)
     }

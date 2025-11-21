@@ -118,7 +118,7 @@ export function WorkingDaysMaster() {
   } = useWorkingDays();
 
   // Fetch holidays from database for calculation
-  const { holidays: dbHolidays } = useHolidays();
+  const { holidays: dbHolidays, fetchHolidays } = useHolidays();
 
   // State untuk form input
   const [formData, setFormData] = useState({
@@ -181,7 +181,10 @@ export function WorkingDaysMaster() {
   /**
    * Buka dialog untuk tambah data baru
    */
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    // Refresh holidays data to get latest from database
+    await fetchHolidays();
+
     setEditingItem(null);
     setFormData({
       month: "",
@@ -198,7 +201,10 @@ export function WorkingDaysMaster() {
   /**
    * Buka dialog untuk edit data
    */
-  const handleEdit = (item: WorkingDay) => {
+  const handleEdit = async (item: WorkingDay) => {
+    // Refresh holidays data to get latest from database
+    await fetchHolidays();
+
     setEditingItem(item);
     setFormData({
       month: item.month,

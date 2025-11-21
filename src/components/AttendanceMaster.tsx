@@ -113,7 +113,7 @@ interface Attendance {
   position: string;
   date: string;
   status: AttendanceStatus;
-  source?: string; // Source: 'manual', 'sick_letter', 'cuti_approval'
+  source: string; // Source: 'manual', 'sick_letter', 'cuti_approval'
   notes: string;
   month: string;
   year: number;
@@ -165,6 +165,7 @@ export function AttendanceMaster() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [summaryCurrentPage, setSummaryCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
 
   // Statistics state (for cards)
@@ -287,19 +288,29 @@ export function AttendanceMaster() {
       const lastDayOfMonth = new Date(selectedYear, monthNumber, 0).getDate();
       const lastDay = `${year}-${month}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-      // Get total count
+      // Get active employee IDs first (to filter attendance records)
+      const { data: activeEmployees } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('status', 'active');
+
+      const activeEmployeeIds = (activeEmployees || []).map(e => e.id);
+
+      // Get total count (only for active employees)
       const { count: total } = await supabase
         .from('attendance_records')
         .select('*', { count: 'exact', head: true })
         .gte('date', firstDay)
-        .lte('date', lastDay);
+        .lte('date', lastDay)
+        .in('employee_id', activeEmployeeIds);
 
-      // Get count by status
+      // Get count by status (only for active employees)
       const { count: present } = await supabase
         .from('attendance_records')
         .select('*', { count: 'exact', head: true })
         .gte('date', firstDay)
         .lte('date', lastDay)
+        .in('employee_id', activeEmployeeIds)
         .eq('status', 'present');
 
       const { count: permission } = await supabase
@@ -307,6 +318,7 @@ export function AttendanceMaster() {
         .select('*', { count: 'exact', head: true })
         .gte('date', firstDay)
         .lte('date', lastDay)
+        .in('employee_id', activeEmployeeIds)
         .eq('status', 'leave');
 
       const { count: sick } = await supabase
@@ -314,6 +326,7 @@ export function AttendanceMaster() {
         .select('*', { count: 'exact', head: true })
         .gte('date', firstDay)
         .lte('date', lastDay)
+        .in('employee_id', activeEmployeeIds)
         .eq('status', 'sick');
 
       const { count: absent } = await supabase
@@ -321,13 +334,11 @@ export function AttendanceMaster() {
         .select('*', { count: 'exact', head: true })
         .gte('date', firstDay)
         .lte('date', lastDay)
+        .in('employee_id', activeEmployeeIds)
         .eq('status', 'absent');
 
-      // Get total active employees count (not just those with attendance records)
-      const { count: totalEmployeesCount } = await supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
+      // Get total active employees count
+      const totalEmployeesCount = activeEmployeeIds.length;
 
       // Get working days from database (Hari Efektif from Master Hari Kerja)
       const { data: workingDayData } = await supabase
@@ -743,6 +754,7 @@ export function AttendanceMaster() {
     loadAttendanceData(1, searchTerm, selectedDivision);
     loadSummaryData(selectedDivision);
     setCurrentPage(1); // Reset to page 1 when month/year changes
+    setSummaryCurrentPage(1); // Reset summary pagination too
   }, [selectedMonth, selectedYear]);
 
   /**
@@ -750,6 +762,7 @@ export function AttendanceMaster() {
    */
   React.useEffect(() => {
     setCurrentPage(1);
+    setSummaryCurrentPage(1); // Reset summary pagination too
     loadAttendanceData(1, searchTerm, selectedDivision);
     // Reload summary when division filter changes
     loadSummaryData(selectedDivision);
@@ -789,12 +802,25 @@ export function AttendanceMaster() {
   };
 
   /**
+   * Handle summary page change
+   */
+  const handleSummaryPageChange = (page: number) => {
+    setSummaryCurrentPage(page);
+  };
+
+  /**
    * Get attendance summary (returns pre-calculated summaryData from state)
    * Data is loaded by loadSummaryData() which fetches ALL records for the month
    */
   const getAttendanceSummary = (): AttendanceSummary[] => {
     return summaryData;
   };
+
+  // Summary pagination calculations
+  const summaryTotalPages = Math.ceil(summaryData.length / ITEMS_PER_PAGE);
+  const summaryStartIndex = (summaryCurrentPage - 1) * ITEMS_PER_PAGE;
+  const summaryEndIndex = Math.min(summaryStartIndex + ITEMS_PER_PAGE, summaryData.length);
+  const paginatedSummaryData = summaryData.slice(summaryStartIndex, summaryEndIndex);
 
   /**
    * Hitung statistik kehadiran keseluruhan
@@ -1170,9 +1196,9 @@ export function AttendanceMaster() {
 
   return (
     <PermissionGuard module="attendance_master" action="view">
-      <div className="p-6 space-y-6">
+      <div className="p-4 h-[calc(100vh-4rem)] overflow-hidden flex flex-col gap-3">
         {/* Header */}
-        <div>
+        <div className="flex-shrink-0">
           <h1 className="flex items-center gap-2">
             <ClipboardCheck className="h-8 w-8" />
             Master Presensi Karyawan
@@ -1183,7 +1209,7 @@ export function AttendanceMaster() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 flex-shrink-0">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Hari Kerja Efektif</CardDescription>
@@ -1252,16 +1278,16 @@ export function AttendanceMaster() {
         </div>
 
         {/* Tabs untuk Data Presensi dan Ringkasan */}
-        <Tabs defaultValue="attendance" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+        <Tabs defaultValue="attendance" className="w-full flex-1 min-h-0 flex flex-col">
+          <TabsList className="grid w-full max-w-md grid-cols-2 flex-shrink-0">
             <TabsTrigger value="attendance">Data Presensi</TabsTrigger>
             <TabsTrigger value="summary">Ringkasan</TabsTrigger>
           </TabsList>
 
           {/* Tab Data Presensi */}
-          <TabsContent value="attendance" className="space-y-4">
-            <Card>
-              <CardHeader>
+          <TabsContent value="attendance" className="flex-1 min-h-0 flex flex-col mt-2">
+            <Card className="flex-1 min-h-0 flex flex-col">
+              <CardHeader className="flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Data Presensi Detail</CardTitle>
@@ -1283,9 +1309,9 @@ export function AttendanceMaster() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {/* Filter & Search */}
-                <div className="flex flex-col gap-4 mb-4">
+                <div className="flex flex-col gap-4 mb-4 flex-shrink-0">
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1368,8 +1394,8 @@ export function AttendanceMaster() {
                 </div>
 
                 {/* Table */}
-                <div className="border rounded-lg">
-                  <div className="max-h-[calc(100vh-350px)] overflow-y-auto overflow-x-auto">
+                <div className="border rounded-lg flex-1 min-h-0 flex flex-col">
+                  <div className="flex-1 overflow-y-auto overflow-x-auto">
                     <Table>
                       <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
@@ -1493,7 +1519,7 @@ export function AttendanceMaster() {
 
                 {/* Pagination Info and Controls */}
                 {totalRecords > 0 && (
-                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
                     {/* Data Info */}
                     <div className="text-sm text-muted-foreground">
                       Menampilkan {startIndex + 1}-{endIndex} dari {totalRecords} total data presensi
@@ -1551,9 +1577,9 @@ export function AttendanceMaster() {
           </TabsContent>
 
           {/* Tab Ringkasan */}
-          <TabsContent value="summary" className="space-y-4">
-            <Card>
-              <CardHeader>
+          <TabsContent value="summary" className="flex-1 min-h-0 flex flex-col mt-2">
+            <Card className="flex-1 min-h-0 flex flex-col">
+              <CardHeader className="flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Ringkasan Kehadiran Karyawan</CardTitle>
@@ -1569,9 +1595,9 @@ export function AttendanceMaster() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {/* Filter */}
-                <div className="flex flex-col gap-4 mb-4">
+                <div className="flex flex-col gap-4 mb-4 flex-shrink-0">
                   <div className="flex gap-2">
                     <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                       <SelectTrigger className="w-[150px]">
@@ -1643,9 +1669,10 @@ export function AttendanceMaster() {
                 </div>
 
                 {/* Table Ringkasan */}
-                <div className="border rounded-lg overflow-auto">
+                <div className="border rounded-lg flex-1 min-h-0 flex flex-col">
+                  <div className="flex-1 overflow-y-auto overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 bg-background z-10">
                       <TableRow>
                         <TableHead>ID Karyawan</TableHead>
                         <TableHead>Nama Karyawan</TableHead>
@@ -1665,14 +1692,14 @@ export function AttendanceMaster() {
                             <Loader2 className="animate-spin mx-auto text-muted-foreground" size={32} />
                           </TableCell>
                         </TableRow>
-                      ) : getAttendanceSummary().length === 0 ? (
+                      ) : summaryData.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             Tidak ada data ringkasan untuk periode yang dipilih
                           </TableCell>
                         </TableRow>
                       ) : (
-                        getAttendanceSummary().map((summary) => {
+                        paginatedSummaryData.map((summary) => {
                           const division = divisions.find(d => d.nama_divisi === summary.division);
                           return (
                             <TableRow key={summary.employeeId}>
@@ -1729,7 +1756,63 @@ export function AttendanceMaster() {
                       )}
                     </TableBody>
                   </Table>
+                  </div>
                 </div>
+
+                {/* Pagination Info and Controls for Summary */}
+                {summaryData.length > 0 && (
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
+                    {/* Data Info */}
+                    <div className="text-sm text-muted-foreground">
+                      Menampilkan {summaryStartIndex + 1}-{summaryEndIndex} dari {summaryData.length} total karyawan
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {summaryTotalPages > 1 && (
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() => summaryCurrentPage > 1 && handleSummaryPageChange(summaryCurrentPage - 1)}
+                              className={summaryCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+
+                          {/* Page Numbers */}
+                          {Array.from({ length: summaryTotalPages }, (_, i) => i + 1).map((page) => {
+                            if (
+                              page === 1 ||
+                              page === summaryTotalPages ||
+                              (page >= summaryCurrentPage - 1 && page <= summaryCurrentPage + 1)
+                            ) {
+                              return (
+                                <PaginationItem key={page}>
+                                  <PaginationLink
+                                    onClick={() => handleSummaryPageChange(page)}
+                                    isActive={summaryCurrentPage === page}
+                                    className="cursor-pointer"
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            } else if (page === summaryCurrentPage - 2 || page === summaryCurrentPage + 2) {
+                              return <PaginationEllipsis key={page} />;
+                            }
+                            return null;
+                          })}
+
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() => summaryCurrentPage < summaryTotalPages && handleSummaryPageChange(summaryCurrentPage + 1)}
+                              className={summaryCurrentPage === summaryTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

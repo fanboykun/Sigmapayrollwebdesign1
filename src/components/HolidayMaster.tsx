@@ -95,9 +95,15 @@ export function HolidayMasterContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isOverwriteDialogOpen, setIsOverwriteDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingHolidayData, setPendingHolidayData] = useState<any | null>(null);
+  const [existingRecordsInfo, setExistingRecordsInfo] = useState<{
+    count: number;
+    statuses: string[];
+  } | null>(null);
 
   // State untuk form input
   const [formData, setFormData] = useState({
@@ -166,7 +172,7 @@ export function HolidayMasterContent() {
   /**
    * Simpan data (create/update) menggunakan Supabase
    */
-  const handleSave = async () => {
+  const handleSave = async (forceOverwrite: boolean = false) => {
     // Validasi
     if (!formData.date || !formData.name) {
       toast({
@@ -191,8 +197,21 @@ export function HolidayMasterContent() {
         });
       } else {
         // Create new
-        const { error } = await addHoliday(formData);
-        if (error) throw new Error(error);
+        const result = await addHoliday(formData, forceOverwrite);
+
+        // Check if needs confirmation
+        if (result.needsConfirmation) {
+          setPendingHolidayData(result.pendingHoliday);
+          setExistingRecordsInfo({
+            count: result.existingCount || 0,
+            statuses: result.existingStatuses || []
+          });
+          setIsOverwriteDialogOpen(true);
+          setIsSaving(false);
+          return;
+        }
+
+        if (result.error) throw new Error(result.error);
 
         toast({
           title: "Berhasil",
@@ -201,6 +220,45 @@ export function HolidayMasterContent() {
       }
 
       setIsDialogOpen(false);
+      setFormData({
+        date: "",
+        name: "",
+        type: "national",
+        description: "",
+        is_paid: true,
+      });
+      setSelectedDate(undefined);
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Terjadi kesalahan saat menyimpan data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * Handle konfirmasi untuk menimpa data presensi
+   */
+  const handleConfirmOverwrite = async () => {
+    if (!pendingHolidayData) return;
+
+    setIsSaving(true);
+    try {
+      const result = await addHoliday(pendingHolidayData, true); // Force overwrite
+      if (result.error) throw new Error(result.error);
+
+      toast({
+        title: "Berhasil",
+        description: "Data hari libur berhasil ditambahkan dan data presensi diperbarui",
+      });
+
+      setIsOverwriteDialogOpen(false);
+      setIsDialogOpen(false);
+      setPendingHolidayData(null);
+      setExistingRecordsInfo(null);
       setFormData({
         date: "",
         name: "",
@@ -537,7 +595,7 @@ export function HolidayMasterContent() {
             <DialogHeader>
               <DialogTitle>Konfirmasi Hapus</DialogTitle>
               <DialogDescription>
-                Apakah Anda yakin ingin menghapus data hari libur ini? 
+                Apakah Anda yakin ingin menghapus data hari libur ini?
                 Tindakan ini tidak dapat dibatalkan.
               </DialogDescription>
             </DialogHeader>
@@ -550,6 +608,60 @@ export function HolidayMasterContent() {
               </Button>
               <Button variant="destructive" onClick={handleDelete}>
                 Hapus
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Overwrite Confirmation Dialog */}
+        <Dialog open={isOverwriteDialogOpen} onOpenChange={setIsOverwriteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-orange-600 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
+                Konfirmasi Timpa Data Presensi
+              </DialogTitle>
+              <DialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    Terdapat <strong>{existingRecordsInfo?.count || 0} data presensi</strong> yang sudah ada pada tanggal ini.
+                  </p>
+                  {existingRecordsInfo?.statuses && existingRecordsInfo.statuses.length > 0 && (
+                    <p className="text-sm">
+                      Status presensi: <strong>{existingRecordsInfo.statuses.join(", ")}</strong>
+                    </p>
+                  )}
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-md text-sm text-orange-900">
+                    <strong>Peringatan:</strong> Jika Anda melanjutkan, semua data presensi pada tanggal ini akan diganti dengan status "holiday". Data asli tidak dapat dikembalikan.
+                  </div>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsOverwriteDialogOpen(false);
+                  setPendingHolidayData(null);
+                  setExistingRecordsInfo(null);
+                }}
+                disabled={isSaving}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmOverwrite}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  "Ya, Timpa Data"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
