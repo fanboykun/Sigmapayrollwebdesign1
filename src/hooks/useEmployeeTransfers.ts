@@ -14,57 +14,77 @@ export function useEmployeeTransfers() {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Fetch all employee transfers with relations
+   * Fetch all employee transfers with relations (manual join approach)
    */
   const fetchTransfers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      // Fetch base transfer data
+      const { data: transfersData, error: fetchError } = await supabase
         .from('employee_transfers')
-        .select(`
-          *,
-          employee:employee_id(
-            employee_id,
-            full_name,
-            email
-          ),
-          from_division:from_division_id(
-            id,
-            nama_divisi,
-            kode_divisi
-          ),
-          from_position:from_position_id(
-            id,
-            name,
-            code
-          ),
-          to_division:to_division_id(
-            id,
-            nama_divisi,
-            kode_divisi
-          ),
-          to_position:to_position_id(
-            id,
-            name,
-            code
-          ),
-          requested_by_user:requested_by(
-            id,
-            full_name
-          ),
-          approved_by_user:approved_by(
-            id,
-            full_name
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
-      setTransfers(data || []);
-      return { data, error: null };
+      if (!transfersData || transfersData.length === 0) {
+        setTransfers([]);
+        return { data: [], error: null };
+      }
+
+      // Get unique IDs for related data
+      const employeeIds = [...new Set(transfersData.map(t => t.employee_id).filter(Boolean))] as string[];
+      const divisionIds = [...new Set([
+        ...transfersData.map(t => t.from_division_id),
+        ...transfersData.map(t => t.to_division_id)
+      ].filter(Boolean))] as string[];
+      const positionIds = [...new Set([
+        ...transfersData.map(t => t.from_position_id),
+        ...transfersData.map(t => t.to_position_id)
+      ].filter(Boolean))] as string[];
+      const userIds = [...new Set([
+        ...transfersData.map(t => t.requested_by),
+        ...transfersData.map(t => t.approved_by)
+      ].filter(Boolean))] as string[];
+
+      // Fetch related data in parallel
+      const [employeesRes, divisionsRes, positionsRes, usersRes] = await Promise.all([
+        employeeIds.length > 0
+          ? supabase.from('employees').select('id, employee_id, full_name, email').in('id', employeeIds)
+          : { data: [], error: null },
+        divisionIds.length > 0
+          ? supabase.from('divisions').select('id, nama_divisi, kode_divisi').in('id', divisionIds)
+          : { data: [], error: null },
+        positionIds.length > 0
+          ? supabase.from('positions').select('id, name, code').in('id', positionIds)
+          : { data: [], error: null },
+        userIds.length > 0
+          ? supabase.from('users').select('id, full_name').in('id', userIds)
+          : { data: [], error: null }
+      ]);
+
+      // Create lookup maps
+      const employeesMap = new Map((employeesRes.data || []).map(e => [e.id, e]));
+      const divisionsMap = new Map((divisionsRes.data || []).map(d => [d.id, d]));
+      const positionsMap = new Map((positionsRes.data || []).map(p => [p.id, p]));
+      const usersMap = new Map((usersRes.data || []).map(u => [u.id, u]));
+
+      // Manually join the data
+      const enrichedTransfers = transfersData.map(transfer => ({
+        ...transfer,
+        employee: employeesMap.get(transfer.employee_id) || null,
+        from_division: divisionsMap.get(transfer.from_division_id) || null,
+        from_position: positionsMap.get(transfer.from_position_id) || null,
+        to_division: divisionsMap.get(transfer.to_division_id) || null,
+        to_position: positionsMap.get(transfer.to_position_id) || null,
+        requested_by_user: usersMap.get(transfer.requested_by) || null,
+        approved_by_user: usersMap.get(transfer.approved_by) || null
+      }));
+
+      setTransfers(enrichedTransfers);
+      return { data: enrichedTransfers, error: null };
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch employee transfers';
       setError(errorMessage);
@@ -83,50 +103,54 @@ export function useEmployeeTransfers() {
       setLoading(true);
       setError(null);
 
-      const { data, error: insertError } = await supabase
+      // Insert the transfer
+      const { data: insertedData, error: insertError } = await supabase
         .from('employee_transfers')
         .insert({
           ...transferData,
           status: 'pending'
         })
-        .select(`
-          *,
-          employee:employee_id(
-            employee_id,
-            full_name,
-            email
-          ),
-          from_division:from_division_id(
-            id,
-            nama_divisi,
-            kode_divisi
-          ),
-          from_position:from_position_id(
-            id,
-            name,
-            code
-          ),
-          to_division:to_division_id(
-            id,
-            nama_divisi,
-            kode_divisi
-          ),
-          to_position:to_position_id(
-            id,
-            name,
-            code
-          ),
-          requested_by_user:requested_by(
-            id,
-            full_name
-          )
-        `)
+        .select('*')
         .single();
 
       if (insertError) throw insertError;
 
-      setTransfers(prev => [data, ...prev]);
-      return { data, error: null };
+      // Fetch related data
+      const [employeeRes, fromDivRes, fromPosRes, toDivRes, toPosRes, userRes] = await Promise.all([
+        insertedData.employee_id
+          ? supabase.from('employees').select('id, employee_id, full_name, email').eq('id', insertedData.employee_id).single()
+          : { data: null, error: null },
+        insertedData.from_division_id
+          ? supabase.from('divisions').select('id, nama_divisi, kode_divisi').eq('id', insertedData.from_division_id).single()
+          : { data: null, error: null },
+        insertedData.from_position_id
+          ? supabase.from('positions').select('id, name, code').eq('id', insertedData.from_position_id).single()
+          : { data: null, error: null },
+        insertedData.to_division_id
+          ? supabase.from('divisions').select('id, nama_divisi, kode_divisi').eq('id', insertedData.to_division_id).single()
+          : { data: null, error: null },
+        insertedData.to_position_id
+          ? supabase.from('positions').select('id, name, code').eq('id', insertedData.to_position_id).single()
+          : { data: null, error: null },
+        insertedData.requested_by
+          ? supabase.from('users').select('id, full_name').eq('id', insertedData.requested_by).single()
+          : { data: null, error: null }
+      ]);
+
+      // Enrich the data
+      const enrichedData = {
+        ...insertedData,
+        employee: employeeRes.data || null,
+        from_division: fromDivRes.data || null,
+        from_position: fromPosRes.data || null,
+        to_division: toDivRes.data || null,
+        to_position: toPosRes.data || null,
+        requested_by_user: userRes.data || null,
+        approved_by_user: null
+      };
+
+      setTransfers(prev => [enrichedData, ...prev]);
+      return { data: enrichedData, error: null };
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create transfer';
       setError(errorMessage);
@@ -145,52 +169,55 @@ export function useEmployeeTransfers() {
       setLoading(true);
       setError(null);
 
-      const { data, error: updateError } = await supabase
+      // Update the transfer
+      const { data: updatedData, error: updateError } = await supabase
         .from('employee_transfers')
         .update(updates)
         .eq('id', id)
-        .select(`
-          *,
-          employee:employee_id(
-            employee_id,
-            full_name,
-            email
-          ),
-          from_division:from_division_id(
-            id,
-            nama_divisi,
-            kode_divisi
-          ),
-          from_position:from_position_id(
-            id,
-            name,
-            code
-          ),
-          to_division:to_division_id(
-            id,
-            nama_divisi,
-            kode_divisi
-          ),
-          to_position:to_position_id(
-            id,
-            name,
-            code
-          ),
-          requested_by_user:requested_by(
-            id,
-            full_name
-          ),
-          approved_by_user:approved_by(
-            id,
-            full_name
-          )
-        `)
+        .select('*')
         .single();
 
       if (updateError) throw updateError;
 
-      setTransfers(prev => prev.map(t => t.id === id ? data : t));
-      return { data, error: null };
+      // Fetch related data
+      const [employeeRes, fromDivRes, fromPosRes, toDivRes, toPosRes, reqUserRes, appUserRes] = await Promise.all([
+        updatedData.employee_id
+          ? supabase.from('employees').select('id, employee_id, full_name, email').eq('id', updatedData.employee_id).single()
+          : { data: null, error: null },
+        updatedData.from_division_id
+          ? supabase.from('divisions').select('id, nama_divisi, kode_divisi').eq('id', updatedData.from_division_id).single()
+          : { data: null, error: null },
+        updatedData.from_position_id
+          ? supabase.from('positions').select('id, name, code').eq('id', updatedData.from_position_id).single()
+          : { data: null, error: null },
+        updatedData.to_division_id
+          ? supabase.from('divisions').select('id, nama_divisi, kode_divisi').eq('id', updatedData.to_division_id).single()
+          : { data: null, error: null },
+        updatedData.to_position_id
+          ? supabase.from('positions').select('id, name, code').eq('id', updatedData.to_position_id).single()
+          : { data: null, error: null },
+        updatedData.requested_by
+          ? supabase.from('users').select('id, full_name').eq('id', updatedData.requested_by).single()
+          : { data: null, error: null },
+        updatedData.approved_by
+          ? supabase.from('users').select('id, full_name').eq('id', updatedData.approved_by).single()
+          : { data: null, error: null }
+      ]);
+
+      // Enrich the data
+      const enrichedData = {
+        ...updatedData,
+        employee: employeeRes.data || null,
+        from_division: fromDivRes.data || null,
+        from_position: fromPosRes.data || null,
+        to_division: toDivRes.data || null,
+        to_position: toPosRes.data || null,
+        requested_by_user: reqUserRes.data || null,
+        approved_by_user: appUserRes.data || null
+      };
+
+      setTransfers(prev => prev.map(t => t.id === id ? enrichedData : t));
+      return { data: enrichedData, error: null };
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to update transfer';
       setError(errorMessage);
@@ -202,13 +229,36 @@ export function useEmployeeTransfers() {
   };
 
   /**
-   * Approve employee transfer
+   * Approve employee transfer and update employee master data
    */
   const approveTransfer = async (id: string, approvedBy: string) => {
     try {
       setLoading(true);
       setError(null);
 
+      // First get the transfer details to know where to move the employee
+      const { data: transfer, error: fetchError } = await supabase
+        .from('employee_transfers')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!transfer) throw new Error('Transfer not found');
+
+      // Update employee master data with new division and position
+      const { error: updateEmployeeError } = await supabase
+        .from('employees')
+        .update({
+          division_id: transfer.to_division_id,
+          position_id: transfer.to_position_id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transfer.employee_id);
+
+      if (updateEmployeeError) throw updateEmployeeError;
+
+      // Update transfer status to approved
       const updates: EmployeeTransferUpdate = {
         status: 'approved',
         approved_by: approvedBy,
@@ -222,23 +272,26 @@ export function useEmployeeTransfers() {
       setError(errorMessage);
       console.error('Error approving transfer:', err);
       return { data: null, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
   };
 
   /**
    * Reject employee transfer
    */
-  const rejectTransfer = async (id: string, approvedBy: string, notes?: string) => {
+  const rejectTransfer = async (id: string, approvedBy: string, rejectionNotes?: string) => {
     try {
-      setLoading(true);
-      setError(null);
-
       const updates: EmployeeTransferUpdate = {
         status: 'rejected',
         approved_by: approvedBy,
-        approved_date: new Date().toISOString(),
-        notes
+        approved_date: new Date().toISOString()
       };
+
+      // Only include notes if provided
+      if (rejectionNotes && rejectionNotes.trim()) {
+        updates.notes = rejectionNotes.trim();
+      }
 
       const result = await updateTransfer(id, updates);
       return result;

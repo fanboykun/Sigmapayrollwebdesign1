@@ -174,12 +174,18 @@ function MainApp() {
   const { isAuthenticated, canAccessMenu, user } = useAuth();
 
   /**
-   * Get default view based on user role
-   * This is only used for initial state, actual routing is handled by useEffect
-   * #RoleBasedDefault #InitialState
+   * Get default view based on user role and saved state
+   * Prioritizes saved view from localStorage to preserve state on refresh
+   * #RoleBasedDefault #InitialState #PersistentState
    */
   const getDefaultView = (): ViewType => {
-    // Check user role for initial view
+    // First, try to get saved view from localStorage
+    const savedView = localStorage.getItem('activeView') as ViewType | null;
+    if (savedView) {
+      return savedView;
+    }
+
+    // Check user role for initial view (only when no saved view)
     if (user?.role === "admin_klinik" || user?.role === "dokter_klinik" || user?.role === "perawat") {
       return "clinic-dashboard";
     }
@@ -198,17 +204,23 @@ function MainApp() {
 
   /**
    * Set default view based on user role when user logs in
-   * Non-clinic roles always start at welcome page on login
+   * Only reset view if there's no saved view (fresh login, not refresh)
    * #LoginDefaultView #RoleBasedRouting
    */
   useEffect(() => {
     if (user) {
-      // Clinic roles go to clinic-dashboard
-      if (user.role === "admin_klinik" || user.role === "dokter_klinik" || user.role === "perawat") {
-        setActiveView("clinic-dashboard");
-      } else {
-        // Non-clinic roles (super_admin, admin, manager, karyawan) always start at welcome page
-        setActiveView("welcome");
+      // Check if there's a saved view in localStorage
+      const savedView = localStorage.getItem('activeView');
+
+      // Only reset to default view if no saved view exists (fresh login)
+      if (!savedView) {
+        // Clinic roles go to clinic-dashboard
+        if (user.role === "admin_klinik" || user.role === "dokter_klinik" || user.role === "perawat") {
+          setActiveView("clinic-dashboard");
+        } else {
+          // Non-clinic roles (super_admin, admin, manager, karyawan) start at welcome page
+          setActiveView("welcome");
+        }
       }
     }
   }, [user?.id]); // Only run when user changes (login/logout)

@@ -3,6 +3,7 @@ import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -45,6 +46,11 @@ export function EmployeeTransfer() {
   useEffect(() => {
     autoCompleteTransfers();
   }, []);
+
+  // Handler for transfer type filter
+  const handleTransferTypeChange = (value: string) => {
+    setTransferTypeFilter(value as 'all' | TransferType);
+  };
 
   // Filter transfers
   const filteredTransfers = transfers.filter((transfer) => {
@@ -186,8 +192,10 @@ export function EmployeeTransfer() {
     }
   };
 
-  // Filter untuk history (completed dan rejected)
-  const historyTransfers = transfers.filter(t => t.status === 'completed' || t.status === 'rejected');
+  // Filter untuk history (approved, completed dan rejected)
+  const historyTransfers = transfers.filter(t =>
+    t.status === 'approved' || t.status === 'completed' || t.status === 'rejected'
+  );
 
   const canApprove = hasPermission('employee_management', 'edit');
 
@@ -357,7 +365,7 @@ export function EmployeeTransfer() {
                     className="pl-10"
                   />
                 </div>
-                <Select value={transferTypeFilter} onValueChange={setTransferTypeFilter}>
+                <Select value={transferTypeFilter} onValueChange={handleTransferTypeChange}>
                   <SelectTrigger className="w-full md:w-[180px]">
                     <Filter size={16} className="mr-2" />
                     <SelectValue placeholder="Jenis Mutasi" />

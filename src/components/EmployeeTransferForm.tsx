@@ -113,12 +113,19 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
           if (posError) throw posError;
 
           // Manually join positions with employees
-          const enrichedEmployees = employeesData.map(emp => ({
-            ...emp,
-            position: positionsData?.find(pos => pos.id === emp.position_id) || null
-          }));
+          const enrichedEmployees = employeesData.map(emp => {
+            // Handle division which might be returned as array from Supabase
+            const divisionData = emp.division;
+            const division = Array.isArray(divisionData) ? divisionData[0] : divisionData;
 
-          setEmployees(enrichedEmployees);
+            return {
+              ...emp,
+              division: division || undefined,
+              position: positionsData?.find(pos => pos.id === emp.position_id) || null
+            };
+          });
+
+          setEmployees(enrichedEmployees as Employee[]);
         } else {
           setEmployees([]);
         }
@@ -478,7 +485,7 @@ export function EmployeeTransferForm({ onSubmit, onCancel }: EmployeeTransferFor
                               <div className="flex flex-col">
                                 <span>{position.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {position.code} • {position.level?.charAt(0).toUpperCase() + position.level?.slice(1)}
+                                  {position.code}{position.level ? ` • ${position.level.charAt(0).toUpperCase()}${position.level.slice(1)}` : ''}
                                 </span>
                               </div>
                             </CommandItem>
