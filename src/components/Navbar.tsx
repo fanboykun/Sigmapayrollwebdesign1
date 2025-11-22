@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { CommandPalette } from './CommandPalette';
 
 /**
@@ -59,6 +60,18 @@ interface NavbarProps {
  */
 export function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, onNavigate }: NavbarProps) {
   const { user, logout } = useAuth();
+  const { colorTheme, mode } = useTheme();
+  
+  /**
+   * Helper function untuk get avatar background color berdasarkan theme
+   * #AvatarColor #ThemeHelper
+   */
+  const getAvatarBgColor = () => {
+    if (mode === 'dark') {
+      return '#1a1a1a'; // Dark background for dark mode
+    }
+    return colorTheme === 'blue' ? '#2c7be5' : '#0C6037'; // Blue or Green primary color
+  };
   
   /**
    * Helper function untuk convert role ke label yang user-friendly
@@ -88,7 +101,7 @@ export function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, onNavig
   };
   
   return (
-    <div className="h-16 bg-white border-b border-border flex items-center justify-between px-4 md:px-6">
+    <div className="h-16 bg-card border-b border-border flex items-center justify-between px-4 md:px-6">
       {/* Left section - Menu toggle & Command Palette */}
       <div className="flex items-center gap-4 flex-1 max-w-xl">
         {/* Mobile: Hamburger menu untuk buka sidebar */}
@@ -161,7 +174,7 @@ export function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, onNavig
             <DropdownMenuLabel>Pesan</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="flex items-start gap-3 py-3">
-              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary text-sm">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm" style={{ backgroundColor: getAvatarBgColor() }}>
                 BH
               </div>
               <div className="flex-1">
@@ -180,7 +193,7 @@ export function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, onNavig
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-3 px-2 md:px-3">
               {/* Avatar dengan initial user */}
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm" style={{ backgroundColor: getAvatarBgColor() }}>
                 {user ? getInitials(user.name) : 'U'}
               </div>
               {/* User info - hidden di mobile */}

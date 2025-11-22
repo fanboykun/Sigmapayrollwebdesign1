@@ -5,14 +5,25 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { CheckCircle2, XCircle, Code2, Palette, Database, FileText, Users, Shield, BarChart3, Home, Bug } from 'lucide-react';
+import { CheckCircle2, XCircle, Code2, Palette, Database, FileText, Users, Shield, BarChart3, Home, Bug, Sun, Moon, Monitor } from 'lucide-react';
 import { AuthDebugger } from './AuthDebugger';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SettingsProps {
   onNavigate?: (view: string) => void;
 }
 
 export function Settings({ onNavigate }: SettingsProps) {
+  const { colorTheme, mode, setColorTheme, setMode } = useTheme();
+  
+  // Helper function untuk get theme description berdasarkan current theme
+  const getThemeDescription = (theme: 'green' | 'blue') => {
+    if (theme === 'green') {
+      return colorTheme === 'green' ? 'Tema hijau daun (Aktif)' : 'Tema hijau daun';
+    }
+    return colorTheme === 'blue' ? 'Tema biru klasik (Aktif)' : 'Tema biru klasik';
+  };
+
   const menuShortcuts = [
     { 
       group: 'Navigasi Utama', 
@@ -80,8 +91,9 @@ export function Settings({ onNavigate }: SettingsProps) {
       </div>
 
       <Tabs defaultValue="general" className="space-y-4 md:space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">
           <TabsTrigger value="general">Umum</TabsTrigger>
+          <TabsTrigger value="appearance">Tampilan</TabsTrigger>
           <TabsTrigger value="payroll">Aturan Penggajian</TabsTrigger>
           <TabsTrigger value="notifications">Notifikasi</TabsTrigger>
           <TabsTrigger value="quick-access">Akses Cepat</TabsTrigger>
@@ -145,6 +157,130 @@ export function Settings({ onNavigate }: SettingsProps) {
 
                 <div className="pt-6">
                   <Button>Simpan Perubahan</Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="appearance">
+          <Card className="shadow-sm">
+            <div className="p-6 border-b border-border">
+              <h3>Pengaturan Tampilan</h3>
+              <p className="text-sm text-muted-foreground mt-1">Sesuaikan tampilan aplikasi sesuai preferensi Anda</p>
+            </div>
+            <div className="p-6">
+              <div className="space-y-8 max-w-2xl">
+                {/* Color Theme Selection */}
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base">Tema Warna</Label>
+                    <p className="text-sm text-muted-foreground mt-1">Pilih skema warna untuk aplikasi</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      onClick={() => {
+                        console.log('🟢 Green theme button clicked');
+                        setColorTheme('green');
+                      }}
+                      className={`p-4 border rounded-lg text-left transition-all ${
+                        colorTheme === 'green'
+                          ? 'border-primary ring-2 ring-primary/20 bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-[#0C6037]"></div>
+                        <span className="font-medium">Hijau (Green)</span>
+                        {colorTheme === 'green' && <span className="text-xs text-primary">✓ Aktif</span>}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{getThemeDescription('green')}</p>
+                      <div className="flex gap-3 mt-3">
+                        <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: '#0F4C2A' }} title="Sidebar"></div>
+                        <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: '#0C6037' }} title="Primary"></div>
+                        <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: '#9fa6bc' }} title="Text"></div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => {
+                        console.log('🔵 Blue theme button clicked');
+                        setColorTheme('blue');
+                      }}
+                      className={`p-4 border rounded-lg text-left transition-all ${
+                        colorTheme === 'blue'
+                          ? 'border-primary ring-2 ring-primary/20 bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-[#2c7be5]"></div>
+                        <span className="font-medium">Biru (Blue)</span>
+                        {colorTheme === 'blue' && <span className="text-xs text-primary">✓ Aktif</span>}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{getThemeDescription('blue')}</p>
+                      <div className="flex gap-3 mt-3">
+                        <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: '#0b1727' }} title="Sidebar"></div>
+                        <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: '#2c7be5' }} title="Primary"></div>
+                        <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: '#9fa6bc' }} title="Text"></div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mode Selection */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div>
+                    <Label className="text-base">Mode Tampilan</Label>
+                    <p className="text-sm text-muted-foreground mt-1">Pilih mode terang atau gelap</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button
+                      onClick={() => setMode('light')}
+                      className={`p-4 border rounded-lg text-left transition-all ${
+                        mode === 'light'
+                          ? 'border-primary ring-2 ring-primary/20'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <Sun size={20} className="text-amber-500" />
+                        <span className="font-medium">Terang</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Mode terang untuk siang hari</p>
+                    </button>
+                    <button
+                      onClick={() => setMode('dark')}
+                      className={`p-4 border rounded-lg text-left transition-all ${
+                        mode === 'dark'
+                          ? 'border-primary ring-2 ring-primary/20'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <Moon size={20} className="text-indigo-500" />
+                        <span className="font-medium">Gelap</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Mode gelap untuk malam hari</p>
+                    </button>
+                    <button
+                      onClick={() => setMode('system')}
+                      className={`p-4 border rounded-lg text-left transition-all ${
+                        mode === 'system'
+                          ? 'border-primary ring-2 ring-primary/20'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <Monitor size={20} className="text-gray-500" />
+                        <span className="font-medium">Sistem</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Ikuti pengaturan sistem</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-4 text-sm text-muted-foreground">
+                  <p>Pengaturan tampilan akan disimpan secara otomatis dan diingat saat Anda kembali.</p>
                 </div>
               </div>
             </div>

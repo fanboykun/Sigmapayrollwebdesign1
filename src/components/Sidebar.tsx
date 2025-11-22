@@ -48,6 +48,7 @@ import { SigmaLogo } from './SigmaLogo';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 /**
  * Props interface untuk Sidebar component
@@ -76,6 +77,40 @@ interface SidebarProps {
  */
 export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }: SidebarProps) {
   const { canAccessMenu, user } = useAuth();
+  const { colorTheme, mode } = useTheme(); // Subscribe to theme changes to trigger re-render
+  
+  // Determine sidebar color based on theme and mode
+  const getSidebarColor = () => {
+    if (mode === 'dark') {
+      return '#1a1a1a'; // Black/very dark gray for all dark modes
+    }
+    return colorTheme === 'blue' ? '#0b1727' : '#0F4C2A'; // Figma: Primary Color
+  };
+  
+  // Determine accent color for hover/active states
+  const getAccentColor = () => {
+    if (mode === 'dark') {
+      return '#2a2a2a'; // Solid dark gray for dark mode tooltip
+    }
+    return colorTheme === 'blue' ? '#12263f' : '#0C6037'; // Green: Secondary Color (solid)
+  };
+  
+  const getAccentForeground = () => {
+    return '#ffffff'; // Always white text
+  };
+  
+  // Debug: Log current theme
+  useEffect(() => {
+    console.log('🎨 Sidebar theme changed to:', colorTheme, 'mode:', mode);
+    console.log('📊 Sidebar color will be:', getSidebarColor());
+  }, [colorTheme, mode]);
+  
+  // Tooltip style object - reusable for all tooltips
+  const tooltipStyle = {
+    backgroundColor: getAccentColor(),
+    color: getAccentForeground(),
+    borderColor: getAccentColor()
+  };
   
   // State untuk menu utama (Payroll, HR, dan Clinic) - Collapsed by default
   const [payrollMainOpen, setPayrollMainOpen] = useState(false);
@@ -442,11 +477,23 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     const button = (
       <button
         onClick={handleMenuClick}
-        className={`w-full flex items-center ${collapsed ? 'justify-center px-4' : isSubMenu ? 'gap-3 pl-10 pr-4' : 'gap-3 px-4'} py-2.5 rounded transition-colors ${
-          isActive
-            ? 'bg-[#12263f] text-white'
-            : 'text-[#9fa6bc] hover:bg-[#12263f] hover:text-white'
-        }`}
+        className={`w-full flex items-center ${collapsed ? 'justify-center px-4' : isSubMenu ? 'gap-3 pl-10 pr-4' : 'gap-3 px-4'} py-2.5 rounded transition-colors`}
+        style={{
+          backgroundColor: isActive ? getAccentColor() : 'transparent',
+          color: isActive ? getAccentForeground() : 'var(--sidebar-foreground)'
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.backgroundColor = getAccentColor();
+            e.currentTarget.style.color = getAccentForeground();
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'var(--sidebar-foreground)';
+          }
+        }}
       >
         <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
           <Icon size={18} />
@@ -462,7 +509,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
           <TooltipTrigger asChild>
             {button}
           </TooltipTrigger>
-          <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353]">
+          <TooltipContent side="right" style={tooltipStyle}>
             <p>{item.label}</p>
           </TooltipContent>
         </Tooltip>
@@ -500,18 +547,18 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="px-4 py-2.5 cursor-pointer flex justify-center">
+              <div className="px-4 py-2.5 cursor-pointer flex justify-center rounded" style={{ backgroundColor: getAccentColor() }}>
                 <div className="w-[18px] h-[18px] flex items-center justify-center">
-                  <Icon size={18} className="text-[#9fa6bc]" />
+                  <Icon size={18} style={{ color: getAccentForeground() }} />
                 </div>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2 max-w-xs">
+            <TooltipContent side="right" className="p-2 max-w-xs" style={tooltipStyle}>
               <div className="space-y-2 min-w-[180px]">
-                <p className="font-semibold text-sm px-2 py-1 border-b border-[#1c3353]">{title}</p>
+                <p className="font-semibold text-sm px-2 py-1" style={{ borderBottom: `1px solid ${getAccentColor()}` }}>{title}</p>
                 {filteredSubGroups.map((group, idx) => (
                   <div key={idx} className="space-y-0.5">
-                    <p className="text-xs font-medium px-2 py-1 text-[#9fa6bc]">{group.title}</p>
+                    <p className="text-xs font-medium px-2 py-1" style={{ color: 'var(--sidebar-foreground)' }}>{group.title}</p>
                     <div className="space-y-0.5">
                       {group.items.map(item => {
                         const ItemIcon = item.icon;
@@ -524,11 +571,23 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                               e.stopPropagation();
                               onViewChange(item.id as any);
                             }}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
-                              isActive
-                                ? 'bg-[#1c3353] text-white'
-                                : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
-                            }`}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                            style={{
+                              backgroundColor: isActive ? getAccentColor() : 'transparent',
+                              color: isActive ? getAccentForeground() : 'var(--sidebar-foreground)'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isActive) {
+                                e.currentTarget.style.backgroundColor = getAccentColor();
+                                e.currentTarget.style.color = getAccentForeground();
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isActive) {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = 'var(--sidebar-foreground)';
+                              }
+                            }}
                           >
                             <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
                               <ItemIcon size={14} />
@@ -550,7 +609,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     // Mode expanded: Collapsible menu utama dengan sub-groups
     return (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors text-white bg-[#12263f] hover:bg-[#1c3353] font-medium">
+        <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors font-medium" style={{ backgroundColor: getAccentColor(), color: getAccentForeground() }}>
           <div className="flex items-center gap-3">
             <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
               <Icon size={18} />
@@ -595,15 +654,15 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="px-4 py-2.5 cursor-pointer flex justify-center">
+              <div className="px-4 py-2.5 cursor-pointer flex justify-center rounded" style={{ backgroundColor: getAccentColor() }}>
                 <div className="w-[18px] h-[18px] flex items-center justify-center">
-                  <Icon size={18} className="text-[#9fa6bc]" />
+                  <Icon size={18} style={{ color: getAccentForeground() }} />
                 </div>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2 max-w-xs">
+            <TooltipContent side="right" className="p-2 max-w-xs" style={tooltipStyle}>
               <div className="space-y-2 min-w-[180px]">
-                <p className="font-semibold text-sm px-2 py-1 border-b border-[#1c3353]">{title}</p>
+                <p className="font-semibold text-sm px-2 py-1" style={{ borderBottom: `1px solid ${getAccentColor()}` }}>{title}</p>
 
                 {/* Direct items */}
                 {directItems.length > 0 && (
@@ -619,11 +678,23 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                             e.stopPropagation();
                             onViewChange(item.id as any);
                           }}
-                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
-                            isActive
-                              ? 'bg-[#1c3353] text-white'
-                              : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
-                          }`}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                          style={{
+                            backgroundColor: isActive ? getAccentColor() : 'transparent',
+                            color: isActive ? getAccentForeground() : 'var(--sidebar-foreground)'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.backgroundColor = getAccentColor();
+                              e.currentTarget.style.color = getAccentForeground();
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                              e.currentTarget.style.color = 'var(--sidebar-foreground)';
+                            }
+                          }}
                         >
                           <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
                             <ItemIcon size={14} />
@@ -638,7 +709,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                 {/* Sub-groups */}
                 {filteredSubGroups.map((group, idx) => (
                   <div key={idx} className="space-y-0.5">
-                    <p className="text-xs font-medium px-2 py-1 text-[#9fa6bc]">{group.title}</p>
+                    <p className="text-xs font-medium px-2 py-1" style={{ color: 'var(--sidebar-foreground)' }}>{group.title}</p>
                     <div className="space-y-0.5">
                       {group.items.map(item => {
                         const ItemIcon = item.icon;
@@ -651,11 +722,23 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                               e.stopPropagation();
                               onViewChange(item.id as any);
                             }}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
-                              isActive
-                                ? 'bg-[#1c3353] text-white'
-                                : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
-                            }`}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                            style={{
+                              backgroundColor: isActive ? getAccentColor() : 'transparent',
+                              color: isActive ? getAccentForeground() : 'var(--sidebar-foreground)'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isActive) {
+                                e.currentTarget.style.backgroundColor = getAccentColor();
+                                e.currentTarget.style.color = getAccentForeground();
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isActive) {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = 'var(--sidebar-foreground)';
+                              }
+                            }}
                           >
                             <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
                               <ItemIcon size={14} />
@@ -677,7 +760,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     // Mode expanded: Collapsible menu dengan direct items + sub-groups
     return (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors text-white bg-[#12263f] hover:bg-[#1c3353] font-medium">
+        <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors font-medium" style={{ backgroundColor: getAccentColor(), color: getAccentForeground() }}>
           <div className="flex items-center gap-3">
             <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
               <Icon size={18} />
@@ -729,13 +812,26 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="px-4 py-2.5 cursor-pointer flex justify-center">
+              <div
+                className="px-4 py-2.5 cursor-pointer flex justify-center rounded transition-colors"
+                style={{ backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = getAccentColor();
+                  const icon = e.currentTarget.querySelector('svg');
+                  if (icon) icon.style.color = getAccentForeground();
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  const icon = e.currentTarget.querySelector('svg');
+                  if (icon) icon.style.color = 'var(--sidebar-foreground)';
+                }}
+              >
                 <div className="w-[18px] h-[18px] flex items-center justify-center">
-                  <Icon size={18} className="text-[#9fa6bc]" />
+                  <Icon size={18} style={{ color: 'var(--sidebar-foreground)' }} />
                 </div>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-[#12263f] text-white border-[#1c3353] p-2">
+            <TooltipContent side="right" className="p-2" style={tooltipStyle}>
               <div className="space-y-1 min-w-[160px]">
                 <p className="font-semibold text-sm px-2 py-1">{title}</p>
                 <div className="space-y-0.5">
@@ -750,11 +846,23 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                           e.stopPropagation();
                           onViewChange(item.id as any);
                         }}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
-                          isActive
-                            ? 'bg-[#1c3353] text-white'
-                            : 'text-[#9fa6bc] hover:bg-[#1c3353] hover:text-white'
-                        }`}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                        style={{
+                          backgroundColor: isActive ? getAccentColor() : 'transparent',
+                          color: isActive ? getAccentForeground() : 'var(--sidebar-foreground)'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor = getAccentColor();
+                            e.currentTarget.style.color = getAccentForeground();
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = 'var(--sidebar-foreground)';
+                          }
+                        }}
                       >
                         <div className="w-[14px] h-[14px] flex items-center justify-center flex-shrink-0">
                           <ItemIcon size={14} />
@@ -774,7 +882,18 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
     // Mode expanded: Collapsible menu dengan submenu items
     return (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors text-[#9fa6bc] hover:bg-[#12263f] hover:text-white group">
+        <CollapsibleTrigger
+          className="w-full flex items-center justify-between px-4 py-2.5 rounded transition-colors group"
+          style={{ color: 'var(--sidebar-foreground)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = getAccentColor();
+            e.currentTarget.style.color = getAccentForeground();
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'var(--sidebar-foreground)';
+          }}
+        >
           <div className="flex items-center gap-3">
             <div className="w-[18px] h-[18px] flex items-center justify-center flex-shrink-0">
               <Icon size={18} />
@@ -812,7 +931,17 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    * ==========================================================================
    */
   const DesktopSidebar = () => (
-    <div className={`hidden lg:flex bg-[#0b1727] flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'}`}>
+    <div
+      className={`hidden lg:flex flex-col h-full min-h-screen transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'}`}
+      style={{
+        backgroundColor: getSidebarColor(),
+        minWidth: collapsed ? '5rem' : '16rem',
+        transition: 'background-color 0.3s ease',
+        // Override CSS variables for this sidebar
+        ['--sidebar-accent' as any]: getAccentColor(),
+        ['--sidebar-accent-foreground' as any]: getAccentForeground()
+      }}
+    >
       {/* Header/Logo area */}
       <div className={`p-6 ${collapsed ? 'px-4' : ''}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
@@ -864,8 +993,8 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
                 </svg>
               </div>
               <div>
-                <h2 className="text-white text-lg font-semibold">Sigma Payroll</h2>
-                <p className="text-[#9fa6bc] text-xs">Sistem Penggajian</p>
+                <h2 className="text-lg font-semibold" style={{ color: getAccentForeground() }}>Sigma Payroll</h2>
+                <p className="text-xs" style={{ color: 'var(--sidebar-foreground)' }}>Sistem Penggajian</p>
               </div>
             </>
           )}
@@ -1004,7 +1133,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
 
             {/* Bottom Menu Items - Analitik, Engagement, Administrasi & Pengaturan */}
             {(filteredBottomMenuItems.length > 0 || filteredAdministrationMainMenuItems.length > 0) && (
-              <li className="pt-4 border-t border-[#1c3353] mt-4">
+              <li className="pt-4 mt-4" style={{ borderTop: colorTheme === 'green' && mode !== 'dark' ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid var(--sidebar-border)' }}>
                 <ul className="space-y-1">
                   {/* Analitik & Engagement */}
                   {filteredBottomMenuItems.filter(item => item.id !== 'settings').map(item => (
@@ -1036,8 +1165,8 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
       </nav>
 
       {/* Footer - System Status Indicator */}
-      <div className="p-4 border-t border-[#1c3353]">
-        <div className={`px-4 py-3 bg-[#12263f] rounded ${collapsed ? 'px-2' : ''}`}>
+      <div className="p-4" style={{ borderTop: colorTheme === 'green' && mode !== 'dark' ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid var(--sidebar-border)' }}>
+        <div className={`px-4 py-3 rounded ${collapsed ? 'px-2' : ''}`} style={{ backgroundColor: getAccentColor() }}>
           {collapsed ? (
             // Collapsed mode: hanya tampil indicator dot
             <div className="flex justify-center">
@@ -1046,10 +1175,10 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
           ) : (
             // Expanded mode: tampil status lengkap
             <>
-              <p className="text-xs text-[#9fa6bc] mb-2">Status Sistem</p>
+              <p className="text-xs mb-2" style={{ color: 'var(--sidebar-foreground)' }}>Status Sistem</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-white">Semua Sistem Beroperasi</span>
+                <span className="text-sm" style={{ color: getAccentForeground() }}>Semua Sistem Beroperasi</span>
               </div>
             </>
           )}
@@ -1076,9 +1205,18 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
    * ==========================================================================
    */
   const MobileSidebar = () => (
-    <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-[#0b1727] flex flex-col transform transition-transform duration-300 ease-in-out ${
-      isOpen ? 'translate-x-0' : '-translate-x-full'
-    }`}>
+    <div 
+      className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 flex flex-col transform transition-transform duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+      style={{
+        backgroundColor: getSidebarColor(),
+        transition: 'background-color 0.3s ease',
+        // Override CSS variables for this sidebar
+        ['--sidebar-accent' as any]: getAccentColor(),
+        ['--sidebar-accent-foreground' as any]: getAccentForeground()
+      }}
+    >
       {/* Header dengan logo dan close button */}
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -1106,13 +1244,16 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
               </svg>
             </div>
             <div>
-              <h2 className="text-white text-lg font-semibold">Sigma Payroll</h2>
-              <p className="text-[#9fa6bc] text-xs">Sistem Penggajian</p>
+              <h2 className="text-lg font-semibold" style={{ color: getAccentForeground() }}>Sigma Payroll</h2>
+              <p className="text-xs" style={{ color: 'var(--sidebar-foreground)' }}>Sistem Penggajian</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-[#9fa6bc] hover:text-white transition-colors"
+            className="transition-colors"
+            style={{ color: 'var(--sidebar-foreground)' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = getAccentForeground()}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--sidebar-foreground)'}
           >
             <X size={24} />
           </button>
@@ -1242,7 +1383,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
 
           {/* Bottom Menu Items - Analitik, Engagement, Administrasi & Pengaturan */}
           {(filteredBottomMenuItems.length > 0 || filteredAdministrationMainMenuItems.length > 0) && (
-            <li className="pt-4 border-t border-[#1c3353] mt-4">
+            <li className="pt-4 mt-4" style={{ borderTop: '1px solid #0C6037' }}>
               <ul className="space-y-1">
                 {/* Analitik & Engagement */}
                 {filteredBottomMenuItems.filter(item => item.id !== 'settings').map(item => (
@@ -1272,12 +1413,12 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose, collapsed }
         </ul>
       </nav>
 
-      <div className="p-4 border-t border-[#1c3353]">
-        <div className="px-4 py-3 bg-[#12263f] rounded">
-          <p className="text-xs text-[#9fa6bc] mb-2">Status Sistem</p>
+      <div className="p-4" style={{ borderTop: colorTheme === 'green' && mode !== 'dark' ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid var(--sidebar-border)' }}>
+        <div className="px-4 py-3 rounded" style={{ backgroundColor: getAccentColor() }}>
+          <p className="text-xs mb-2" style={{ color: 'var(--sidebar-foreground)' }}>Status Sistem</p>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-white">Semua Sistem Beroperasi</span>
+            <span className="text-sm" style={{ color: getAccentForeground() }}>Semua Sistem Beroperasi</span>
           </div>
         </div>
       </div>
